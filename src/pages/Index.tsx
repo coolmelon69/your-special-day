@@ -1,13 +1,28 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Helmet } from "react-helmet-async";
+import HeroSection from "@/components/HeroSection";
+import GallerySection from "@/components/GallerySection";
+import TimelineSection from "@/components/TimelineSection";
+import LoveNoteSection from "@/components/LoveNoteSection";
+import GiftCouponsSection from "@/components/GiftCouponsSection";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <>
+      <Helmet>
+        <title>Happy Birthday, My Love! 💕</title>
+        <meta name="description" content="A special birthday celebration website made with love" />
+      </Helmet>
+      
+      <main className="overflow-x-hidden">
+        <HeroSection />
+        <GallerySection />
+        <TimelineSection />
+        <LoveNoteSection />
+        <GiftCouponsSection />
+        <Footer />
+      </main>
+    </>
   );
 };
 
