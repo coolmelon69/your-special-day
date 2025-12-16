@@ -66,7 +66,8 @@ export default {
 		fontFamily: {
 			sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
 			serif: ['Playfair Display', 'ui-serif', 'Georgia', 'serif'],
-			script: ['Dancing Script', 'cursive']
+			script: ['Dancing Script', 'cursive'],
+			pixel: ['"Press Start 2P"', 'cursive']
 		},
 		keyframes: {
 			'accordion-down': {
