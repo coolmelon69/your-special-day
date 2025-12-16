@@ -1,8 +1,207 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Camera } from "lucide-react";
+import { useAdventure } from "@/contexts/AdventureContext";
+import PhotoCaptureModal from "./PhotoCaptureModal";
+import PhotoEditor from "./PhotoEditor";
+import type { Photo as PhotoType } from "./TimelineSection";
+import { sparkleBurst } from "../utils/particles";
 
-const itinerary = [
+// Utility function to calculate distance between two coordinates (Haversine formula)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in meters
+};
+
+// Utility function to proactively request location permission
+// This should be called when clicking a stamp to trigger the permission prompt
+// Works across all browsers including Chrome and iOS Safari
+export const requestLocationAccess = (): void => {
+  if (!navigator.geolocation) {
+    return;
+  }
+  
+  // Use Permissions API if available to check current status
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+      if (result.state === 'prompt') {
+        // Permission hasn't been asked yet, trigger the prompt
+        navigator.geolocation.getCurrentPosition(
+          () => {},
+          () => {},
+          {
+            enableHighAccuracy: false,
+            timeout: 1000,
+            maximumAge: 0,
+          }
+        );
+      }
+    }).catch(() => {
+      // Permissions API not supported, fall back to direct call
+      navigator.geolocation.getCurrentPosition(
+        () => {},
+        () => {},
+        {
+          enableHighAccuracy: false,
+          timeout: 1000,
+          maximumAge: 0,
+        }
+      );
+    });
+  } else {
+    // Permissions API not available, directly request location
+    // This will trigger the prompt on first call
+    navigator.geolocation.getCurrentPosition(
+      () => {},
+      () => {},
+      {
+        enableHighAccuracy: false,
+        timeout: 1000,
+        maximumAge: 0,
+      }
+    );
+  }
+};
+
+// Utility function to check if user is at the correct location
+// IMPORTANT: This must be called directly from a user gesture handler (like onClick) 
+// to trigger the location permission prompt on all browsers, especially iOS Safari and Chrome
+export const checkLocation = (
+  targetLocation: { latitude: number; longitude: number; radius: number }
+): Promise<{ isAtLocation: boolean; distance?: number; error?: string }> => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve({
+        isAtLocation: false,
+        error: "Geolocation is not supported by your browser. Please enable location services.",
+      });
+      return;
+    }
+
+    // Check if we're on HTTPS or localhost (required for geolocation in Chrome)
+    const isSecureContext = window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if (!isSecureContext) {
+      resolve({
+        isAtLocation: false,
+        error: "Location access requires HTTPS. Please access this site over HTTPS or localhost.",
+      });
+      return;
+    }
+
+    // Use options that work best across all browsers
+    // Chrome: prefers enableHighAccuracy: false for initial prompt
+    // iOS Safari: needs maximumAge: 0 to trigger prompt
+    const options: PositionOptions = {
+      enableHighAccuracy: false, // Start with false - Chrome shows prompt faster this way
+      timeout: 15000, // Longer timeout for slower connections
+      maximumAge: 0, // Always get fresh location - required for iOS Safari to show prompt
+    };
+
+    // Call getCurrentPosition immediately - this must be called synchronously from user gesture
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userLat = position.coords.latitude;
+        const userLon = position.coords.longitude;
+        const distance = calculateDistance(
+          userLat,
+          userLon,
+          targetLocation.latitude,
+          targetLocation.longitude
+        );
+
+        const isAtLocation = distance <= targetLocation.radius;
+
+        resolve({
+          isAtLocation,
+          distance: Math.round(distance),
+        });
+      },
+      (error) => {
+        let errorMessage = "Unable to get your location. ";
+        const isMobileSafari = /iPhone|iPad|iPod/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|OPiOS/.test(navigator.userAgent);
+        const isChrome = /Chrome/.test(navigator.userAgent) && !/Edg/.test(navigator.userAgent);
+        const isMacChrome = /Macintosh/.test(navigator.userAgent) && isChrome;
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            if (isMobileSafari) {
+              errorMessage += "Please go to Settings > Safari > Location Services and allow location access for this website, then try again.";
+            } else if (isMacChrome) {
+              errorMessage += "Please click the lock icon (🔒) in the address bar, then click 'Location' and select 'Allow', then try again.";
+            } else if (isChrome) {
+              errorMessage += "Please click the lock icon in the address bar and allow location access, then try again.";
+            } else {
+              errorMessage += "Please allow location access in your browser settings to check in.";
+            }
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += "Location information is unavailable. Please ensure location services are enabled on your device.";
+            break;
+          case error.TIMEOUT:
+            errorMessage += "Location request timed out. Please try again.";
+            break;
+          default:
+            errorMessage += "An unknown error occurred.";
+            break;
+        }
+        resolve({
+          isAtLocation: false,
+          error: errorMessage,
+        });
+      },
+      options
+    );
+  });
+};
+
+// Photo and Sticker types
+export type Sticker = {
+  id: string;
+  type: string; // 'heart', 'star', 'pixel-art-icon', etc.
+  x: number; // Position percentage
+  y: number;
+  scale: number;
+};
+
+export type Photo = {
+  id: string;
+  checkpointId: string; // References checkpoint title/time
+  src: string; // Data URL or blob URL
+  timestamp: number;
+  filter?: string; // Filter preset name
+  frame?: string; // Frame preset name
+  stickers?: Sticker[]; // Array of sticker overlays
+  caption?: string;
+};
+
+// Export types for use in other components
+export type ItineraryItem = {
+  time: string;
+  title: string;
+  description: string;
+  sprite: string;
+  isActive: boolean;
+  isPast: boolean;
+  location?: {
+    latitude: number;
+    longitude: number;
+    radius: number; // radius in meters
+  };
+  photos?: Photo[]; // Photos captured at this checkpoint
+};
+
+export const initialItinerary: ItineraryItem[] = [
   {
     time: "9:00 AM",
     title: "Breakfast Quest",
@@ -10,6 +209,11 @@ const itinerary = [
     sprite: "coffee",
     isActive: true,
     isPast: false,
+    location: {
+      latitude: 3.1264380531781195,
+      longitude: 101.46812048003719,
+      radius: 100, // 100 meters radius
+    },
   },
   {
     time: "11:00 AM",
@@ -18,6 +222,11 @@ const itinerary = [
     sprite: "flower",
     isActive: false,
     isPast: false,
+    location: {
+      latitude: 3.1453037807694812,
+      longitude: 101.69544687421923,
+      radius: 100, // 100 meters radius
+    },
   },
   {
     time: "1:00 PM",
@@ -26,6 +235,11 @@ const itinerary = [
     sprite: "food",
     isActive: false,
     isPast: false,
+    location: {
+      latitude: 3.1390, // Example: Kuala Lumpur coordinates - update with actual restaurant location
+      longitude: 101.6869,
+      radius: 100, // 100 meters radius
+    },
   },
   {
     time: "3:30 PM",
@@ -34,6 +248,11 @@ const itinerary = [
     sprite: "camera",
     isActive: false,
     isPast: false,
+    location: {
+      latitude: 3.1390, // Example: Kuala Lumpur coordinates - update with actual park location
+      longitude: 101.6869,
+      radius: 100, // 100 meters radius
+    },
   },
   {
     time: "6:00 PM",
@@ -42,6 +261,11 @@ const itinerary = [
     sprite: "music",
     isActive: false,
     isPast: false,
+    location: {
+      latitude: 3.1390, // Example: Kuala Lumpur coordinates - update with actual venue location
+      longitude: 101.6869,
+      radius: 100, // 100 meters radius
+    },
   },
   {
     time: "9:00 PM",
@@ -50,6 +274,11 @@ const itinerary = [
     sprite: "dinner",
     isActive: false,
     isPast: false,
+    location: {
+      latitude: 3.1390, // Example: Kuala Lumpur coordinates - update with actual restaurant location
+      longitude: 101.6869,
+      radius: 100, // 100 meters radius
+    },
   },
 ];
 
@@ -132,24 +361,12 @@ const PixelCamera = ({ isActive, isPast }: { isActive: boolean; isPast: boolean 
 );
 
 const PixelMusic = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
-  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
-    {/* Notes */}
-    <rect x="4" y="2" width="2" height="8" fill="hsl(var(--foreground))" />
-    <rect x="10" y="4" width="2" height="6" fill="hsl(var(--foreground))" />
-    {/* Note heads */}
-    <rect x="2" y="9" width="4" height="3" fill="hsl(var(--foreground))" />
-    <rect x="8" y="9" width="4" height="3" fill="hsl(var(--foreground))" />
-    {/* Beam */}
-    <rect x="5" y="2" width="6" height="2" fill="hsl(var(--foreground))" />
-    {/* Musical sparkles */}
-    {isActive && (
-      <>
-        <rect x="1" y="3" width="1" height="1" fill="hsl(var(--primary))" className="animate-pulse" />
-        <rect x="14" y="5" width="1" height="1" fill="hsl(var(--primary))" className="animate-pulse" />
-        <rect x="13" y="2" width="1" height="1" fill="hsl(45 80% 60%)" className="animate-pulse" />
-      </>
-    )}
-  </svg>
+  <img 
+    src="/images/gallery/marhsal.png" 
+    alt="Marshal Lee"
+    className={`w-full h-full object-cover ${isPast ? "opacity-50 grayscale" : ""}`}
+    style={{ imageRendering: "pixelated" }}
+  />
 );
 
 const PixelDinner = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
@@ -177,31 +394,41 @@ const PixelDinner = ({ isActive, isPast }: { isActive: boolean; isPast: boolean 
   </svg>
 );
 
-// Avatar sprite
+// "You are here" chat bubble
 const PixelAvatar = () => (
-  <svg viewBox="0 0 12 16" className="w-6 h-8 md:w-8 md:h-10" style={{ imageRendering: "pixelated" }}>
-    {/* Hair */}
-    <rect x="3" y="0" width="6" height="3" fill="hsl(25 50% 30%)" />
-    <rect x="2" y="2" width="8" height="2" fill="hsl(25 50% 30%)" />
-    {/* Face */}
-    <rect x="3" y="3" width="6" height="5" fill="hsl(30 60% 75%)" />
-    {/* Eyes */}
-    <rect x="4" y="4" width="1" height="2" fill="hsl(var(--foreground))" />
-    <rect x="7" y="4" width="1" height="2" fill="hsl(var(--foreground))" />
-    {/* Smile */}
-    <rect x="5" y="6" width="2" height="1" fill="hsl(var(--primary))" />
-    {/* Body */}
-    <rect x="2" y="8" width="8" height="5" fill="hsl(var(--primary))" />
-    {/* Arms */}
-    <rect x="0" y="9" width="2" height="3" fill="hsl(var(--primary))" />
-    <rect x="10" y="9" width="2" height="3" fill="hsl(var(--primary))" />
-    {/* Legs */}
-    <rect x="3" y="13" width="2" height="3" fill="hsl(220 50% 40%)" />
-    <rect x="7" y="13" width="2" height="3" fill="hsl(220 50% 40%)" />
+  <svg viewBox="0 0 90 45" className="w-24 h-12 md:w-28 md:h-14" style={{ imageRendering: "pixelated" }}>
+    {/* Chat bubble shadow */}
+    <ellipse cx="45" cy="43" rx="28" ry="1" fill="hsl(0 0% 0%)" opacity="0.2" />
+    {/* Chat bubble body - rounded rectangle */}
+    <rect x="5" y="3" width="80" height="32" rx="3" ry="3" fill="hsl(0 80% 55%)" />
+    {/* Chat bubble border */}
+    <rect x="5" y="3" width="80" height="32" rx="3" ry="3" fill="none" stroke="hsl(0 60% 40%)" strokeWidth="1.5" />
+    {/* Inner highlight */}
+    <rect x="7" y="5" width="76" height="28" rx="2" ry="2" fill="hsl(0 85% 60%)" opacity="0.3" />
+    {/* Chat bubble pointer/tail pointing down */}
+    <path d="M 35 35 L 45 43 L 55 35 Z" fill="hsl(0 80% 55%)" />
+    <path d="M 35 35 L 45 43 L 55 35 Z" fill="none" stroke="hsl(0 60% 40%)" strokeWidth="1.5" />
+    {/* Text "You are here" - bold white text */}
+    <text 
+      x="45" 
+      y="22" 
+      fontSize="9" 
+      fontFamily="'Courier New', monospace" 
+      fill="hsl(0 0% 100%)" 
+      textAnchor="middle" 
+      fontWeight="bold"
+      style={{ 
+        imageRendering: "pixelated",
+        textShadow: "1px 1px 0px hsl(0 60% 40%)",
+        letterSpacing: "0.5px"
+      }}
+    >
+      You are here
+    </text>
   </svg>
 );
 
-const sprites: Record<string, React.FC<{ isActive: boolean; isPast: boolean }>> = {
+export const sprites: Record<string, React.FC<{ isActive: boolean; isPast: boolean }>> = {
   coffee: PixelCoffee,
   flower: PixelFlower,
   food: PixelFood,
@@ -210,41 +437,191 @@ const sprites: Record<string, React.FC<{ isActive: boolean; isPast: boolean }>> 
   dinner: PixelDinner,
 };
 
-// Pixel border pattern
+// Pixel border pattern - Pasar Seni art market theme
 const PixelBorder = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
   <div className={`relative ${className}`}>
-    {/* Outer border */}
-    <div className="absolute inset-0 bg-[hsl(25_40%_25%)]" style={{ imageRendering: "pixelated" }} />
-    {/* Inner border */}
-    <div className="absolute inset-1 bg-[hsl(35_50%_45%)]" />
-    {/* Content area */}
-    <div className="absolute inset-2 bg-[hsl(25_30%_20%)]" />
-    {/* Corner decorations */}
-    <div className="absolute top-0 left-0 w-3 h-3 bg-[hsl(35_60%_55%)]" />
-    <div className="absolute top-0 right-0 w-3 h-3 bg-[hsl(35_60%_55%)]" />
-    <div className="absolute bottom-0 left-0 w-3 h-3 bg-[hsl(35_60%_55%)]" />
-    <div className="absolute bottom-0 right-0 w-3 h-3 bg-[hsl(35_60%_55%)]" />
+    {/* Outer border - warm wood tone */}
+    <div className="absolute inset-0 bg-[hsl(30_40%_60%)]" style={{ imageRendering: "pixelated" }} />
+    {/* Inner border - decorative frame */}
+    <div className="absolute inset-1 bg-[hsl(15_60%_50%)]" />
+    {/* Content area - warm background */}
+    <div className="absolute inset-2 bg-[hsl(35_35%_88%)]" />
+    {/* Corner decorations - colorful accents */}
+    <div className="absolute top-0 left-0 w-3 h-3 bg-[hsl(0_70%_60%)]" />
+    <div className="absolute top-0 right-0 w-3 h-3 bg-[hsl(45_80%_65%)]" />
+    <div className="absolute bottom-0 left-0 w-3 h-3 bg-[hsl(200_60%_55%)]" />
+    <div className="absolute bottom-0 right-0 w-3 h-3 bg-[hsl(120_50%_50%)]" />
     {/* Content */}
     <div className="relative z-10 p-4">{children}</div>
   </div>
 );
 
-const TimelineSection = () => {
-  const [selectedEvent, setSelectedEvent] = useState<typeof itinerary[0] | null>(null);
-  const activeIndex = itinerary.findIndex(item => item.isActive);
+interface TimelineSectionProps {
+  itineraryState: ItineraryItem[];
+  setItineraryState: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
+  selectedEvent: ItineraryItem | null;
+  setSelectedEvent: React.Dispatch<React.SetStateAction<ItineraryItem | null>>;
+}
 
-  // Path coordinates for the winding road
+const TimelineSection = ({ 
+  itineraryState, 
+  setItineraryState, 
+  selectedEvent, 
+  setSelectedEvent 
+}: TimelineSectionProps) => {
+  const activeIndex = itineraryState.findIndex(item => item.isActive);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
+  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
+  const [showPhotoEditor, setShowPhotoEditor] = useState(false);
+  const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
+  const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
+  
+  const { addPhoto, getPhotosByCheckpoint } = useAdventure();
+
+  // Load photos for selected checkpoint
+  useEffect(() => {
+    if (selectedEvent) {
+      const checkpointId = `${selectedEvent.time}-${selectedEvent.title}`;
+      getPhotosByCheckpoint(checkpointId).then(setCheckpointPhotos);
+    }
+  }, [selectedEvent, getPhotosByCheckpoint]);
+  
+  // Find the latest completed activity index (or current active if none completed)
+  const getCurrentLocationIndex = () => {
+    // Find the last completed activity
+    let lastCompletedIndex = -1;
+    for (let i = itineraryState.length - 1; i >= 0; i--) {
+      if (itineraryState[i].isPast) {
+        lastCompletedIndex = i;
+        break;
+      }
+    }
+    // If there are completed activities, return the last one
+    // Otherwise, return the active index (or 0 if no active)
+    return lastCompletedIndex >= 0 ? lastCompletedIndex : (activeIndex >= 0 ? activeIndex : 0);
+  };
+  
+  const currentLocationIndex = getCurrentLocationIndex();
+
+  // Path coordinates for the flowing wave pattern
   const pathPoints = [
-    { x: 10, y: 85 },
-    { x: 25, y: 70 },
-    { x: 45, y: 75 },
-    { x: 55, y: 55 },
-    { x: 75, y: 50 },
-    { x: 90, y: 30 },
+    { x: 15, y: 80 },  // Start: Bottom-left area - gentle entry point
+    { x: 25, y: 65 },  // Wave up: First crest
+    { x: 40, y: 75 },  // Wave down: First trough
+    { x: 55, y: 60 },  // Wave up: Second crest
+    { x: 70, y: 70 },  // Wave down: Second trough
+    { x: 85, y: 45 },  // End: Top-right area - gentle exit point
   ];
 
+  const handleStampClick = (item: ItineraryItem) => {
+    // Clear any previous errors when clicking a new stamp
+    setLocationError(null);
+    setSelectedEvent(item);
+    
+    // Trigger sparkle effect at stamp position
+    const index = itineraryState.findIndex(i => 
+      i.time === item.time && 
+      i.title === item.title && 
+      i.sprite === item.sprite
+    );
+    if (index >= 0 && pathPoints[index]) {
+      const pos = pathPoints[index];
+      // Convert percentage to pixel coordinates
+      const x = (pos.x / 100) * window.innerWidth;
+      const y = (pos.y / 100) * window.innerHeight;
+      
+      sparkleBurst({
+        x,
+        y,
+        particleCount: 15,
+      });
+    }
+  };
+
+  const handlePhotoCapture = (dataURL: string) => {
+    setCapturedPhotoSrc(dataURL);
+    setShowPhotoCapture(false);
+    setShowPhotoEditor(true);
+  };
+
+  const handlePhotoSave = async (photoData: Omit<PhotoType, "id" | "timestamp">) => {
+    try {
+      await addPhoto(photoData.checkpointId, photoData);
+      if (selectedEvent) {
+        const checkpointId = `${selectedEvent.time}-${selectedEvent.title}`;
+        const photos = await getPhotosByCheckpoint(checkpointId);
+        setCheckpointPhotos(photos);
+      }
+      setShowPhotoEditor(false);
+      setCapturedPhotoSrc("");
+    } catch (error) {
+      console.error("Error saving photo:", error);
+    }
+  };
+
+  const handleMarkAsDone = (eventIndex: number) => {
+    const item = itineraryState[eventIndex];
+    
+    // If no location is set for this item, allow marking as done without location check
+    if (!item.location) {
+      setItineraryState(prev => {
+        const updated = [...prev];
+        updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
+        // If this was the active event, activate the next one
+        if (updated[eventIndex].isActive) {
+          const nextIndex = eventIndex + 1;
+          if (nextIndex < updated.length) {
+            updated[nextIndex] = { ...updated[nextIndex], isActive: true };
+          }
+        }
+        return updated;
+      });
+      setSelectedEvent(null);
+      setLocationError(null);
+      return;
+    }
+
+    // IMPORTANT: Call checkLocation directly from click handler (not async)
+    // This ensures the user gesture chain is preserved for iOS Safari and Chrome
+    setIsCheckingLocation(true);
+    setLocationError(null);
+
+    // Call checkLocation synchronously to preserve user gesture for permission prompt
+    checkLocation(item.location).then((locationResult) => {
+      if (!locationResult.isAtLocation) {
+        setIsCheckingLocation(false);
+        if (locationResult.distance !== undefined) {
+          setLocationError(
+            `You are ${locationResult.distance}m away from the location. Please go to ${item.title} location to check in.`
+          );
+        } else {
+          setLocationError(locationResult.error || "Unable to verify your location. Please try again.");
+        }
+        return;
+      }
+
+      // Location check passed, mark as done
+      setIsCheckingLocation(false);
+      setLocationError(null);
+      setItineraryState(prev => {
+        const updated = [...prev];
+        updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
+        // If this was the active event, activate the next one
+        if (updated[eventIndex].isActive) {
+          const nextIndex = eventIndex + 1;
+          if (nextIndex < updated.length) {
+            updated[nextIndex] = { ...updated[nextIndex], isActive: true };
+          }
+        }
+        return updated;
+      });
+      setSelectedEvent(null);
+    });
+  };
+
   return (
-    <section className="py-12 md:py-20 bg-[hsl(142_30%_25%)] relative overflow-hidden">
+    <section className="py-12 md:py-20 bg-[hsl(35_40%_85%)] relative overflow-hidden">
       {/* Pixel UI Border Frame */}
       <div className="container px-4 md:px-6">
         <PixelBorder className="min-h-[600px] md:min-h-[700px]">
@@ -255,10 +632,10 @@ const TimelineSection = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="font-pixel text-xs md:text-sm text-[hsl(45_80%_70%)] mb-2 tracking-wider">
+            <h2 className="font-pixel text-xs md:text-sm text-[hsl(15_70%_40%)] mb-2 tracking-wider">
               ~ ADVENTURE MAP ~
             </h2>
-            <p className="font-pixel text-[8px] md:text-[10px] text-[hsl(45_60%_60%)]">
+            <p className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)]">
               Click a checkpoint to view details
             </p>
           </motion.div>
@@ -268,87 +645,254 @@ const TimelineSection = () => {
             className="relative w-full h-[400px] md:h-[500px] rounded overflow-hidden"
             style={{ imageRendering: "pixelated" }}
           >
-            {/* Grass background with pattern */}
+            {/* Pasar Seni sky - warm daytime atmosphere */}
             <div 
               className="absolute inset-0"
               style={{
-                backgroundColor: "hsl(120 35% 35%)",
-                backgroundImage: `
-                  linear-gradient(90deg, hsl(120 30% 30%) 1px, transparent 1px),
-                  linear-gradient(hsl(120 30% 30%) 1px, transparent 1px)
-                `,
-                backgroundSize: "8px 8px",
+                background: "linear-gradient(to bottom, hsl(45 50% 90%) 0%, hsl(35 45% 88%) 50%, hsl(30 40% 85%) 100%)",
               }}
             />
-
-            {/* Decorative trees */}
+            
+            {/* Decorative clouds */}
             {[
-              { x: 5, y: 20 }, { x: 15, y: 40 }, { x: 8, y: 60 },
-              { x: 85, y: 15 }, { x: 92, y: 45 }, { x: 88, y: 70 },
-              { x: 35, y: 15 }, { x: 65, y: 85 }, { x: 20, y: 90 },
-            ].map((pos, i) => (
+              { x: 10, y: 8, size: 20 }, { x: 40, y: 5, size: 25 }, { x: 70, y: 10, size: 18 },
+              { x: 85, y: 6, size: 22 },
+            ].map((cloud, i) => (
               <div
-                key={i}
-                className="absolute w-6 h-8 md:w-8 md:h-10"
-                style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                key={`cloud-${i}`}
+                className="absolute opacity-30"
+                style={{
+                  left: `${cloud.x}%`,
+                  top: `${cloud.y}%`,
+                  width: `${cloud.size}px`,
+                  height: `${cloud.size * 0.6}px`,
+                }}
               >
-                <svg viewBox="0 0 8 10" className="w-full h-full" style={{ imageRendering: "pixelated" }}>
-                  <rect x="3" y="6" width="2" height="4" fill="hsl(25 50% 35%)" />
-                  <rect x="1" y="2" width="6" height="5" fill="hsl(142 45% 35%)" />
-                  <rect x="2" y="0" width="4" height="3" fill="hsl(142 50% 40%)" />
+                <svg viewBox="0 0 20 12" className="w-full h-full" style={{ imageRendering: "pixelated" }}>
+                  <ellipse cx="6" cy="6" rx="5" ry="4" fill="hsl(0 0% 95%)" />
+                  <ellipse cx="12" cy="5" rx="6" ry="5" fill="hsl(0 0% 95%)" />
+                  <ellipse cx="15" cy="7" rx="4" ry="3" fill="hsl(0 0% 95%)" />
                 </svg>
               </div>
             ))}
 
-            {/* River */}
-            <div 
-              className="absolute w-[15%] h-full right-[30%] bg-[hsl(200_60%_45%)]"
-              style={{
-                clipPath: "polygon(30% 0%, 70% 0%, 90% 30%, 60% 50%, 80% 70%, 50% 100%, 20% 100%, 40% 70%, 10% 50%, 50% 30%)",
-              }}
-            />
+            {/* Art market stalls with colorful umbrellas - positioned to complement wave path */}
+            {[
+              { x: 5, y: 20, color: "hsl(0 70% 60%)" },    // Red stall - top left
+              { x: 18, y: 15, color: "hsl(30 80% 65%)" },   // Orange stall - above first crest
+              { x: 32, y: 25, color: "hsl(200 60% 55%)" }, // Blue stall - between crests
+              { x: 48, y: 20, color: "hsl(120 50% 50%)" },  // Green stall - above second crest
+              { x: 62, y: 25, color: "hsl(280 60% 60%)" },  // Purple stall - between crests
+              { x: 78, y: 20, color: "hsl(15 75% 60%)" },   // Red-orange stall - top right
+              { x: 10, y: 50, color: "hsl(45 70% 65%)" },   // Yellow stall - left side
+              { x: 35, y: 55, color: "hsl(0 65% 55%)" },    // Dark red stall - near first trough
+              { x: 50, y: 50, color: "hsl(180 55% 55%)" },  // Teal stall - middle area
+              { x: 68, y: 55, color: "hsl(45 80% 70%)" },   // Light yellow stall - near second trough
+              { x: 20, y: 85, color: "hsl(200 70% 60%)" }, // Light blue stall - bottom left
+              { x: 45, y: 82, color: "hsl(120 60% 55%)" },  // Light green stall - bottom middle
+            ].map((stall, i) => (
+              <div key={`stall-${i}`} className="absolute" style={{ left: `${stall.x}%`, top: `${stall.y}%` }}>
+                <svg viewBox="0 0 16 20" className="w-8 h-10 md:w-10 md:h-12" style={{ imageRendering: "pixelated" }}>
+                  {/* Umbrella/tent top */}
+                  <path d="M 2 4 L 8 0 L 14 4 L 14 10 L 2 10 Z" fill={stall.color} />
+                  {/* Umbrella stripes */}
+                  <rect x="2" y="6" width="12" height="1" fill="hsl(0 0% 100%)" opacity="0.3" />
+                  <rect x="2" y="8" width="12" height="1" fill="hsl(0 0% 100%)" opacity="0.3" />
+                  {/* Stall base/table */}
+                  <rect x="3" y="10" width="10" height="2" fill="hsl(30 40% 50%)" />
+                  {/* Legs */}
+                  <rect x="4" y="12" width="1" height="6" fill="hsl(30 30% 40%)" />
+                  <rect x="11" y="12" width="1" height="6" fill="hsl(30 30% 40%)" />
+                  {/* Art display on table */}
+                  <rect x="6" y="9" width="4" height="3" fill="hsl(45 60% 70%)" />
+                  <rect x="7" y="8" width="2" height="1" fill="hsl(15 70% 60%)" />
+                </svg>
+              </div>
+            ))}
 
-            {/* Small pixel buildings */}
-            <div className="absolute w-8 h-8 md:w-10 md:h-10" style={{ left: "70%", top: "65%" }}>
-              <svg viewBox="0 0 10 10" className="w-full h-full" style={{ imageRendering: "pixelated" }}>
-                <rect x="1" y="4" width="8" height="6" fill="hsl(25 40% 50%)" />
-                <rect x="0" y="2" width="10" height="3" fill="hsl(15 50% 40%)" />
-                <rect x="3" y="6" width="2" height="4" fill="hsl(25 30% 30%)" />
-                <rect x="6" y="5" width="2" height="2" fill="hsl(200 70% 70%)" />
-              </svg>
-            </div>
+            {/* Decorative art displays and banners */}
+            {[
+              { x: 15, y: 15, type: "banner" },
+              { x: 55, y: 12, type: "art" },
+              { x: 85, y: 18, type: "banner" },
+            ].map((item, i) => (
+              <div key={`art-${i}`} className="absolute" style={{ left: `${item.x}%`, top: `${item.y}%` }}>
+                <svg viewBox="0 0 12 16" className="w-6 h-8 md:w-8 md:h-10" style={{ imageRendering: "pixelated" }}>
+                  {item.type === "banner" ? (
+                    <>
+                      {/* Banner pole */}
+                      <rect x="5" y="0" width="2" height="16" fill="hsl(30 40% 45%)" />
+                      {/* Banner cloth */}
+                      <rect x="2" y="2" width="8" height="6" fill="hsl(0 70% 65%)" />
+                      <rect x="2" y="8" width="8" height="6" fill="hsl(45 80% 70%)" />
+                    </>
+                  ) : (
+                    <>
+                      {/* Art frame */}
+                      <rect x="1" y="3" width="10" height="10" fill="hsl(30 50% 60%)" stroke="hsl(30 30% 40%)" strokeWidth="1" />
+                      {/* Art canvas */}
+                      <rect x="2" y="4" width="8" height="8" fill="hsl(200 50% 70%)" />
+                      {/* Art pattern */}
+                      <circle cx="6" cy="7" r="2" fill="hsl(0 70% 60%)" />
+                    </>
+                  )}
+                </svg>
+              </div>
+            ))}
 
-            {/* Dirt path connecting checkpoints */}
-            <svg className="absolute inset-0 w-full h-full" style={{ imageRendering: "pixelated" }}>
+            {/* Pasar Seni market path connecting checkpoints */}
+            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ imageRendering: "pixelated" }}>
               <defs>
-                <pattern id="dirtPattern" patternUnits="userSpaceOnUse" width="8" height="8">
-                  <rect width="8" height="8" fill="hsl(30 40% 40%)" />
-                  <rect x="0" y="0" width="2" height="2" fill="hsl(30 35% 35%)" />
-                  <rect x="4" y="4" width="2" height="2" fill="hsl(30 35% 35%)" />
+                <pattern id="pathPattern" patternUnits="userSpaceOnUse" width="16" height="16">
+                  <rect width="16" height="16" fill="hsl(30 35% 75%)" />
+                  <rect x="0" y="7" width="16" height="2" fill="hsl(30 40% 70%)" />
+                  <circle cx="4" cy="8" r="1" fill="hsl(30 25% 60%)" />
+                  <circle cx="12" cy="8" r="1" fill="hsl(30 25% 60%)" />
+                </pattern>
+                <pattern id="groundPattern" patternUnits="userSpaceOnUse" width="12" height="12">
+                  <rect width="12" height="12" fill="hsl(35 30% 80%)" />
+                  <rect x="0" y="0" width="12" height="1" fill="hsl(35 25% 75%)" />
                 </pattern>
               </defs>
+              
+              {/* Ground/base layer */}
+              <rect x="0" y="0" width="100%" height="100%" fill="url(#groundPattern)" />
+              
+              {/* Main market path - wider and more visible */}
               <path
-                d={`M ${pathPoints.map(p => `${p.x}%,${p.y}%`).join(" L ")}`}
-                stroke="url(#dirtPattern)"
-                strokeWidth="20"
+                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
+                stroke="hsl(30 30% 70%)"
+                strokeWidth="28"
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                opacity="0.9"
               />
-              {/* Path border */}
+              
+              {/* Path surface with pattern */}
               <path
-                d={`M ${pathPoints.map(p => `${p.x}%,${p.y}%`).join(" L ")}`}
-                stroke="hsl(30 30% 30%)"
+                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
+                stroke="url(#pathPattern)"
                 strokeWidth="24"
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ zIndex: -1 }}
+              />
+              
+              {/* Path border/edge */}
+              <path
+                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
+                stroke="hsl(30 25% 60%)"
+                strokeWidth="26"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.4"
+              />
+              
+              {/* Path center line - decorative */}
+              <path
+                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
+                stroke="hsl(15 60% 50%)"
+                strokeWidth="2"
+                strokeDasharray="8 4"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.6"
               />
             </svg>
 
+            {/* Market ground texture */}
+            <div 
+              className="absolute bottom-0 left-0 right-0 h-[35%]"
+              style={{
+                background: "linear-gradient(to top, hsl(30 35% 75%) 0%, hsl(35 30% 80%) 100%)",
+                backgroundImage: `
+                  repeating-linear-gradient(90deg, 
+                    transparent 0px, 
+                    transparent 10px, 
+                    hsl(30 25% 70%) 10px, 
+                    hsl(30 25% 70%) 11px
+                  ),
+                  repeating-linear-gradient(0deg, 
+                    transparent 0px, 
+                    transparent 10px, 
+                    hsl(30 25% 70%) 10px, 
+                    hsl(30 25% 70%) 11px
+                  )
+                `,
+                backgroundSize: "20px 20px",
+                opacity: 0.3,
+              }}
+            />
+
+            {/* Connecting lines between checkpoints with direction indicators - positioned below checkpoints */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ imageRendering: "pixelated", zIndex: 1 }}>
+              {pathPoints.map((point, index) => {
+                if (index === pathPoints.length - 1) return null; // Skip last point
+                const nextPoint = pathPoints[index + 1];
+                const currentItem = itineraryState[index];
+                const isPast = currentItem?.isPast || false;
+                const dx = nextPoint.x - point.x;
+                const dy = nextPoint.y - point.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                
+                // Offset arrow slightly before reaching checkpoint to avoid overlap
+                const arrowOffset = 3; // percentage offset
+                const arrowX = nextPoint.x - (dx / distance) * arrowOffset;
+                const arrowY = nextPoint.y - (dy / distance) * arrowOffset;
+                
+                return (
+                  <g key={`connection-${index}`}>
+                    {/* Main connecting line - stops just before checkpoints */}
+                    <line
+                      x1={point.x}
+                      y1={point.y}
+                      x2={arrowX}
+                      y2={arrowY}
+                      stroke="hsl(15 70% 50%)"
+                      strokeWidth="5"
+                      strokeDasharray={isPast ? "0" : "10 5"}
+                      opacity={isPast ? 0.4 : 0.85}
+                      strokeLinecap="round"
+                    />
+                    {/* Arrow head pointing to next checkpoint - positioned before checkpoint */}
+                    <g
+                      transform={`translate(${arrowX}, ${arrowY}) rotate(${angle})`}
+                      opacity={isPast ? 0.4 : 0.85}
+                    >
+                      <path
+                        d="M -12 -6 L 0 0 L -12 6 Z"
+                        fill="hsl(15 70% 50%)"
+                        stroke="hsl(15 60% 40%)"
+                        strokeWidth="2"
+                      />
+                    </g>
+                    {/* Progress dots along the line - show direction, avoiding checkpoint areas */}
+                    {Array.from({ length: Math.max(2, Math.floor(distance / 15)) }).map((_, dotIndex) => {
+                      const t = (dotIndex + 1) / (Math.max(2, Math.floor(distance / 15)) + 2); // Stop before checkpoint
+                      const dotX = point.x + dx * t;
+                      const dotY = point.y + dy * t;
+                      return (
+                        <circle
+                          key={`dot-${index}-${dotIndex}`}
+                          cx={dotX}
+                          cy={dotY}
+                          r="3"
+                          fill="hsl(15 70% 50%)"
+                          opacity={isPast ? 0.3 : 0.6}
+                        />
+                      );
+                    })}
+                  </g>
+                );
+              })}
+            </svg>
+
             {/* Checkpoint sprites */}
-            {itinerary.map((item, index) => {
+            {itineraryState.map((item, index) => {
               const SpriteComponent = sprites[item.sprite];
               const pos = pathPoints[index];
               
@@ -363,7 +907,7 @@ const TimelineSection = () => {
                     top: `${pos.y}%`,
                     transform: "translate(-50%, -50%)",
                   }}
-                  onClick={() => setSelectedEvent(item)}
+                  onClick={() => handleStampClick(item)}
                   initial={{ scale: 1 }}
                   whileHover={{ scale: 1.2 }}
                   animate={item.isActive ? {
@@ -371,10 +915,10 @@ const TimelineSection = () => {
                     transition: { repeat: Infinity, duration: 0.8 }
                   } : {}}
                 >
-                  {/* Glow effect for active item */}
+                  {/* Warm glow effect for active item - pasar seni style */}
                   {item.isActive && (
                     <motion.div
-                      className="absolute inset-0 rounded-full bg-[hsl(45_80%_60%)]"
+                      className="absolute inset-0 rounded-full bg-[hsl(15_70%_60%)]"
                       animate={{ 
                         scale: [1, 1.5, 1],
                         opacity: [0.6, 0.2, 0.6],
@@ -388,31 +932,39 @@ const TimelineSection = () => {
               );
             })}
 
-            {/* Avatar on current location */}
+            {/* "You are here" chat bubble on current location - follows latest completed activity */}
             <motion.div
               className="absolute z-30"
+              key={currentLocationIndex} // Force re-render when location changes
               style={{
-                left: `${pathPoints[activeIndex].x}%`,
-                top: `${pathPoints[activeIndex].y}%`,
-                transform: "translate(-50%, -120%)",
+                left: `${pathPoints[currentLocationIndex].x}%`,
+                top: `${pathPoints[currentLocationIndex].y}%`,
+                transform: "translate(-50%, -110%)",
               }}
-              animate={{
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ 
+                scale: 1, 
+                opacity: 1,
                 y: [0, -3, 0],
               }}
-              transition={{ repeat: Infinity, duration: 0.6 }}
+              transition={{ 
+                scale: { duration: 0.3 },
+                opacity: { duration: 0.3 },
+                y: { repeat: Infinity, duration: 0.8 }
+              }}
             >
               <PixelAvatar />
             </motion.div>
 
-            {/* Legend */}
-            <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[hsl(25_30%_15%)] p-2 rounded border-2 border-[hsl(35_50%_45%)]">
+            {/* Legend with pasar seni styling */}
+            <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[hsl(35_40%_85%)] p-2 rounded border-2 border-[hsl(15_60%_50%)]">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 bg-[hsl(45_80%_60%)] rounded-full animate-pulse" />
-                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(45_70%_70%)]">Current</span>
+                <div className="w-3 h-3 bg-[hsl(15_70%_55%)] rounded-full animate-pulse" />
+                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(15_60%_35%)]">Current</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-[hsl(var(--muted-foreground))] rounded-full opacity-50" />
-                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(45_70%_70%)]">Completed</span>
+                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(15_60%_35%)]">Completed</span>
               </div>
             </div>
           </div>
@@ -431,7 +983,10 @@ const TimelineSection = () => {
             {/* Backdrop */}
             <div 
               className="absolute inset-0 bg-[hsl(0_0%_0%)] bg-opacity-70"
-              onClick={() => setSelectedEvent(null)}
+              onClick={() => {
+                setSelectedEvent(null);
+                setLocationError(null);
+              }}
             />
             
             {/* Modal */}
@@ -441,13 +996,16 @@ const TimelineSection = () => {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 20 }}
             >
-              {/* Pixel border frame */}
-              <div className="relative bg-[hsl(25_25%_15%)] border-4 border-[hsl(35_50%_45%)] p-1">
+              {/* Pixel border frame - Pasar Seni theme */}
+              <div className="relative bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] p-1">
                 {/* Inner border */}
-                <div className="border-2 border-[hsl(25_40%_30%)] p-4">
+                <div className="border-2 border-[hsl(30_50%_60%)] p-4">
                   {/* Close button */}
                   <button
-                    onClick={() => setSelectedEvent(null)}
+                    onClick={() => {
+                      setSelectedEvent(null);
+                      setLocationError(null);
+                    }}
                     className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-[hsl(0_60%_50%)] border-2 border-[hsl(0_50%_40%)] hover:bg-[hsl(0_60%_60%)] transition-colors"
                   >
                     <X className="w-4 h-4 text-[hsl(0_0%_100%)]" />
@@ -458,8 +1016,13 @@ const TimelineSection = () => {
                     {/* Sprite preview */}
                     <div className="w-16 h-16 mx-auto mb-4">
                       {(() => {
+                        const eventIndex = itineraryState.findIndex(item => 
+                          item.time === selectedEvent.time && 
+                          item.title === selectedEvent.title
+                        );
+                        const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
                         const SpriteComponent = sprites[selectedEvent.sprite];
-                        return <SpriteComponent isActive={true} isPast={false} />;
+                        return <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />;
                       })()}
                     </div>
 
@@ -471,26 +1034,131 @@ const TimelineSection = () => {
                     </div>
 
                     {/* Title */}
-                    <h3 className="font-pixel text-sm md:text-base text-[hsl(45_80%_70%)] mb-4">
+                    <h3 
+                      className="font-pixel text-sm md:text-base text-[hsl(15_70%_40%)] mb-4"
+                      style={{ 
+                        textRendering: "optimizeSpeed",
+                        WebkitFontSmoothing: "none",
+                        MozOsxFontSmoothing: "unset",
+                        fontSmooth: "never",
+                        letterSpacing: "0.05em"
+                      }}
+                    >
                       {selectedEvent.title}
                     </h3>
 
                     {/* Description */}
-                    <p className="font-pixel text-[8px] md:text-[10px] text-[hsl(45_60%_60%)] leading-relaxed">
+                    <p 
+                      className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)] leading-relaxed mb-4"
+                      style={{ 
+                        textRendering: "optimizeSpeed",
+                        WebkitFontSmoothing: "none",
+                        MozOsxFontSmoothing: "unset",
+                        fontSmooth: "never",
+                        letterSpacing: "0.05em"
+                      }}
+                    >
                       {selectedEvent.description}
                     </p>
 
-                    {/* Decorative pixel divider */}
-                    <div className="flex justify-center gap-1 mt-4">
-                      {[...Array(5)].map((_, i) => (
-                        <motion.div
-                          key={i}
-                          className="w-2 h-2 bg-[hsl(var(--primary))]"
-                          animate={{ opacity: [0.5, 1, 0.5] }}
-                          transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }}
-                        />
-                      ))}
-                    </div>
+                    {/* Photos section */}
+                    {checkpointPhotos.length > 0 && (
+                      <div className="mb-4">
+                        <p
+                          className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)] mb-2"
+                          style={{ textRendering: "optimizeSpeed" }}
+                        >
+                          Memories ({checkpointPhotos.length})
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {checkpointPhotos.slice(0, 6).map((photo) => (
+                            <div
+                              key={photo.id}
+                              className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden"
+                            >
+                              <img
+                                src={photo.src}
+                                alt={photo.caption || "Memory"}
+                                className="w-full h-full object-cover"
+                                style={{ imageRendering: "pixelated" }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add Photo button */}
+                    <motion.button
+                      onClick={() => setShowPhotoCapture(true)}
+                      className="w-full mb-4 px-4 py-2 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(200_60%_55%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-all flex items-center justify-center gap-2"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Camera className="w-4 h-4" />
+                      Add Photo
+                    </motion.button>
+
+                    {/* Location error message */}
+                    {locationError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-4 p-3 bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] rounded-lg"
+                      >
+                        <p 
+                          className="font-pixel text-[8px] md:text-[10px] text-white text-center"
+                          style={{ 
+                            textRendering: "optimizeSpeed",
+                            WebkitFontSmoothing: "none",
+                            MozOsxFontSmoothing: "unset",
+                            fontSmooth: "never",
+                          }}
+                        >
+                          {locationError}
+                        </p>
+                      </motion.div>
+                    )}
+
+                    {/* Done button */}
+                    {(() => {
+                      const eventIndex = itineraryState.findIndex(item => 
+                        item.time === selectedEvent.time && 
+                        item.title === selectedEvent.title
+                      );
+                      const isAlreadyDone = eventIndex >= 0 && itineraryState[eventIndex].isPast;
+                      const hasLocation = eventIndex >= 0 && itineraryState[eventIndex].location;
+                      
+                      return (
+                        <motion.button
+                          onClick={() => {
+                            if (eventIndex >= 0 && !isAlreadyDone) {
+                              handleMarkAsDone(eventIndex);
+                            } else {
+                              setSelectedEvent(null);
+                            }
+                          }}
+                          className={`w-full px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 transition-all ${
+                            isAlreadyDone
+                              ? "bg-[hsl(120_50%_50%)] border-[hsl(120_40%_40%)] text-white cursor-default"
+                              : isCheckingLocation
+                              ? "bg-[hsl(30_50%_60%)] border-[hsl(30_40%_50%)] text-white cursor-wait"
+                              : "bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] hover:scale-105 active:scale-95"
+                          }`}
+                          whileHover={!isAlreadyDone && !isCheckingLocation ? { scale: 1.05 } : {}}
+                          whileTap={!isAlreadyDone && !isCheckingLocation ? { scale: 0.95 } : {}}
+                          disabled={isAlreadyDone || isCheckingLocation}
+                        >
+                          {isAlreadyDone 
+                            ? "✓ Completed" 
+                            : isCheckingLocation 
+                            ? "Checking Location..." 
+                            : hasLocation
+                            ? "check in (Location Required)"
+                            : "check in"}
+                        </motion.button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -498,6 +1166,29 @@ const TimelineSection = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Photo Capture Modal */}
+      {selectedEvent && (
+        <PhotoCaptureModal
+          isOpen={showPhotoCapture}
+          onClose={() => setShowPhotoCapture(false)}
+          onCapture={handlePhotoCapture}
+          checkpointTitle={selectedEvent.title}
+        />
+      )}
+
+      {/* Photo Editor */}
+      {selectedEvent && capturedPhotoSrc && (
+        <PhotoEditor
+          photoSrc={capturedPhotoSrc}
+          checkpointId={`${selectedEvent.time}-${selectedEvent.title}`}
+          onSave={handlePhotoSave}
+          onClose={() => {
+            setShowPhotoEditor(false);
+            setCapturedPhotoSrc("");
+          }}
+        />
+      )}
     </section>
   );
 };
