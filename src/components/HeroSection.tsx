@@ -1,35 +1,35 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Heart, ChevronDown } from "lucide-react";
-import confetti from "canvas-confetti";
+import {
+  sideConfetti,
+  heartRain,
+  ambientSparkles,
+} from "../utils/particles";
 
 const HeroSection = () => {
   useEffect(() => {
-    const duration = 3 * 1000;
-    const end = Date.now() + duration;
+    // Enhanced side confetti effect
+    sideConfetti({
+      duration: 3000,
+      particleCount: 3,
+    });
 
-    const colors = ["#f4a5b8", "#d4a5c9", "#a8d5ba", "#ffd700"];
-
-    (function frame() {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: colors,
+    // Heart rain background effect
+    setTimeout(() => {
+      heartRain({
+        duration: 8000,
+        heartCount: 25,
       });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: colors,
-      });
+    }, 500);
 
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    })();
+    // Ambient sparkles for subtle background effect
+    setTimeout(() => {
+      ambientSparkles({
+        duration: 15000,
+        sparkleCount: 12,
+      });
+    }, 1000);
   }, []);
 
   const scrollToNext = () => {
@@ -75,7 +75,7 @@ const HeroSection = () => {
         >
           Happy Birthday,
           <br />
-          <span className="font-script text-6xl md:text-8xl lg:text-9xl">My Love</span>
+          <span className="font-script text-6xl md:text-8xl lg:text-9xl">My little Nyucing</span>
         </motion.h1>
 
         <motion.p

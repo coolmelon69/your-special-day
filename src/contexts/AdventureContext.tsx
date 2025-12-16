@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { initialItinerary, type ItineraryItem, type Photo } from "@/components/TimelineSection";
 import * as photoStorage from "@/utils/photoStorage";
 
@@ -86,28 +86,28 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   // Photos state
   const [photos, setPhotos] = useState<Photo[]>([]);
 
-  // Load photos on mount
-  useEffect(() => {
-    refreshPhotos();
-  }, []);
-
   // Save to localStorage whenever itineraryState changes
   useEffect(() => {
     saveItineraryToStorage(itineraryState);
   }, [itineraryState]);
 
-  // Refresh photos from IndexedDB
-  const refreshPhotos = async () => {
+  // Refresh photos from IndexedDB - memoized to prevent infinite loops
+  const refreshPhotos = useCallback(async () => {
     try {
       const allPhotos = await photoStorage.getAllPhotos();
       setPhotos(allPhotos);
     } catch (error) {
       console.error("Error refreshing photos:", error);
     }
-  };
+  }, []);
 
-  // Add a photo
-  const addPhoto = async (checkpointId: string, photoData: Omit<Photo, "id" | "timestamp">) => {
+  // Load photos on mount
+  useEffect(() => {
+    refreshPhotos();
+  }, [refreshPhotos]);
+
+  // Add a photo - memoized to prevent infinite loops
+  const addPhoto = useCallback(async (checkpointId: string, photoData: Omit<Photo, "id" | "timestamp">) => {
     try {
       const photo: Photo = {
         ...photoData,
@@ -120,30 +120,30 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error adding photo:", error);
       throw error;
     }
-  };
+  }, [refreshPhotos]);
 
-  // Get photos by checkpoint
-  const getPhotosByCheckpoint = async (checkpointId: string): Promise<Photo[]> => {
+  // Get photos by checkpoint - memoized to prevent infinite loops
+  const getPhotosByCheckpoint = useCallback(async (checkpointId: string): Promise<Photo[]> => {
     try {
       return await photoStorage.getPhotosByCheckpoint(checkpointId);
     } catch (error) {
       console.error("Error getting photos by checkpoint:", error);
       return [];
     }
-  };
+  }, []);
 
-  // Get all photos
-  const getAllPhotos = async (): Promise<Photo[]> => {
+  // Get all photos - memoized to prevent infinite loops
+  const getAllPhotos = useCallback(async (): Promise<Photo[]> => {
     try {
       return await photoStorage.getAllPhotos();
     } catch (error) {
       console.error("Error getting all photos:", error);
       return [];
     }
-  };
+  }, []);
 
-  // Delete a photo
-  const deletePhoto = async (photoId: string) => {
+  // Delete a photo - memoized to prevent infinite loops
+  const deletePhoto = useCallback(async (photoId: string) => {
     try {
       await photoStorage.deletePhoto(photoId);
       await refreshPhotos();
@@ -151,10 +151,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error deleting photo:", error);
       throw error;
     }
-  };
+  }, [refreshPhotos]);
 
-  // Reset progress function
-  const resetProgress = () => {
+  // Reset progress function - memoized to prevent infinite loops
+  const resetProgress = useCallback(() => {
     if (window.confirm("Are you sure you want to reset all progress? This cannot be undone.")) {
       try {
         if (typeof window !== "undefined" && window.localStorage) {
@@ -169,7 +169,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         console.error("Error resetting progress:", error);
       }
     }
-  };
+  }, [refreshPhotos]);
 
   return (
     <AdventureContext.Provider

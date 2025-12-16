@@ -567,9 +567,10 @@ const TimelineSection = ({
     if (!item.location) {
       setItineraryState(prev => {
         const updated = [...prev];
+        const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
         updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
         // If this was the active event, activate the next one
-        if (updated[eventIndex].isActive) {
+        if (wasActive) {
           const nextIndex = eventIndex + 1;
           if (nextIndex < updated.length) {
             updated[nextIndex] = { ...updated[nextIndex], isActive: true };
@@ -606,9 +607,10 @@ const TimelineSection = ({
       setLocationError(null);
       setItineraryState(prev => {
         const updated = [...prev];
+        const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
         updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
         // If this was the active event, activate the next one
-        if (updated[eventIndex].isActive) {
+        if (wasActive) {
           const nextIndex = eventIndex + 1;
           if (nextIndex < updated.length) {
             updated[nextIndex] = { ...updated[nextIndex], isActive: true };
