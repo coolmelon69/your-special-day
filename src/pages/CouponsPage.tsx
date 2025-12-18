@@ -36,25 +36,6 @@ const CouponsPage = () => {
       </Helmet>
       
       <main className="overflow-x-hidden pt-16 md:pt-20">
-        {/* Page Header */}
-        <section className="py-12 md:py-20 bg-gradient-romantic">
-          <div className="container px-6">
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-                <span className="text-gradient-romantic">Gift Coupons</span>
-              </h1>
-              <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto">
-                Unlock and redeem special coupons as you complete your adventures. Each coupon is a promise for a wonderful experience together!
-              </p>
-            </motion.div>
-          </div>
-        </section>
-
         <GiftCouponsSection itineraryState={itineraryState} />
 
         {/* Reset Progress Button */}

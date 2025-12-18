@@ -8,54 +8,160 @@ interface LocationCardProps {
   activity: string;
   cost: string;
   searchUrl: string;
-  imageUrl: string;
+  imageUrl: string | null;
   locationName: string;
   onImageUpdate: (url: string) => void;
+  onPlaceIdUpdate?: (locationName: string, placeId: string) => void;
 }
 
-const LocationCard = ({ spot, activity, cost, searchUrl, imageUrl, locationName, onImageUpdate }: LocationCardProps) => {
-  const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl);
+const LocationCard = ({ spot, activity, cost, searchUrl, imageUrl, locationName, onImageUpdate, onPlaceIdUpdate }: LocationCardProps) => {
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
   const [imageError, setImageError] = useState(false);
+  const [isLoading, setIsLoading] = useState(!imageUrl);
 
-  // Update image URL if prop changes
+  // Update image URL if prop changes (when Google photo is fetched)
   useEffect(() => {
-    setCurrentImageUrl(imageUrl);
+    if (imageUrl) {
+      setCurrentImageUrl(imageUrl);
+      setIsLoading(false);
+      setImageError(false);
+    }
   }, [imageUrl]);
 
   useEffect(() => {
-    // Try to fetch Google Maps photo
+    // Helper to load Google Maps script dynamically
+    const loadGoogleMapsScript = (): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        if ((window as any).google && (window as any).google.maps && (window as any).google.maps.places) {
+          resolve();
+          return;
+        }
+
+        const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+        if (!apiKey || apiKey.trim() === "") {
+          reject(new Error("No API key"));
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load Google Maps script"));
+        document.head.appendChild(script);
+      });
+    };
+
+    // Try to fetch Google Maps photo if we don't have one yet
     const fetchGooglePhoto = async () => {
       const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
       if (!apiKey || apiKey.trim() === "") {
+        // No API key, use fallback
+        if (import.meta.env.DEV) {
+          console.warn(`[LocationCard] No Google Places API key found for location: ${locationName}`);
+        }
+        setIsLoading(false);
+        setImageError(true);
         return;
       }
 
       try {
-        const searchQuery = encodeURIComponent(`${locationName} Malaysia`);
-        const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${searchQuery}&key=${apiKey}`;
-        
-        const searchResponse = await fetch(searchUrl);
-        if (!searchResponse.ok) {
-          return;
+        // Load Google Maps script if not already loaded
+        await loadGoogleMapsScript();
+
+        // Use Google Places JavaScript API to avoid CORS issues
+        const google = (window as any).google;
+        if (!google || !google.maps || !google.maps.places) {
+          throw new Error("Google Maps Places API not available");
         }
 
-        const searchData = await searchResponse.json();
+        // Create a hidden map div for PlacesService (PlacesService needs a map instance)
+        const mapDiv = document.createElement('div');
+        mapDiv.style.display = 'none';
+        document.body.appendChild(mapDiv);
         
-        if (searchData.results && searchData.results.length > 0) {
-          const place = searchData.results[0];
-          if (place.photos && place.photos.length > 0) {
-            const photoReference = place.photos[0].photo_reference;
-            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&maxheight=200&photo_reference=${photoReference}&key=${apiKey}`;
-            setCurrentImageUrl(photoUrl);
-            onImageUpdate(photoUrl);
+        // Create a minimal map instance (required for PlacesService)
+        const map = new google.maps.Map(mapDiv, {
+          center: { lat: 0, lng: 0 },
+          zoom: 1,
+        });
+
+        const service = new google.maps.places.PlacesService(map);
+
+        const request = {
+          query: `${locationName} Malaysia`,
+          fields: ['place_id', 'photos'],
+        };
+
+        service.textSearch(request, (results: any[], status: string) => {
+          // Clean up the hidden map div
+          document.body.removeChild(mapDiv);
+          
+          if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+            const place = results[0];
+            
+            // Store place ID if available (for share links)
+            if (place.place_id && onPlaceIdUpdate) {
+              onPlaceIdUpdate(locationName, place.place_id);
+            }
+            
+            if (place.photos && place.photos.length > 0) {
+              const photo = place.photos[0];
+              const photoUrl = photo.getUrl({ maxWidth: 400, maxHeight: 200 });
+              
+              if (import.meta.env.DEV) {
+                console.log(`[LocationCard] Found Google photo for ${locationName}:`, photoUrl);
+              }
+              
+              setCurrentImageUrl(photoUrl);
+              setIsLoading(false);
+              setImageError(false);
+              onImageUpdate(photoUrl);
+            } else {
+              if (import.meta.env.DEV) {
+                console.warn(`[LocationCard] No photos found for location: ${locationName}`);
+              }
+              setIsLoading(false);
+              setImageError(true);
+            }
+          } else {
+            if (import.meta.env.DEV) {
+              console.warn(`[LocationCard] No results found for location: ${locationName}`, status);
+            }
+            setIsLoading(false);
+            setImageError(true);
           }
-        }
+        });
       } catch (error) {
-        // Silently fail, keep fallback image
+        if (import.meta.env.DEV) {
+          console.error(`[LocationCard] Error fetching Google photo for ${locationName}:`, error);
+        }
+        setIsLoading(false);
+        setImageError(true);
       }
     };
 
-    fetchGooglePhoto();
+    // Only fetch if we don't have an image URL yet
+    if (!imageUrl) {
+      fetchGooglePhoto();
+    } else {
+      // If we have an imageUrl prop, verify it loads
+      if (imageUrl) {
+        const img = new Image();
+        img.onload = () => {
+          setCurrentImageUrl(imageUrl);
+          setIsLoading(false);
+          setImageError(false);
+        };
+        img.onerror = () => {
+          // If the provided imageUrl fails, try fetching fresh
+          setIsLoading(true);
+          fetchGooglePhoto();
+        };
+        img.src = imageUrl;
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationName]);
 
@@ -70,14 +176,25 @@ const LocationCard = ({ spot, activity, cost, searchUrl, imageUrl, locationName,
     >
       {/* Location Image */}
       <div className="relative w-full h-40 overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">
-        {!imageError ? (
+        {isLoading ? (
+          <div className="w-full h-full bg-gradient-to-br from-primary/30 via-secondary/30 to-accent/30 flex items-center justify-center">
+            <span className="text-2xl animate-pulse">📍</span>
+          </div>
+        ) : currentImageUrl ? (
           <img
             src={currentImageUrl}
             alt={`${spot} location`}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
             loading="lazy"
             onError={() => {
+              if (import.meta.env.DEV) {
+                console.error(`[LocationCard] Image failed to load: ${currentImageUrl}`);
+              }
               setImageError(true);
+              setCurrentImageUrl(null);
+            }}
+            onLoad={() => {
+              setImageError(false);
             }}
           />
         ) : (
@@ -171,6 +288,7 @@ const FortuneTellerSection = () => {
   const [currentPrediction, setCurrentPrediction] = useState<string>("");
   const [isRevealing, setIsRevealing] = useState(false);
   const [locationImages, setLocationImages] = useState<Record<string, string>>({});
+  const [locationPlaceIds, setLocationPlaceIds] = useState<Record<string, string>>({});
 
   const getPresetPrediction = (type: PredictionType): string => {
     const predictions = {
@@ -281,10 +399,72 @@ const FortuneTellerSection = () => {
     }
   };
 
-  const getLocationSearchUrl = (locationName: string): string => {
-    // Create Google Maps search URL for the location in Malaysia
+  const getLocationShareUrl = (locationName: string): string => {
+    // Check if we have a place ID for this location
+    if (locationPlaceIds[locationName]) {
+      // Create Google Maps share link using place ID - this redirects to location details
+      return `https://www.google.com/maps/place/?q=place_id:${locationPlaceIds[locationName]}`;
+    }
+    
+    // Fallback: Create Google Maps share link using search query
+    // This will redirect to location details page
     const searchQuery = encodeURIComponent(`${locationName} Malaysia`);
     return `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+  };
+
+  // Helper to load Google Maps script dynamically
+  const loadGoogleMapsScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      // Check if already loaded
+      if ((window as any).google && (window as any).google.maps && (window as any).google.maps.places) {
+        resolve();
+        return;
+      }
+
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+      if (!apiKey || apiKey.trim() === "") {
+        reject(new Error("No API key"));
+        return;
+      }
+
+      // Check if script is already being loaded
+      const existingScript = document.querySelector(`script[src*="maps.googleapis.com/maps/api/js"]`);
+      if (existingScript) {
+        // Wait for it to load
+        const checkInterval = setInterval(() => {
+          if ((window as any).google && (window as any).google.maps && (window as any).google.maps.places) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          reject(new Error("Timeout waiting for Google Maps script to load"));
+        }, 10000);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        // Wait a bit for the API to be fully initialized
+        setTimeout(() => {
+          if ((window as any).google && (window as any).google.maps && (window as any).google.maps.places) {
+            resolve();
+          } else {
+            reject(new Error("Google Maps API loaded but Places service not available"));
+          }
+        }, 100);
+      };
+      
+      script.onerror = () => reject(new Error("Failed to load Google Maps script"));
+      document.head.appendChild(script);
+    });
   };
 
   const fetchGoogleMapsPhoto = async (locationName: string): Promise<string | null> => {
@@ -295,24 +475,106 @@ const FortuneTellerSection = () => {
       return null;
     }
 
+    // Try JavaScript API first, fallback to REST API with CORS proxy if needed
     try {
-      // Step 1: Search for the place using Text Search
+      // Load Google Maps script if not already loaded
+      await loadGoogleMapsScript();
+
+      // Use Google Places JavaScript API to avoid CORS issues
+      return new Promise((resolve) => {
+        try {
+          const google = (window as any).google;
+          if (!google || !google.maps || !google.maps.places) {
+            // Fallback to REST API with CORS proxy
+            fetchViaRestAPI(locationName, apiKey).then(resolve);
+            return;
+          }
+
+          // Create a hidden map div for PlacesService (PlacesService needs a map instance)
+          const mapDiv = document.createElement('div');
+          mapDiv.style.display = 'none';
+          document.body.appendChild(mapDiv);
+          
+          // Create a minimal map instance (required for PlacesService)
+          const map = new google.maps.Map(mapDiv, {
+            center: { lat: 0, lng: 0 },
+            zoom: 1,
+          });
+
+          const service = new google.maps.places.PlacesService(map);
+
+          const request = {
+            query: `${locationName} Malaysia`,
+            fields: ['place_id', 'photos'],
+          };
+
+          service.textSearch(request, (results: any[], status: string) => {
+            // Clean up the hidden map div
+            if (document.body.contains(mapDiv)) {
+              document.body.removeChild(mapDiv);
+            }
+            
+            if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+              const place = results[0];
+              
+              // Store place ID for share link generation
+              if (place.place_id) {
+                setLocationPlaceIds(prev => ({ ...prev, [locationName]: place.place_id }));
+              }
+              
+              if (place.photos && place.photos.length > 0) {
+                const photo = place.photos[0];
+                const photoUrl = photo.getUrl({ maxWidth: 400, maxHeight: 200 });
+                resolve(photoUrl);
+              } else {
+                resolve(null);
+              }
+            } else {
+              // Fallback to REST API if JavaScript API fails
+              fetchViaRestAPI(locationName, apiKey).then(resolve);
+            }
+          });
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error(`[FortuneTeller] Error using Places API for ${locationName}:`, error);
+          }
+          // Fallback to REST API
+          fetchViaRestAPI(locationName, apiKey).then(resolve);
+        }
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error("[FortuneTeller] Error loading Google Maps script, trying REST API:", error);
+      }
+      // Fallback to REST API with CORS proxy
+      return fetchViaRestAPI(locationName, apiKey);
+    }
+  };
+
+  // Fallback function to fetch via REST API using a CORS proxy
+  const fetchViaRestAPI = async (locationName: string, apiKey: string): Promise<string | null> => {
+    try {
       const searchQuery = encodeURIComponent(`${locationName} Malaysia`);
-      const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${searchQuery}&key=${apiKey}`;
+      // Use a CORS proxy to bypass CORS restrictions
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://maps.googleapis.com/maps/api/place/textsearch/json?query=${searchQuery}&key=${apiKey}`)}`;
       
-      const searchResponse = await fetch(searchUrl);
+      const searchResponse = await fetch(proxyUrl);
       if (!searchResponse.ok) {
         return null;
       }
 
       const searchData = await searchResponse.json();
       
-      // Get the first result's photo reference
       if (searchData.results && searchData.results.length > 0) {
         const place = searchData.results[0];
+        
+        // Store place ID for share link generation
+        if (place.place_id) {
+          setLocationPlaceIds(prev => ({ ...prev, [locationName]: place.place_id }));
+        }
+        
         if (place.photos && place.photos.length > 0) {
           const photoReference = place.photos[0].photo_reference;
-          // Step 2: Get the photo URL
           return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&maxheight=200&photo_reference=${photoReference}&key=${apiKey}`;
         }
       }
@@ -320,32 +582,31 @@ const FortuneTellerSection = () => {
       return null;
     } catch (error) {
       if (import.meta.env.DEV) {
-        console.error("[FortuneTeller] Error fetching Google Maps photo:", error);
+        console.error("[FortuneTeller] Error fetching via REST API:", error);
       }
       return null;
     }
   };
 
-  const getLocationImageUrl = (locationName: string, index: number): string => {
-    // Check if we already have the image cached
+  const getLocationImageUrl = (locationName: string, index: number): string | null => {
+    // Check if we already have the Google Maps image cached
     if (locationImages[locationName]) {
       return locationImages[locationName];
     }
 
-    // Return fallback immediately, then fetch Google Maps photo in background
-    const seed = locationName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const fallbackUrl = `https://picsum.photos/seed/${seed + index}/400/200`;
-    
-    // Fetch Google Maps photo in background and update if successful
+    // Fetch Google Maps photo immediately and update when available
+    // Return null initially to indicate loading, LocationCard will handle fallback
     fetchGoogleMapsPhoto(locationName).then((googlePhotoUrl) => {
       if (googlePhotoUrl) {
         setLocationImages(prev => ({ ...prev, [locationName]: googlePhotoUrl }));
       }
     }).catch(() => {
-      // Silently fail, fallback already set
+      // Silently fail, LocationCard will use fallback
     });
     
-    return fallbackUrl;
+    // Return null to indicate we're loading the Google photo
+    // LocationCard will handle showing a fallback if needed
+    return null;
   };
 
   const handleImageUpdate = useCallback((locationName: string, url: string) => {
@@ -402,7 +663,7 @@ const FortuneTellerSection = () => {
           
           // Only add if we have at least a spot name
           if (spot && spot.length > 2) {
-            const searchUrl = getLocationSearchUrl(spot);
+            const shareUrl = getLocationShareUrl(spot);
             const imageUrl = getLocationImageUrl(spot, entryIndex);
             
             formattedEntries.push(
@@ -411,10 +672,11 @@ const FortuneTellerSection = () => {
                 spot={spot}
                 activity={activity}
                 cost={cost}
-                searchUrl={searchUrl}
+                searchUrl={shareUrl}
                 imageUrl={imageUrl}
                 locationName={spot}
                 onImageUpdate={(url) => handleImageUpdate(spot, url)}
+                onPlaceIdUpdate={(name, placeId) => setLocationPlaceIds(prev => ({ ...prev, [name]: placeId }))}
               />
             );
           }
@@ -455,7 +717,7 @@ const FortuneTellerSection = () => {
               cost = parts[1].trim();
             }
             
-            const searchUrl = getLocationSearchUrl(spot);
+            const shareUrl = getLocationShareUrl(spot);
             const imageUrl = getLocationImageUrl(spot, entryIndex);
             
             formattedEntries.push(
@@ -464,10 +726,11 @@ const FortuneTellerSection = () => {
                 spot={spot}
                 activity={activity}
                 cost={cost}
-                searchUrl={searchUrl}
+                searchUrl={shareUrl}
                 imageUrl={imageUrl}
                 locationName={spot}
                 onImageUpdate={(url) => handleImageUpdate(spot, url)}
+                onPlaceIdUpdate={(name, placeId) => setLocationPlaceIds(prev => ({ ...prev, [name]: placeId }))}
               />
             );
           }

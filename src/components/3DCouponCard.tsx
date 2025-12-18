@@ -14,8 +14,8 @@ const ProgressBar = ({ completed, required, color }: ProgressBarProps) => {
   const percentage = Math.min((completed / required) * 100, 100);
   
   return (
-    <div className="mt-4 space-y-2">
-      <div className="relative h-4 bg-white/20 rounded-full overflow-hidden border-2 border-white/30" style={{ imageRendering: "pixelated" }}>
+    <div className="mt-2 sm:mt-3 md:mt-4 space-y-1 sm:space-y-2">
+      <div className="relative h-3 sm:h-4 bg-white/20 rounded-full overflow-hidden border-2 border-white/30" style={{ imageRendering: "pixelated" }}>
         <motion.div
           className={`h-full bg-gradient-to-r ${color}`}
           initial={{ width: 0 }}
@@ -23,7 +23,7 @@ const ProgressBar = ({ completed, required, color }: ProgressBarProps) => {
           transition={{ duration: 0.5, ease: "easeOut" }}
         />
       </div>
-      <p className="text-xs text-white/90 font-pixel text-center">
+      <p className="text-[10px] sm:text-xs text-white/90 font-pixel text-center">
         {completed}/{required} stamps collected
       </p>
     </div>
@@ -160,7 +160,7 @@ const ThreeDCouponCard = ({
   return (
     <div
       ref={cardRef}
-      className="perspective-1000 w-full h-full min-h-[400px]"
+      className="perspective-1000 w-full h-full min-h-[280px] sm:min-h-[320px] md:min-h-[400px]"
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -191,7 +191,7 @@ const ThreeDCouponCard = ({
           {!isRedeemed ? (
             <motion.div
               key="front"
-              className={`relative bg-gradient-to-br ${coupon.color} rounded-3xl p-8 text-center shadow-xl overflow-hidden cursor-pointer min-h-[400px] flex flex-col justify-between ${
+              className={`relative bg-gradient-to-br ${coupon.color} rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 text-center shadow-xl overflow-hidden cursor-pointer min-h-[280px] sm:min-h-[320px] md:min-h-[400px] flex flex-col justify-between ${
                 isLocked ? "opacity-60" : ""
               }`}
               initial={{ rotateX: 0 }}
@@ -203,26 +203,26 @@ const ThreeDCouponCard = ({
             >
               {/* Lock overlay for locked coupons */}
               {isLocked && (
-                <div className="absolute inset-0 bg-black/20 rounded-3xl flex items-center justify-center z-10">
-                  <div className="bg-white/90 rounded-full p-4">
-                    <Lock className="text-[hsl(15_70%_40%)]" size={32} />
+                <div className="absolute inset-0 bg-black/20 rounded-2xl sm:rounded-3xl flex items-center justify-center z-10">
+                  <div className="bg-white/90 rounded-full p-2 sm:p-3 md:p-4">
+                    <Lock className="text-[hsl(15_70%_40%)] w-6 h-6 sm:w-8 sm:h-8" />
                   </div>
                 </div>
               )}
 
               {/* Decorative elements */}
-              <div className="absolute top-4 right-4">
-                <Sparkles className="text-white/30" size={24} />
+              <div className="absolute top-2 right-2 sm:top-4 sm:right-4">
+                <Sparkles className="text-white/30 w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <div className="absolute bottom-4 left-4">
-                <Sparkles className="text-white/20" size={20} />
+              <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4">
+                <Sparkles className="text-white/20 w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               
-              <div className="text-6xl mb-4">{coupon.emoji}</div>
-              <h3 className="font-serif text-2xl font-bold text-white mb-2">
+              <div className="text-4xl sm:text-5xl md:text-6xl mb-2 sm:mb-3 md:mb-4">{coupon.emoji}</div>
+              <h3 className="font-serif text-lg sm:text-xl md:text-2xl font-bold text-white mb-1 sm:mb-2">
                 {coupon.title}
               </h3>
-              <p className="text-white/80 mb-6">{coupon.description}</p>
+              <p className="text-white/80 text-sm sm:text-base mb-3 sm:mb-4 md:mb-6">{coupon.description}</p>
               
               {isLocked ? (
                 <ProgressBar
@@ -231,9 +231,10 @@ const ThreeDCouponCard = ({
                   color={coupon.color}
                 />
               ) : (
-                <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full text-white font-medium">
-                  <Gift size={18} />
-                  Tap to View
+                <div className="inline-flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-6 sm:py-3 bg-white/20 backdrop-blur-sm rounded-full text-white font-medium text-xs sm:text-sm">
+                  <Gift className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden sm:inline">Tap to View</span>
+                  <span className="sm:hidden">View</span>
                 </div>
               )}
               

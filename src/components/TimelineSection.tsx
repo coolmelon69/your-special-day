@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { X, Camera } from "lucide-react";
+import { X, Camera, Trash2 } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
 import PhotoCaptureModal from "./PhotoCaptureModal";
 import PhotoEditor from "./PhotoEditor";
@@ -394,6 +394,175 @@ const PixelDinner = ({ isActive, isPast }: { isActive: boolean; isPast: boolean 
   </svg>
 );
 
+const PixelGift = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Box */}
+    <rect x="3" y="6" width="10" height="8" fill="hsl(var(--primary))" />
+    <rect x="4" y="7" width="8" height="6" fill="hsl(0 70% 50%)" />
+    {/* Ribbon vertical */}
+    <rect x="7" y="6" width="2" height="8" fill="hsl(142 50% 40%)" />
+    {/* Ribbon horizontal */}
+    <rect x="3" y="9" width="10" height="2" fill="hsl(142 50% 40%)" />
+    {/* Bow top */}
+    <rect x="6" y="4" width="4" height="2" fill="hsl(142 50% 40%)" />
+    <rect x="5" y="5" width="1" height="1" fill="hsl(142 50% 40%)" />
+    <rect x="10" y="5" width="1" height="1" fill="hsl(142 50% 40%)" />
+    {/* Sparkles */}
+    {isActive && (
+      <>
+        <rect x="2" y="2" width="1" height="1" fill="hsl(45 80% 70%)" className="animate-pulse" />
+        <rect x="13" y="1" width="1" height="1" fill="hsl(45 80% 70%)" className="animate-pulse" />
+      </>
+    )}
+  </svg>
+);
+
+const PixelCake = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Base layer */}
+    <rect x="2" y="11" width="12" height="3" fill="hsl(25 60% 45%)" />
+    {/* Middle layer */}
+    <rect x="3" y="8" width="10" height="3" fill="hsl(25 60% 50%)" />
+    {/* Top layer */}
+    <rect x="4" y="5" width="8" height="3" fill="hsl(25 60% 55%)" />
+    {/* Frosting */}
+    <rect x="3" y="7" width="10" height="1" fill="hsl(0 80% 90%)" />
+    <rect x="4" y="4" width="8" height="1" fill="hsl(0 80% 90%)" />
+    {/* Candles */}
+    <rect x="5" y="2" width="1" height="3" fill="hsl(var(--primary))" />
+    <rect x="7" y="1" width="1" height="4" fill="hsl(var(--primary))" />
+    <rect x="9" y="2" width="1" height="3" fill="hsl(var(--primary))" />
+    {/* Flames */}
+    {isActive && (
+      <>
+        <rect x="5" y="1" width="1" height="1" fill="hsl(45 90% 55%)" className="animate-pulse" />
+        <rect x="7" y="0" width="1" height="1" fill="hsl(45 90% 55%)" className="animate-pulse" />
+        <rect x="9" y="1" width="1" height="1" fill="hsl(45 90% 55%)" className="animate-pulse" />
+      </>
+    )}
+  </svg>
+);
+
+const PixelHeart = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Heart shape */}
+    <rect x="4" y="4" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="6" y="3" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="8" y="4" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="5" y="5" width="4" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="6" y="6" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="4" y="7" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="8" y="7" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="5" y="9" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="7" y="9" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="6" y="11" width="2" height="2" fill="hsl(0 70% 50%)" />
+    {/* Pulse effect */}
+    {isActive && (
+      <rect x="6" y="6" width="2" height="2" fill="hsl(0 90% 70%)" className="animate-pulse" />
+    )}
+  </svg>
+);
+
+const PixelStar = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Star shape */}
+    <rect x="7" y="2" width="2" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="5" y="4" width="2" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="9" y="4" width="2" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="6" y="5" width="4" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="7" y="6" width="2" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="4" y="7" width="2" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="10" y="7" width="2" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="6" y="9" width="4" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="7" y="11" width="2" height="2" fill="hsl(45 80% 60%)" />
+    {/* Twinkle */}
+    {isActive && (
+      <>
+        <rect x="2" y="1" width="1" height="1" fill="hsl(45 80% 70%)" className="animate-pulse" />
+        <rect x="13" y="2" width="1" height="1" fill="hsl(45 80% 70%)" className="animate-pulse" />
+      </>
+    )}
+  </svg>
+);
+
+const PixelBalloon = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""} ${isActive ? "animate-bounce" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Balloon */}
+    <rect x="5" y="2" width="6" height="8" fill="hsl(0 70% 50%)" />
+    <rect x="6" y="3" width="4" height="6" fill="hsl(0 80% 60%)" />
+    {/* Highlight */}
+    <rect x="6" y="3" width="2" height="2" fill="hsl(0 90% 80%)" />
+    {/* String */}
+    <rect x="7" y="10" width="2" height="4" fill="hsl(var(--muted-foreground))" />
+  </svg>
+);
+
+const PixelCar = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Body */}
+    <rect x="2" y="7" width="12" height="5" fill="hsl(var(--primary))" />
+    <rect x="3" y="8" width="10" height="3" fill="hsl(200 60% 50%)" />
+    {/* Windows */}
+    <rect x="4" y="8" width="3" height="2" fill="hsl(200 70% 70%)" />
+    <rect x="9" y="8" width="3" height="2" fill="hsl(200 70% 70%)" />
+    {/* Wheels */}
+    <rect x="3" y="11" width="3" height="3" fill="hsl(var(--foreground))" />
+    <rect x="10" y="11" width="3" height="3" fill="hsl(var(--foreground))" />
+    {/* Headlights */}
+    <rect x="1" y="8" width="1" height="1" fill="hsl(45 80% 70%)" className={isActive ? "animate-pulse" : ""} />
+    <rect x="1" y="10" width="1" height="1" fill="hsl(45 80% 70%)" className={isActive ? "animate-pulse" : ""} />
+  </svg>
+);
+
+const PixelMap = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Map paper */}
+    <rect x="2" y="3" width="12" height="10" fill="hsl(45 30% 90%)" />
+    <rect x="2" y="3" width="12" height="10" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1" />
+    {/* Roads */}
+    <rect x="3" y="6" width="10" height="1" fill="hsl(var(--muted-foreground))" />
+    <rect x="7" y="4" width="1" height="6" fill="hsl(var(--muted-foreground))" />
+    {/* Location marker */}
+    <rect x="6" y="5" width="3" height="3" fill="hsl(var(--primary))" />
+    <rect x="7" y="4" width="1" height="1" fill="hsl(var(--primary))" />
+    {/* Compass */}
+    <rect x="11" y="4" width="2" height="2" fill="hsl(var(--muted))" />
+    <rect x="11" y="4" width="2" height="2" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1" />
+    <rect x="11" y="4" width="1" height="1" fill="hsl(0 70% 50%)" />
+    <rect x="12" y="5" width="1" height="1" fill="hsl(200 70% 50%)" />
+  </svg>
+);
+
+const PixelBeach = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Sun */}
+    <rect x="10" y="2" width="4" height="4" fill="hsl(45 80% 60%)" />
+    {/* Water */}
+    <rect x="0" y="10" width="16" height="6" fill="hsl(200 60% 50%)" />
+    <rect x="0" y="10" width="16" height="2" fill="hsl(200 70% 60%)" />
+    {/* Sand */}
+    <rect x="0" y="12" width="16" height="4" fill="hsl(45 50% 70%)" />
+    {/* Umbrella */}
+    <rect x="6" y="4" width="4" height="4" fill="hsl(0 70% 50%)" />
+    <rect x="7" y="5" width="2" height="2" fill="hsl(0 80% 60%)" />
+    <rect x="7" y="8" width="2" height="4" fill="hsl(25 60% 45%)" />
+  </svg>
+);
+
+const PixelShopping = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Bag */}
+    <rect x="4" y="6" width="8" height="8" fill="hsl(var(--primary))" />
+    <rect x="5" y="7" width="6" height="6" fill="hsl(200 60% 50%)" />
+    {/* Handles */}
+    <rect x="5" y="5" width="2" height="1" fill="hsl(var(--primary))" />
+    <rect x="9" y="5" width="2" height="1" fill="hsl(var(--primary))" />
+    {/* Items inside */}
+    <rect x="6" y="8" width="4" height="2" fill="hsl(45 80% 60%)" />
+    <rect x="7" y="10" width="2" height="2" fill="hsl(0 70% 50%)" />
+  </svg>
+);
+
 // "You are here" chat bubble
 const PixelAvatar = () => (
   <svg viewBox="0 0 90 45" className="w-24 h-12 md:w-28 md:h-14" style={{ imageRendering: "pixelated" }}>
@@ -435,6 +604,15 @@ export const sprites: Record<string, React.FC<{ isActive: boolean; isPast: boole
   camera: PixelCamera,
   music: PixelMusic,
   dinner: PixelDinner,
+  gift: PixelGift,
+  cake: PixelCake,
+  heart: PixelHeart,
+  star: PixelStar,
+  balloon: PixelBalloon,
+  car: PixelCar,
+  map: PixelMap,
+  beach: PixelBeach,
+  shopping: PixelShopping,
 };
 
 // Pixel border pattern - Pasar Seni art market theme
@@ -476,8 +654,9 @@ const TimelineSection = ({
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   
-  const { addPhoto, getPhotosByCheckpoint } = useAdventure();
+  const { addPhoto, getPhotosByCheckpoint, deletePhoto } = useAdventure();
 
   // Load photos for selected checkpoint
   useEffect(() => {
@@ -505,14 +684,46 @@ const TimelineSection = ({
   const currentLocationIndex = getCurrentLocationIndex();
 
   // Path coordinates for the flowing wave pattern
-  const pathPoints = [
-    { x: 15, y: 80 },  // Start: Bottom-left area - gentle entry point
-    { x: 25, y: 65 },  // Wave up: First crest
-    { x: 40, y: 75 },  // Wave down: First trough
-    { x: 55, y: 60 },  // Wave up: Second crest
-    { x: 70, y: 70 },  // Wave down: Second trough
-    { x: 85, y: 45 },  // End: Top-right area - gentle exit point
-  ];
+  // Generate path points dynamically based on itinerary length
+  const generatePathPoints = (count: number) => {
+    if (count === 0) return [];
+    if (count === 1) return [{ x: 50, y: 50 }];
+    
+    const points: { x: number; y: number }[] = [];
+    const basePoints = [
+      { x: 15, y: 80 },  // Start: Bottom-left area - gentle entry point
+      { x: 25, y: 65 },  // Wave up: First crest
+      { x: 40, y: 75 },  // Wave down: First trough
+      { x: 55, y: 60 },  // Wave up: Second crest
+      { x: 70, y: 70 },  // Wave down: Second trough
+      { x: 85, y: 45 },  // End: Top-right area - gentle exit point
+    ];
+    
+    if (count <= basePoints.length) {
+      // Use first N points from base
+      return basePoints.slice(0, count);
+    } else {
+      // Use all base points, then generate additional points
+      const additional = count - basePoints.length;
+      const lastPoint = basePoints[basePoints.length - 1];
+      const spacing = (100 - lastPoint.x) / (additional + 1);
+      
+      for (let i = 0; i < basePoints.length; i++) {
+        points.push(basePoints[i]);
+      }
+      
+      // Generate additional points in a pattern
+      for (let i = 1; i <= additional; i++) {
+        const x = lastPoint.x + (spacing * i);
+        const y = lastPoint.y + (Math.sin(i * 0.5) * 10); // Slight wave pattern
+        points.push({ x: Math.min(95, x), y: Math.max(10, Math.min(90, y)) });
+      }
+    }
+    
+    return points;
+  };
+  
+  const pathPoints = generatePathPoints(itineraryState.length);
 
   const handleStampClick = (item: ItineraryItem) => {
     // Clear any previous errors when clicking a new stamp
@@ -525,7 +736,7 @@ const TimelineSection = ({
       i.title === item.title && 
       i.sprite === item.sprite
     );
-    if (index >= 0 && pathPoints[index]) {
+    if (index >= 0 && pathPoints[index] && pathPoints[index].x !== undefined && pathPoints[index].y !== undefined) {
       const pos = pathPoints[index];
       // Convert percentage to pixel coordinates
       const x = (pos.x / 100) * window.innerWidth;
@@ -557,6 +768,27 @@ const TimelineSection = ({
       setCapturedPhotoSrc("");
     } catch (error) {
       console.error("Error saving photo:", error);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!window.confirm("Are you sure you want to delete this photo?")) {
+      return;
+    }
+
+    try {
+      setDeletingPhotoId(photoId);
+      await deletePhoto(photoId);
+      if (selectedEvent) {
+        const checkpointId = `${selectedEvent.time}-${selectedEvent.title}`;
+        const photos = await getPhotosByCheckpoint(checkpointId);
+        setCheckpointPhotos(photos);
+      }
+    } catch (error) {
+      console.error("Error deleting photo:", error);
+      alert("Failed to delete photo. Please try again.");
+    } finally {
+      setDeletingPhotoId(null);
     }
   };
 
@@ -761,48 +993,52 @@ const TimelineSection = ({
               <rect x="0" y="0" width="100%" height="100%" fill="url(#groundPattern)" />
               
               {/* Main market path - wider and more visible */}
-              <path
-                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
-                stroke="hsl(30 30% 70%)"
-                strokeWidth="28"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity="0.9"
-              />
-              
-              {/* Path surface with pattern */}
-              <path
-                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
-                stroke="url(#pathPattern)"
-                strokeWidth="24"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              
-              {/* Path border/edge */}
-              <path
-                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
-                stroke="hsl(30 25% 60%)"
-                strokeWidth="26"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity="0.4"
-              />
-              
-              {/* Path center line - decorative */}
-              <path
-                d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
-                stroke="hsl(15 60% 50%)"
-                strokeWidth="2"
-                strokeDasharray="8 4"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity="0.6"
-              />
+              {pathPoints.length > 0 && (
+                <>
+                  <path
+                    d={`M ${pathPoints.filter(p => p && p.x !== undefined && p.y !== undefined).map(p => `${p.x},${p.y}`).join(" L ")}`}
+                    stroke="hsl(30 30% 70%)"
+                    strokeWidth="28"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.9"
+                  />
+                  
+                  {/* Path surface with pattern */}
+                  <path
+                    d={`M ${pathPoints.filter(p => p && p.x !== undefined && p.y !== undefined).map(p => `${p.x},${p.y}`).join(" L ")}`}
+                    stroke="url(#pathPattern)"
+                    strokeWidth="24"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  
+                  {/* Path border/edge */}
+                  <path
+                    d={`M ${pathPoints.filter(p => p && p.x !== undefined && p.y !== undefined).map(p => `${p.x},${p.y}`).join(" L ")}`}
+                    stroke="hsl(30 25% 60%)"
+                    strokeWidth="26"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.4"
+                  />
+                  
+                  {/* Path center line - decorative */}
+                  <path
+                    d={`M ${pathPoints.filter(p => p && p.x !== undefined && p.y !== undefined).map(p => `${p.x},${p.y}`).join(" L ")}`}
+                    stroke="hsl(15 60% 50%)"
+                    strokeWidth="2"
+                    strokeDasharray="8 4"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.6"
+                  />
+                </>
+              )}
             </svg>
 
             {/* Market ground texture */}
@@ -832,8 +1068,9 @@ const TimelineSection = ({
             {/* Connecting lines between checkpoints with direction indicators - positioned below checkpoints */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ imageRendering: "pixelated", zIndex: 1 }}>
               {pathPoints.map((point, index) => {
-                if (index === pathPoints.length - 1) return null; // Skip last point
+                if (!point || index === pathPoints.length - 1) return null; // Skip last point or invalid point
                 const nextPoint = pathPoints[index + 1];
+                if (!nextPoint) return null; // Skip if next point doesn't exist
                 const currentItem = itineraryState[index];
                 const isPast = currentItem?.isPast || false;
                 const dx = nextPoint.x - point.x;
@@ -898,6 +1135,11 @@ const TimelineSection = ({
               const SpriteComponent = sprites[item.sprite];
               const pos = pathPoints[index];
               
+              // Skip if position doesn't exist
+              if (!pos || pos.x === undefined || pos.y === undefined) {
+                return null;
+              }
+              
               return (
                 <motion.button
                   key={index}
@@ -935,28 +1177,30 @@ const TimelineSection = ({
             })}
 
             {/* "You are here" chat bubble on current location - follows latest completed activity */}
-            <motion.div
-              className="absolute z-30"
-              key={currentLocationIndex} // Force re-render when location changes
-              style={{
-                left: `${pathPoints[currentLocationIndex].x}%`,
-                top: `${pathPoints[currentLocationIndex].y}%`,
-                transform: "translate(-50%, -110%)",
-              }}
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ 
-                scale: 1, 
-                opacity: 1,
-                y: [0, -3, 0],
-              }}
-              transition={{ 
-                scale: { duration: 0.3 },
-                opacity: { duration: 0.3 },
-                y: { repeat: Infinity, duration: 0.8 }
-              }}
-            >
-              <PixelAvatar />
-            </motion.div>
+            {currentLocationIndex >= 0 && pathPoints[currentLocationIndex] && pathPoints[currentLocationIndex].x !== undefined && (
+              <motion.div
+                className="absolute z-30"
+                key={currentLocationIndex} // Force re-render when location changes
+                style={{
+                  left: `${pathPoints[currentLocationIndex].x}%`,
+                  top: `${pathPoints[currentLocationIndex].y}%`,
+                  transform: "translate(-50%, -110%)",
+                }}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ 
+                  scale: 1, 
+                  opacity: 1,
+                  y: [0, -3, 0],
+                }}
+                transition={{ 
+                  scale: { duration: 0.3 },
+                  opacity: { duration: 0.3 },
+                  y: { repeat: Infinity, duration: 0.8 }
+                }}
+              >
+                <PixelAvatar />
+              </motion.div>
+            )}
 
             {/* Legend with pasar seni styling */}
             <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[hsl(35_40%_85%)] p-2 rounded border-2 border-[hsl(15_60%_50%)]">
@@ -1076,7 +1320,7 @@ const TimelineSection = ({
                           {checkpointPhotos.slice(0, 6).map((photo) => (
                             <div
                               key={photo.id}
-                              className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden"
+                              className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden group"
                             >
                               <img
                                 src={photo.src}
@@ -1084,6 +1328,22 @@ const TimelineSection = ({
                                 className="w-full h-full object-cover"
                                 style={{ imageRendering: "pixelated" }}
                               />
+                              {/* Delete button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePhoto(photo.id);
+                                }}
+                                disabled={deletingPhotoId === photo.id}
+                                className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-wait"
+                                title="Delete photo"
+                              >
+                                {deletingPhotoId === photo.id ? (
+                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3 h-3" />
+                                )}
+                              </button>
                             </div>
                           ))}
                         </div>

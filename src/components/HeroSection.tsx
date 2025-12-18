@@ -75,7 +75,7 @@ const HeroSection = () => {
         >
           Happy Birthday,
           <br />
-          <span className="font-script text-6xl md:text-8xl lg:text-9xl">My little Nyucing</span>
+          <span className="font-script text-6xl md:text-8xl lg:text-9xl">My Love</span>
         </motion.h1>
 
         <motion.p

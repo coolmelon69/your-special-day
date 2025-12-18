@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Gift, Sparkles, Check, Lock, Trophy, Heart, Compass } from "lucide-react";
 import {
@@ -12,6 +12,13 @@ import {
 import type { ItineraryItem } from "./TimelineSection";
 import ThreeDCouponCard from "./3DCouponCard";
 import VoucherModal from "./VoucherModal";
+import { useAdventure } from "@/contexts/AdventureContext";
+import {
+  syncCouponAchievements,
+  loadCouponAchievements,
+  mergeAchievementData,
+  type AchievementData as AchievementDataType,
+} from "@/utils/supabaseSync";
 
 export interface Coupon {
   id: number;
@@ -23,7 +30,8 @@ export interface Coupon {
   category?: string;
 }
 
-const coupons: Coupon[] = [
+// Default coupons (fallback if custom coupons not enabled)
+const defaultCoupons: Coupon[] = [
   {
     id: 1,
     title: "Free Zoo Negara Entry",
@@ -66,19 +74,19 @@ const ACHIEVEMENTS: Achievement[] = [
     id: "adventure-seeker",
     name: "Adventure Seeker",
     description: "Redeemed your first coupon!",
-    icon: <Compass className="w-8 h-8" />,
+    icon: <Compass className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />,
   },
   {
     id: "romantic-explorer",
     name: "Romantic Explorer",
     description: "Redeemed 2+ coupons",
-    icon: <Heart className="w-8 h-8" />,
+    icon: <Heart className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />,
   },
   {
     id: "coupon-master",
     name: "Coupon Master",
     description: "Redeemed all available coupons!",
-    icon: <Trophy className="w-8 h-8" />,
+    icon: <Trophy className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />,
   },
 ];
 
@@ -125,7 +133,7 @@ interface AchievementBadgeProps {
 const AchievementBadge = ({ achievement, isUnlocked, isNewlyUnlocked }: AchievementBadgeProps) => {
   return (
     <motion.div
-      className={`relative p-4 rounded-lg border-2 ${
+      className={`relative p-2 sm:p-3 md:p-4 rounded-lg border-2 ${
         isUnlocked
           ? "bg-[hsl(35_45%_90%)] border-[hsl(15_70%_55%)] shadow-lg"
           : "bg-[hsl(35_40%_88%)] border-[hsl(30_30%_60%)] opacity-60"
@@ -151,15 +159,17 @@ const AchievementBadge = ({ achievement, isUnlocked, isNewlyUnlocked }: Achievem
       </div>
 
       <div className="flex flex-col items-center text-center relative z-10">
-        <div className={`mb-2 ${isUnlocked ? "text-[hsl(15_70%_55%)]" : "text-[hsl(30_30%_50%)] grayscale"}`}>
-          {achievement.icon}
+        <div className={`mb-1 sm:mb-2 ${isUnlocked ? "text-[hsl(15_70%_55%)]" : "text-[hsl(30_30%_50%)] grayscale"}`}>
+          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
+            {achievement.icon}
+          </div>
         </div>
-        <h4 className={`font-pixel text-sm font-bold mb-1 ${
+        <h4 className={`font-pixel text-xs sm:text-sm font-bold mb-0.5 sm:mb-1 ${
           isUnlocked ? "text-[hsl(15_70%_40%)]" : "text-[hsl(30_20%_40%)]"
         }`}>
           {achievement.name}
         </h4>
-        <p className={`font-pixel text-[10px] ${
+        <p className={`font-pixel text-[9px] sm:text-[10px] ${
           isUnlocked ? "text-[hsl(15_60%_35%)]" : "text-[hsl(30_20%_40%)]"
         }`}>
           {achievement.description}
@@ -193,6 +203,7 @@ interface GiftCouponsSectionProps {
 }
 
 const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
+  const { coupons: contextCoupons, refreshCoupons, user } = useAdventure();
   const [redeemedCoupons, setRedeemedCoupons] = useState<number[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -202,51 +213,199 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
     achievementTimestamps: {},
   });
   const [newlyUnlockedAchievements, setNewlyUnlockedAchievements] = useState<string[]>([]);
+  
+  // Track if initial load from Supabase has completed
+  const hasLoadedFromSupabase = useRef(false);
+  // Debounce timer for Supabase sync
+  const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load achievement data from localStorage
+  // Use coupons from context, fallback to defaults
+  const coupons: Coupon[] = contextCoupons.length > 0 
+    ? contextCoupons.map(c => ({
+        id: typeof c.id === 'number' ? c.id : parseInt(c.id.replace(/\D/g, '')) || 1,
+        title: c.title,
+        description: c.description,
+        emoji: c.emoji,
+        color: c.color,
+        requiredStamps: c.requiredStamps,
+        category: c.category,
+      }))
+    : defaultCoupons;
+
+  // Refresh coupons when component mounts
   useEffect(() => {
-    try {
-      if (typeof window === "undefined" || !window.localStorage) {
+    refreshCoupons();
+  }, [refreshCoupons]);
+
+  // Load achievement data from Supabase first, then fallback to localStorage
+  useEffect(() => {
+    // Reset flag when user changes
+    hasLoadedFromSupabase.current = false;
+    
+    const loadAchievementData = async () => {
+      if (!user) {
         return;
       }
       
-      const saved = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as AchievementData;
-        if (parsed.redeemedCouponIds && Array.isArray(parsed.redeemedCouponIds)) {
-          setRedeemedCoupons(parsed.redeemedCouponIds);
-          setAchievementData({
-            redeemedCouponIds: parsed.redeemedCouponIds || [],
-            achievementsUnlocked: parsed.achievementsUnlocked || [],
-            achievementTimestamps: parsed.achievementTimestamps || {},
-          });
+      if (hasLoadedFromSupabase.current) {
+        return;
+      }
+      hasLoadedFromSupabase.current = true;
+
+      try {
+        // Load from localStorage first (as fallback)
+        let localData: AchievementDataType | null = null;
+        if (typeof window !== "undefined" && window.localStorage) {
+          const saved = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved) as AchievementDataType;
+              if (parsed.redeemedCouponIds && Array.isArray(parsed.redeemedCouponIds)) {
+                localData = parsed;
+              }
+            } catch (parseError) {
+              console.error("Error parsing localStorage achievement data:", parseError);
+            }
+          }
+        }
+
+        // Load from Supabase (only if user is authenticated)
+        console.log("Loading coupon achievements from Supabase for user:", user?.email);
+        const remoteResult = user ? await loadCouponAchievements() : null;
+        console.log("Loaded coupon achievements from Supabase:", remoteResult);
+
+        // Get localStorage timestamp if available (try to parse from stored data)
+        let localTimestamp: number | undefined;
+        if (localData && typeof window !== "undefined" && window.localStorage) {
+          try {
+            // Try to get timestamp from achievement_timestamps (use the latest one)
+            const timestamps = Object.values(localData.achievementTimestamps || {});
+            if (timestamps.length > 0) {
+              localTimestamp = Math.max(...timestamps);
+            }
+          } catch {
+            // If we can't determine local timestamp, use current time as fallback
+            localTimestamp = Date.now();
+          }
+        }
+
+        // Merge: use Supabase data if available (last-write-wins)
+        const mergedData = mergeAchievementData(
+          localData,
+          remoteResult?.data || null,
+          localTimestamp,
+          remoteResult?.updatedAt
+        );
+
+        // Update state with merged data
+        setRedeemedCoupons(mergedData.redeemedCouponIds);
+        setAchievementData(mergedData);
+
+        // If we had local data but no remote data, sync local to Supabase immediately
+        // This ensures data is synced on first load
+        if (localData && !remoteResult && user) {
+          try {
+            console.log("Syncing local coupon data to Supabase (first time)");
+            await syncCouponAchievements(localData);
+          } catch (error) {
+            console.error("Error syncing local data to Supabase:", error);
+            // Non-blocking - the sync effect will retry later
+          }
+        }
+        
+        // If we have remote data, it takes precedence (already merged above)
+        if (remoteResult) {
+          console.log("Loaded remote coupon data from Supabase, using it");
+        } else if (user) {
+          console.log("No remote coupon data found for user");
+        }
+      } catch (error) {
+        console.error("Error loading achievement data:", error);
+        // Fallback to localStorage only
+        if (typeof window !== "undefined" && window.localStorage) {
+          const saved = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved) as AchievementDataType;
+              if (parsed.redeemedCouponIds && Array.isArray(parsed.redeemedCouponIds)) {
+                setRedeemedCoupons(parsed.redeemedCouponIds);
+                setAchievementData({
+                  redeemedCouponIds: parsed.redeemedCouponIds || [],
+                  achievementsUnlocked: parsed.achievementsUnlocked || [],
+                  achievementTimestamps: parsed.achievementTimestamps || {},
+                });
+              }
+            } catch (parseError) {
+              console.error("Error parsing localStorage data:", parseError);
+            }
+          }
         }
       }
-    } catch (error) {
-      console.error("Error loading achievement data:", error);
-    }
-  }, []);
+    };
 
-  // Save achievement data to localStorage
+    // Load if user is authenticated
+    if (user) {
+      loadAchievementData();
+    }
+  }, [user]);
+
+  // Save achievement data to localStorage and sync to Supabase
   useEffect(() => {
+    // Skip if this is the initial load (we handle that separately)
+    if (!hasLoadedFromSupabase.current) {
+      return;
+    }
+
+    const dataToSave: AchievementDataType = {
+      redeemedCouponIds: redeemedCoupons,
+      achievementsUnlocked: achievementData.achievementsUnlocked,
+      achievementTimestamps: achievementData.achievementTimestamps || {},
+    };
+
+    // Always save to localStorage (immediate, always succeeds)
     try {
-      if (typeof window === "undefined" || !window.localStorage) {
-        return;
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(dataToSave));
       }
-      
-      const dataToSave: AchievementData = {
-        redeemedCouponIds: redeemedCoupons,
-        achievementsUnlocked: achievementData.achievementsUnlocked,
-        achievementTimestamps: achievementData.achievementTimestamps || {},
-      };
-      localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(dataToSave));
     } catch (error) {
-      console.error("Error saving achievement data:", error);
+      console.error("Error saving achievement data to localStorage:", error);
       if (error instanceof DOMException && error.name === "QuotaExceededError") {
         console.warn("localStorage quota exceeded, achievements not saved");
       }
     }
-  }, [redeemedCoupons, achievementData.achievementsUnlocked]);
+
+    // Debounce Supabase sync (500ms delay to avoid too many requests)
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = setTimeout(async () => {
+      if (!user) {
+        // User not authenticated, skip sync
+        console.log("Skipping coupon sync - user not authenticated");
+        return;
+      }
+      try {
+        console.log("Syncing coupon achievements:", dataToSave);
+        const success = await syncCouponAchievements(dataToSave);
+        if (success) {
+          console.log("Coupon achievements synced successfully");
+        } else {
+          console.warn("Coupon achievements sync returned false");
+        }
+      } catch (error) {
+        console.error("Error syncing coupon achievements to Supabase:", error);
+        // Non-blocking: continue even if sync fails
+      }
+    }, 500);
+
+    // Cleanup timer on unmount or dependency change
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, [redeemedCoupons, achievementData.achievementsUnlocked, achievementData.achievementTimestamps, user]);
 
   // Calculate completed stamps
   const completedStamps = itineraryState.filter(item => item.isPast).length;
@@ -387,7 +546,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             Your <span className="text-gradient-romantic">Gift Coupons</span>
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Redeem these special coupons anytime you want!
+            Unlock and redeem special coupons as you complete your adventures. Each coupon is a promise for a wonderful experience together!
           </p>
         </motion.div>
 
@@ -401,7 +560,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
           <h3 className="font-serif text-2xl md:text-3xl font-bold text-center mb-6">
             <span className="text-gradient-romantic">Achievements</span>
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-4xl mx-auto">
             {ACHIEVEMENTS.map((achievement) => {
               const isUnlocked = achievementData.achievementsUnlocked.includes(achievement.id);
               const isNewlyUnlocked = newlyUnlockedAchievements.includes(achievement.id);
@@ -422,7 +581,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-5xl mx-auto">
           {coupons.map((coupon, index) => {
             const isRedeemed = redeemedCoupons.includes(coupon.id);
             const isUnlocked = isCouponUnlocked(coupon);
@@ -431,7 +590,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             return (
               <motion.div
                 key={coupon.id}
-                className="h-[400px]"
+                className="h-[280px] sm:h-[320px] md:h-[400px]"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}

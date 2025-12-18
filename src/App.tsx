@@ -6,36 +6,52 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AdventureProvider } from "@/contexts/AdventureContext";
 import NavigationBar from "@/components/NavigationBar";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import HomePage from "./pages/HomePage";
 import StampsPage from "./pages/StampsPage";
 import CouponsPage from "./pages/CouponsPage";
 import MemoryBookPage from "./pages/MemoryBookPage";
+import WrappedPage from "./pages/WrappedPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminPanelPage from "./pages/AdminPanelPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <HelmetProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AdventureProvider>
-            <NavigationBar />
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/stamps" element={<StampsPage />} />
-              <Route path="/coupons" element={<CouponsPage />} />
-              <Route path="/memory-book" element={<MemoryBookPage />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AdventureProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
+  <ErrorBoundary>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
+            <AdventureProvider>
+              <ErrorBoundary>
+                <NavigationBar />
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/stamps" element={<StampsPage />} />
+                  <Route path="/coupons" element={<CouponsPage />} />
+                  <Route path="/memory-book" element={<MemoryBookPage />} />
+                  <Route path="/wrapped" element={<WrappedPage />} />
+                  <Route path="/admin/login" element={<AdminLoginPage />} />
+                  <Route path="/admin" element={<AdminPanelPage />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </ErrorBoundary>
+            </AdventureProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
+  </ErrorBoundary>
 );
 
 export default App;

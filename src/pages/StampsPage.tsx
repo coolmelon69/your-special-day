@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera } from "lucide-react";
+import { X, Camera, Trash2 } from "lucide-react";
 import StampCollectionSection from "@/components/StampCollectionSection";
 import Footer from "@/components/Footer";
 import { useAdventure } from "@/contexts/AdventureContext";
@@ -11,7 +11,7 @@ import PhotoCaptureModal from "@/components/PhotoCaptureModal";
 import PhotoEditor from "@/components/PhotoEditor";
 
 const StampsPage = () => {
-  const { itineraryState, resetProgress, setItineraryState, addPhoto, getPhotosByCheckpoint } = useAdventure();
+  const { itineraryState, resetProgress, setItineraryState, addPhoto, getPhotosByCheckpoint, deletePhoto } = useAdventure();
   const [selectedEvent, setSelectedEvent] = useState<ItineraryItem | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
@@ -19,6 +19,7 @@ const StampsPage = () => {
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
 
   // Load photos for selected checkpoint
   useEffect(() => {
@@ -118,6 +119,27 @@ const StampsPage = () => {
       setCapturedPhotoSrc("");
     } catch (error) {
       console.error("Error saving photo:", error);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!window.confirm("Are you sure you want to delete this photo?")) {
+      return;
+    }
+
+    try {
+      setDeletingPhotoId(photoId);
+      await deletePhoto(photoId);
+      if (selectedEvent) {
+        const checkpointId = `${selectedEvent.time}-${selectedEvent.title}`;
+        const photos = await getPhotosByCheckpoint(checkpointId);
+        setCheckpointPhotos(photos);
+      }
+    } catch (error) {
+      console.error("Error deleting photo:", error);
+      alert("Failed to delete photo. Please try again.");
+    } finally {
+      setDeletingPhotoId(null);
     }
   };
 
@@ -258,7 +280,7 @@ const StampsPage = () => {
                             {checkpointPhotos.slice(0, 6).map((photo) => (
                               <div
                                 key={photo.id}
-                                className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden"
+                                className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden group"
                               >
                                 <img
                                   src={photo.src}
@@ -266,6 +288,22 @@ const StampsPage = () => {
                                   className="w-full h-full object-cover"
                                   style={{ imageRendering: "pixelated" }}
                                 />
+                                {/* Delete button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeletePhoto(photo.id);
+                                  }}
+                                  disabled={deletingPhotoId === photo.id}
+                                  className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-wait"
+                                  title="Delete photo"
+                                >
+                                  {deletingPhotoId === photo.id ? (
+                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3 h-3" />
+                                  )}
+                                </button>
                               </div>
                             ))}
                           </div>
