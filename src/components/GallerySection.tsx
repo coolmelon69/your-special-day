@@ -79,7 +79,7 @@ const GallerySection = () => {
         >
           <Camera className="mx-auto mb-4 text-primary" size={36} />
           <h2 className="font-serif text-4xl md:text-5xl font-bold mb-4">
-            The <span className="text-gradient-romantic">Us</span> Gallery
+            The <span className="text-gradient-romantic">we</span> Gallery
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">
             A collection of our favorite memories together
