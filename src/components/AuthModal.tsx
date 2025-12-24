@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Mail, Lock, UserPlus, LogIn } from "lucide-react";
-import { signUp, signIn, type SignUpResult, type SignInResult } from "@/utils/auth";
+import { X, Mail, Lock, UserPlus, LogIn, KeyRound } from "lucide-react";
+import { signUp, signIn, resetPassword, type SignUpResult, type SignInResult } from "@/utils/auth";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,19 +11,59 @@ interface AuthModalProps {
 }
 
 const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register" | "forgot-password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleTabChange = (tab: "login" | "register") => {
+  const handleTabChange = (tab: "login" | "register" | "forgot-password") => {
     setActiveTab(tab);
     setError(null);
+    setSuccessMessage(null);
     setEmail("");
     setPassword("");
     setConfirmPassword("");
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+
+    // Validation
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await resetPassword(email.trim());
+      
+      if (result.error) {
+        setError(result.error.message || "Failed to send reset email. Please try again.");
+      } else {
+        // Success - show success message
+        setSuccessMessage("Password reset email sent! Check your inbox for instructions.");
+        setEmail("");
+      }
+    } catch (err: any) {
+      console.error("Error sending reset email:", err);
+      setError("Failed to send reset email. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -148,8 +188,10 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
           <div className="text-center mb-6">
             {activeTab === "login" ? (
               <LogIn className="w-8 h-8 mx-auto mb-2 text-[hsl(15_70%_55%)]" />
-            ) : (
+            ) : activeTab === "register" ? (
               <UserPlus className="w-8 h-8 mx-auto mb-2 text-[hsl(15_70%_55%)]" />
+            ) : (
+              <KeyRound className="w-8 h-8 mx-auto mb-2 text-[hsl(15_70%_55%)]" />
             )}
             <h2
               className="font-pixel text-xl md:text-2xl text-[hsl(15_70%_40%)] mb-2"
@@ -160,7 +202,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                 fontSmooth: "never",
               }}
             >
-              {activeTab === "login" ? "Login" : "Register"}
+              {activeTab === "login" ? "Login" : activeTab === "register" ? "Register" : "Reset Password"}
             </h2>
             <p
               className="font-pixel text-xs text-[hsl(15_60%_35%)]"
@@ -168,35 +210,55 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
             >
               {activeTab === "login"
                 ? "Sign in to sync your progress"
-                : "Create an account to get started"}
+                : activeTab === "register"
+                ? "Create an account to get started"
+                : "Enter your email to receive a password reset link"}
             </p>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-2 mb-4 border-2 border-[hsl(30_40%_60%)] rounded p-1">
-            <button
-              onClick={() => handleTabChange("login")}
-              className={`flex-1 py-2 px-4 font-pixel text-sm transition-all ${
-                activeTab === "login"
-                  ? "bg-[hsl(15_70%_55%)] text-white"
-                  : "bg-transparent text-[hsl(15_60%_35%)] hover:bg-[hsl(35_30%_85%)]"
-              }`}
-              style={{ textRendering: "optimizeSpeed" }}
+          {/* Tabs - Only show when not in forgot password mode */}
+          {activeTab !== "forgot-password" && (
+            <div className="flex gap-2 mb-4 border-2 border-[hsl(30_40%_60%)] rounded p-1">
+              <button
+                onClick={() => handleTabChange("login")}
+                className={`flex-1 py-2 px-4 font-pixel text-sm transition-all ${
+                  activeTab === "login"
+                    ? "bg-[hsl(15_70%_55%)] text-white"
+                    : "bg-transparent text-[hsl(15_60%_35%)] hover:bg-[hsl(35_30%_85%)]"
+                }`}
+                style={{ textRendering: "optimizeSpeed" }}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => handleTabChange("register")}
+                className={`flex-1 py-2 px-4 font-pixel text-sm transition-all ${
+                  activeTab === "register"
+                    ? "bg-[hsl(15_70%_55%)] text-white"
+                    : "bg-transparent text-[hsl(15_60%_35%)] hover:bg-[hsl(35_30%_85%)]"
+                }`}
+                style={{ textRendering: "optimizeSpeed" }}
+              >
+                Register
+              </button>
+            </div>
+          )}
+
+          {/* Success message */}
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 p-3 bg-[hsl(120_70%_50%)] border-2 border-[hsl(120_60%_40%)] rounded"
             >
-              Login
-            </button>
-            <button
-              onClick={() => handleTabChange("register")}
-              className={`flex-1 py-2 px-4 font-pixel text-sm transition-all ${
-                activeTab === "register"
-                  ? "bg-[hsl(15_70%_55%)] text-white"
-                  : "bg-transparent text-[hsl(15_60%_35%)] hover:bg-[hsl(35_30%_85%)]"
-              }`}
-              style={{ textRendering: "optimizeSpeed" }}
-            >
-              Register
-            </button>
-          </div>
+              <p
+                className="font-pixel text-xs text-white text-center"
+                style={{ textRendering: "optimizeSpeed" }}
+              >
+                {successMessage}
+              </p>
+            </motion.div>
+          )}
 
           {/* Error message */}
           {error && (
@@ -279,6 +341,16 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
               >
                 <LogIn className="w-4 h-4" />
                 {isLoading ? "Logging in..." : "Login"}
+              </button>
+
+              {/* Forgot Password Link */}
+              <button
+                type="button"
+                onClick={() => handleTabChange("forgot-password")}
+                className="w-full text-center font-pixel text-xs text-[hsl(15_60%_50%)] hover:text-[hsl(15_70%_55%)] transition-colors underline"
+                style={{ textRendering: "optimizeSpeed" }}
+              >
+                Forgot password?
               </button>
             </form>
           )}
@@ -375,6 +447,59 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
               >
                 <UserPlus className="w-4 h-4" />
                 {isLoading ? "Registering..." : "Register"}
+              </button>
+            </form>
+          )}
+
+          {/* Forgot Password Form */}
+          {activeTab === "forgot-password" && (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label
+                  className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-2 block"
+                  style={{ textRendering: "optimizeSpeed" }}
+                >
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(15_60%_35%)]" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError(null);
+                      setSuccessMessage(null);
+                    }}
+                    placeholder="your@email.com"
+                    className="w-full pl-10 pr-4 py-3 font-pixel text-sm border-4 border-[hsl(30_40%_60%)] bg-white text-[hsl(15_70%_40%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
+                    style={{
+                      textRendering: "optimizeSpeed",
+                      imageRendering: "pixelated",
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 font-pixel text-sm bg-[hsl(15_70%_55%)] border-2 border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ textRendering: "optimizeSpeed" }}
+              >
+                <KeyRound className="w-4 h-4" />
+                {isLoading ? "Sending..." : "Send Reset Link"}
+              </button>
+
+              {/* Back to Login Link */}
+              <button
+                type="button"
+                onClick={() => handleTabChange("login")}
+                className="w-full text-center font-pixel text-xs text-[hsl(15_60%_50%)] hover:text-[hsl(15_70%_55%)] transition-colors underline"
+                style={{ textRendering: "optimizeSpeed" }}
+              >
+                Back to Login
               </button>
             </form>
           )}

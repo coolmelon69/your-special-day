@@ -141,6 +141,54 @@ export const getCurrentSession = async (): Promise<Session | null> => {
 };
 
 /**
+ * Reset password for a user (sends password reset email)
+ */
+export const resetPassword = async (
+  email: string
+): Promise<{ error: AuthError | null }> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return {
+      error: { message: "Supabase is not available", status: 500 } as AuthError,
+    };
+  }
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    return { error };
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    return { error: error as AuthError };
+  }
+};
+
+/**
+ * Update password for a user (used after password reset)
+ */
+export const updatePassword = async (
+  newPassword: string
+): Promise<{ error: AuthError | null }> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return {
+      error: { message: "Supabase is not available", status: 500 } as AuthError,
+    };
+  }
+
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    return { error };
+  } catch (error) {
+    console.error("Error updating password:", error);
+    return { error: error as AuthError };
+  }
+};
+
+/**
  * Listen to authentication state changes
  * Returns an unsubscribe function
  */
