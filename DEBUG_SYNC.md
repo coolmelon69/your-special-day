@@ -134,3 +134,4 @@ In Supabase Dashboard:
 4. Make sure you're using the correct project URL and anon key
 
 
+

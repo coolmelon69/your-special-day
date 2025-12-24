@@ -98,3 +98,4 @@ const ProgressBars = ({ currentSlide, progress, isPaused, onTogglePause }: Progr
 export default ProgressBars;
 
 
+

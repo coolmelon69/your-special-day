@@ -8,3 +8,4 @@ ALTER TABLE stamps_progress ALTER COLUMN user_id DROP NOT NULL;
 ALTER TABLE coupon_achievements ALTER COLUMN user_id DROP NOT NULL;
 
 
+

@@ -117,3 +117,4 @@ Device link code sync allows multiple devices to share the same stamps and coupo
 - If you want to leave a group and create a new private group, you'd need to clear localStorage and refresh (this could be added as a feature later)
 
 
+

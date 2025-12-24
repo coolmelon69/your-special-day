@@ -72,3 +72,4 @@ CREATE TRIGGER update_custom_coupons_updated_at
 COMMENT ON TABLE custom_coupons IS 'Stores user-created custom coupons that sync across devices via Supabase';
 
 
+

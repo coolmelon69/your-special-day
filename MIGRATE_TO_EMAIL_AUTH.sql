@@ -163,3 +163,4 @@ DROP INDEX IF EXISTS idx_sync_group_invites_expires_at;
 -- Users must authenticate with email/password to sync data.
 
 
+

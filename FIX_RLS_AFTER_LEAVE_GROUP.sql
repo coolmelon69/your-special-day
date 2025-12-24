@@ -67,3 +67,4 @@ CREATE POLICY "Users can delete coupon achievements in their groups"
   USING (is_user_in_group(group_id));
 
 
+

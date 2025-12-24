@@ -390,3 +390,4 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
 export default AuthModal;
 
 
+

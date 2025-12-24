@@ -68,3 +68,4 @@ After enabling anonymous auth:
 The error should disappear once anonymous authentication is enabled in your Supabase project settings.
 
 
+
