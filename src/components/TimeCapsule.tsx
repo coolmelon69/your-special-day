@@ -79,13 +79,12 @@ const TimeCapsule = () => {
 
   // Handle locking the capsule
   const handleLock = () => {
-    // For testing: unlock 10 seconds after locking
-    const unlockIn10Seconds = new Date(Date.now() + 10000);
+    const nextFeb12 = getNextFeb12();
     setIsLocked(true);
-    setUnlockDate(unlockIn10Seconds);
+    setUnlockDate(nextFeb12);
     if (typeof window !== "undefined" && window.localStorage) {
       localStorage.setItem(STORAGE_KEY_LOCKED, "true");
-      localStorage.setItem(STORAGE_KEY_UNLOCK_DATE, unlockIn10Seconds.toISOString());
+      localStorage.setItem(STORAGE_KEY_UNLOCK_DATE, nextFeb12.toISOString());
     }
   };
 

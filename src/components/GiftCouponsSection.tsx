@@ -219,10 +219,28 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
   // Debounce timer for Supabase sync
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Helper function to convert string IDs to unique numeric IDs
+  // Maps custom coupon string IDs to a range starting from 10000 to avoid collisions with default coupon IDs (1-3)
+  const convertCouponId = (id: number | string): number => {
+    if (typeof id === 'number') {
+      return id;
+    }
+    // For string IDs, create a hash-based numeric ID starting from 10000
+    // This ensures no collisions with default coupon IDs (1-3)
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      const char = id.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    // Map to range 10000+ to avoid collisions with default IDs
+    return 10000 + Math.abs(hash);
+  };
+
   // Use coupons from context, fallback to defaults
   const coupons: Coupon[] = contextCoupons.length > 0 
     ? contextCoupons.map(c => ({
-        id: typeof c.id === 'number' ? c.id : parseInt(c.id.replace(/\D/g, '')) || 1,
+        id: convertCouponId(c.id),
         title: c.title,
         description: c.description,
         emoji: c.emoji,
