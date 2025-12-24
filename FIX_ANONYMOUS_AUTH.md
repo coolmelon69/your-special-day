@@ -66,3 +66,5 @@ After enabling anonymous auth:
 4. Run `debugSupabase()` in console to verify it's working
 
 The error should disappear once anonymous authentication is enabled in your Supabase project settings.
+
+

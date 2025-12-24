@@ -161,3 +161,5 @@ DROP INDEX IF EXISTS idx_sync_group_invites_expires_at;
 -- Migration complete!
 -- All data is now user-based instead of group-based.
 -- Users must authenticate with email/password to sync data.
+
+

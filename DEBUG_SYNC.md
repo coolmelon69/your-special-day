@@ -132,3 +132,5 @@ In Supabase Dashboard:
 2. Verify your Supabase project is active (not paused)
 3. Check your Supabase project logs in the Dashboard
 4. Make sure you're using the correct project URL and anon key
+
+

@@ -71,3 +71,5 @@ const TheTurningPointSlide = () => {
 };
 
 export default TheTurningPointSlide;
+
+

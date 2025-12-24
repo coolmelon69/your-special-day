@@ -115,3 +115,5 @@ Device link code sync allows multiple devices to share the same stamps and coupo
 - Data is stored by `group_id`, so all devices in a group share the same stamps/coupons
 - When a device joins a code, it permanently switches to that group's data
 - If you want to leave a group and create a new private group, you'd need to clear localStorage and refresh (this could be added as a feature later)
+
+

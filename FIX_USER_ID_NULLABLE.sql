@@ -6,3 +6,5 @@ ALTER TABLE stamps_progress ALTER COLUMN user_id DROP NOT NULL;
 
 -- Make user_id nullable in coupon_achievements  
 ALTER TABLE coupon_achievements ALTER COLUMN user_id DROP NOT NULL;
+
+

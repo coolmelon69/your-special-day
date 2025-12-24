@@ -921,3 +921,5 @@ export const pixelRain = (options?: {
     window.removeEventListener("resize", handleResize);
   }, duration);
 };
+
+

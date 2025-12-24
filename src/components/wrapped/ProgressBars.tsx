@@ -1,12 +1,15 @@
 import { motion } from 'framer-motion';
+import { Pause, Play } from 'lucide-react';
 import { TOTAL_SLIDES, SLIDE_CONFIGS } from './slideData';
 
 interface ProgressBarsProps {
   currentSlide: number;
   progress: number; // 0-1, progress within current slide
+  isPaused: boolean;
+  onTogglePause: (e: React.MouseEvent) => void;
 }
 
-const ProgressBars = ({ currentSlide, progress }: ProgressBarsProps) => {
+const ProgressBars = ({ currentSlide, progress, isPaused, onTogglePause }: ProgressBarsProps) => {
   const slideDuration = SLIDE_CONFIGS[currentSlide].duration;
   const timeRemaining = Math.ceil((slideDuration * (1 - progress)) / 1000); // Convert to seconds
 
@@ -43,20 +46,49 @@ const ProgressBars = ({ currentSlide, progress }: ProgressBarsProps) => {
         })}
       </div>
 
-      {/* Countdown timer indicator */}
+      {/* Countdown timer indicator with pause/play button */}
       <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-[51]">
         <motion.div
-          className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20"
+          className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20 flex items-center gap-2 cursor-pointer hover:bg-black/60 transition-colors"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
+          onClick={onTogglePause}
         >
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            <span className="font-sans text-xs sm:text-sm font-medium text-white">
-              {timeRemaining}s
-            </span>
-          </div>
+          {/* Pause/Play Icon */}
+          <motion.div
+            initial={false}
+            animate={{ scale: isPaused ? 1 : 1 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            {isPaused ? (
+              <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white" />
+            ) : (
+              <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white" />
+            )}
+          </motion.div>
+          
+          {/* Status indicator dot */}
+          <motion.div
+            className={`w-2 h-2 rounded-full ${
+              isPaused ? 'bg-yellow-400' : 'bg-white'
+            }`}
+            animate={{
+              opacity: isPaused ? [1, 0.5, 1] : 1,
+              scale: isPaused ? 1 : [1, 1.2, 1],
+            }}
+            transition={{
+              duration: isPaused ? 1.5 : 2,
+              repeat: isPaused ? Infinity : Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+          
+          {/* Time remaining */}
+          <span className="font-sans text-xs sm:text-sm font-medium text-white">
+            {timeRemaining}s
+          </span>
         </motion.div>
       </div>
     </div>
@@ -64,3 +96,5 @@ const ProgressBars = ({ currentSlide, progress }: ProgressBarsProps) => {
 };
 
 export default ProgressBars;
+
+

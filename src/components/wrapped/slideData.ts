@@ -19,6 +19,7 @@ export const SLIDE_CONFIGS: SlideConfig[] = [
   { id: 'vibe-genres', duration: 8000 },
   { id: 'top-songs', duration: 7000 },
   { id: 'persona-card', duration: 8000 },
+  { id: 'next-year-promise', duration: 8000 },
 ];
 
 export const TOTAL_SLIDES = SLIDE_CONFIGS.length;
@@ -45,3 +46,5 @@ export const MOCK_DATA = {
     ],
   },
 };
+
+

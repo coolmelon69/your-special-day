@@ -120,3 +120,5 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as any).debugSupabase = debugSupabaseConnection;
   console.log("💡 Run debugSupabase() in console to test Supabase connection");
 }
+
+

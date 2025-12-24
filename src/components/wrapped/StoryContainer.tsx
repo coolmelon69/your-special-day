@@ -11,6 +11,7 @@ import TopMonthSlide from './slides/TopMonthSlide';
 import VibeGenresSlide from './slides/VibeGenresSlide';
 import TopSongsSlide from './slides/TopSongsSlide';
 import PersonaCardSlide from './slides/PersonaCardSlide';
+import NextYearPromiseSlide from './slides/NextYearPromiseSlide';
 import { SLIDE_CONFIGS } from './slideData';
 
 const SLIDE_COMPONENTS = [
@@ -24,16 +25,23 @@ const SLIDE_COMPONENTS = [
   VibeGenresSlide,
   TopSongsSlide,
   PersonaCardSlide,
+  NextYearPromiseSlide,
 ];
 
 const StoryContainer = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isManuallyPaused, setIsManuallyPaused] = useState(false);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(Date.now());
+
+  // Toggle manual pause/play
+  const togglePause = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering navigation
+    setIsManuallyPaused((prev) => !prev);
+  }, []);
 
   const goToNext = useCallback(() => {
     if (currentSlide < SLIDE_COMPONENTS.length - 1) {
@@ -76,7 +84,7 @@ const StoryContainer = () => {
 
   // Auto-advance logic
   useEffect(() => {
-    if (isPaused) {
+    if (isManuallyPaused) {
       if (intervalRef.current) {
         clearTimeout(intervalRef.current);
         intervalRef.current = null;
@@ -120,7 +128,7 @@ const StoryContainer = () => {
         clearInterval(progressIntervalRef.current);
       }
     };
-  }, [currentSlide, isPaused, goToNext]);
+  }, [currentSlide, isManuallyPaused, goToNext]);
 
   // Reset progress when slide changes
   useEffect(() => {
@@ -135,10 +143,13 @@ const StoryContainer = () => {
       className="relative w-full h-full"
       onTouchEnd={handleTap}
       onClick={handleTap}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
     >
-      <ProgressBars currentSlide={currentSlide} progress={progress} />
+      <ProgressBars 
+        currentSlide={currentSlide} 
+        progress={progress} 
+        isPaused={isManuallyPaused}
+        onTogglePause={togglePause}
+      />
 
       <AnimatePresence mode="wait" custom={direction}>
         <motion.div
@@ -164,3 +175,5 @@ const StoryContainer = () => {
 };
 
 export default StoryContainer;
+
+

@@ -36,3 +36,5 @@ export type AdminSettings = {
   disabledDefaultStamps: string[]; // Array of default stamp titles to hide
   disabledDefaultCoupons: number[]; // Array of default coupon IDs to hide
 };
+
+

@@ -400,3 +400,5 @@ BEGIN
   RETURN new_group_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
