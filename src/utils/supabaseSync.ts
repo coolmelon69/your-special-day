@@ -828,6 +828,111 @@ export const loadGlobalAdminSettings = async (): Promise<{
   }
 };
 
+// Real-time Subscription Functions
+
+/**
+ * Subscribe to real-time changes in stamps_progress table for a specific user
+ * @param userId - The user ID to listen for changes
+ * @param callback - Callback function that will be called when changes are detected
+ *                  The component should reload stamps progress using loadStampsProgress
+ * @returns Unsubscribe function to stop listening
+ */
+export const subscribeToStampsProgress = (
+  userId: string,
+  callback: () => void
+): (() => void) => {
+  if (!isSupabaseAvailable() || !supabase) {
+    console.warn("Supabase not available for realtime subscriptions");
+    return () => {};
+  }
+
+  // Subscribe to changes in stamps_progress table for this user
+  const channel = supabase
+    .channel(`stamps-progress:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*", // Listen to INSERT, UPDATE, DELETE
+        schema: "public",
+        table: "stamps_progress",
+        filter: `user_id=eq.${userId}`,
+      },
+      async (payload) => {
+        console.log("Realtime stamps_progress change detected:", payload.eventType);
+        // Trigger callback - component will handle reloading with its base itinerary
+        callback();
+      }
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        console.log("Subscribed to stamps_progress realtime changes");
+      } else if (status === "CHANNEL_ERROR") {
+        console.error("Error subscribing to stamps_progress realtime changes");
+      }
+    });
+
+  // Return unsubscribe function
+  return () => {
+    console.log("Unsubscribing from stamps_progress realtime changes");
+    supabase.removeChannel(channel);
+  };
+};
+
+/**
+ * Subscribe to real-time changes in coupon_achievements table for a specific user
+ * @param userId - The user ID to listen for changes
+ * @param callback - Callback function that receives the updated achievement data
+ * @returns Unsubscribe function to stop listening
+ */
+export const subscribeToCouponAchievements = (
+  userId: string,
+  callback: (updatedData: AchievementData) => void
+): (() => void) => {
+  if (!isSupabaseAvailable() || !supabase) {
+    console.warn("Supabase not available for realtime subscriptions");
+    return () => {};
+  }
+
+  // Subscribe to changes in coupon_achievements table for this user
+  const channel = supabase
+    .channel(`coupon-achievements:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*", // Listen to INSERT, UPDATE, DELETE
+        schema: "public",
+        table: "coupon_achievements",
+        filter: `user_id=eq.${userId}`,
+      },
+      async (payload) => {
+        console.log("Realtime coupon_achievements change detected:", payload.eventType);
+        
+        try {
+          // Load the updated achievement data from Supabase
+          const result = await loadCouponAchievements();
+          if (result) {
+            callback(result.data);
+          }
+        } catch (error) {
+          console.error("Error handling realtime coupon achievements update:", error);
+        }
+      }
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        console.log("Subscribed to coupon_achievements realtime changes");
+      } else if (status === "CHANNEL_ERROR") {
+        console.error("Error subscribing to coupon_achievements realtime changes");
+      }
+    });
+
+  // Return unsubscribe function
+  return () => {
+    console.log("Unsubscribing from coupon_achievements realtime changes");
+    supabase.removeChannel(channel);
+  };
+};
+
 
 
 

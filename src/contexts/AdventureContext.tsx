@@ -3,7 +3,7 @@ import { initialItinerary, type ItineraryItem, type Photo } from "@/components/T
 import * as photoStorage from "@/utils/photoStorage";
 import { getAllCustomStamps, getAllCustomCoupons, getAdminSettings, saveCustomStampsToIndexedDB, saveCustomCouponsToIndexedDB } from "@/utils/adminStorage";
 import type { CustomStamp, CustomCoupon } from "@/types/admin";
-import { syncStampsProgress, loadStampsProgress, loadCustomStamps as loadCustomStampsFromSupabase, loadCustomCoupons as loadCustomCouponsFromSupabase } from "@/utils/supabaseSync";
+import { syncStampsProgress, loadStampsProgress, loadCustomStamps as loadCustomStampsFromSupabase, loadCustomCoupons as loadCustomCouponsFromSupabase, subscribeToStampsProgress } from "@/utils/supabaseSync";
 import { getCurrentUser, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -423,6 +423,121 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
 
   // Debounce timer for Supabase sync
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Realtime subscription cleanup ref
+  const unsubscribeStampsRef = useRef<(() => void) | null>(null);
+
+  // Subscribe to realtime stamps progress changes
+  useEffect(() => {
+    if (!user) {
+      // Unsubscribe if user logs out
+      if (unsubscribeStampsRef.current) {
+        unsubscribeStampsRef.current();
+        unsubscribeStampsRef.current = null;
+      }
+      return;
+    }
+
+    // Subscribe to realtime changes
+    console.log("Setting up realtime subscription for stamps progress");
+    const unsubscribe = subscribeToStampsProgress(user.id, async () => {
+      console.log("Realtime stamps update received, reloading...");
+      
+      try {
+        // Reload stamps similar to how we do in the initial load
+        // Load settings to get disabled default stamps
+        let disabledTitles: string[] = [];
+        try {
+          const settings = await getAdminSettings();
+          disabledTitles = settings.disabledDefaultStamps || [];
+        } catch (settingsError) {
+          console.warn("Could not load admin settings:", settingsError);
+        }
+
+        // Filter out disabled default stamps
+        const saved = loadItineraryFromStorage();
+        const initialTitles = new Set(initialItinerary.map(s => s.title));
+        const savedDefaultStamps = saved 
+          ? saved.filter(stamp => initialTitles.has(stamp.title))
+          : null;
+        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
+          (stamp) => !disabledTitles.includes(stamp.title)
+        );
+
+        // Load custom stamps
+        let customStamps: any[] = [];
+        try {
+          const supabaseStamps = await loadCustomStampsFromSupabase();
+          if (supabaseStamps.length > 0) {
+            await saveCustomStampsToIndexedDB(supabaseStamps);
+            customStamps = supabaseStamps;
+          } else {
+            customStamps = await getAllCustomStamps();
+          }
+        } catch (customError) {
+          console.warn("Could not load custom stamps:", customError);
+          try {
+            customStamps = await getAllCustomStamps();
+          } catch (fallbackError) {
+            console.warn("Could not load custom stamps from IndexedDB:", fallbackError);
+          }
+        }
+
+        // Merge base itinerary with custom stamps
+        let mergedItinerary: ItineraryItem[];
+        if (customStamps.length > 0) {
+          const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
+            time: stamp.time,
+            title: stamp.title,
+            description: stamp.description,
+            sprite: stamp.sprite,
+            isActive: false,
+            isPast: stamp.isPast,
+            location: stamp.location,
+          }));
+          
+          const existingStampsMap = new Map<string, ItineraryItem>();
+          baseItinerary.forEach(stamp => {
+            const key = `${stamp.time}-${stamp.title}`;
+            existingStampsMap.set(key, stamp);
+          });
+          
+          convertedCustomStamps.forEach(stamp => {
+            const key = `${stamp.time}-${stamp.title}`;
+            if (!existingStampsMap.has(key)) {
+              existingStampsMap.set(key, stamp);
+            }
+          });
+          
+          mergedItinerary = Array.from(existingStampsMap.values());
+        } else {
+          mergedItinerary = baseItinerary;
+        }
+
+        // Load progress from Supabase (this will merge with base)
+        const supabaseItinerary = await loadStampsProgress(mergedItinerary);
+        setItineraryState(supabaseItinerary);
+        
+        // Update localStorage with default portion
+        const defaultPortion = supabaseItinerary.slice(0, initialItinerary.length);
+        if (defaultPortion.length === initialItinerary.length) {
+          saveItineraryToStorage(defaultPortion);
+        }
+      } catch (error) {
+        console.error("Error reloading stamps from realtime update:", error);
+      }
+    });
+
+    unsubscribeStampsRef.current = unsubscribe;
+
+    // Cleanup on unmount or user change
+    return () => {
+      if (unsubscribeStampsRef.current) {
+        unsubscribeStampsRef.current();
+        unsubscribeStampsRef.current = null;
+      }
+    };
+  }, [user]);
 
   // Save to localStorage and sync to Supabase whenever itineraryState changes
   // Note: Only saves default stamps progress, custom stamps state is managed separately

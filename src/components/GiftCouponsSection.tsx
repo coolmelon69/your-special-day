@@ -17,6 +17,7 @@ import {
   syncCouponAchievements,
   loadCouponAchievements,
   mergeAchievementData,
+  subscribeToCouponAchievements,
   type AchievementData as AchievementDataType,
 } from "@/utils/supabaseSync";
 
@@ -218,6 +219,8 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
   const hasLoadedFromSupabase = useRef(false);
   // Debounce timer for Supabase sync
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Realtime subscription cleanup ref
+  const unsubscribeCouponsRef = useRef<(() => void) | null>(null);
 
   // Helper function to convert string IDs to unique numeric IDs
   // Maps custom coupon string IDs to a range starting from 10000 to avoid collisions with default coupon IDs (1-3)
@@ -254,6 +257,52 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
   useEffect(() => {
     refreshCoupons();
   }, [refreshCoupons]);
+
+  // Subscribe to realtime coupon achievements changes
+  useEffect(() => {
+    if (!user) {
+      // Unsubscribe if user logs out
+      if (unsubscribeCouponsRef.current) {
+        unsubscribeCouponsRef.current();
+        unsubscribeCouponsRef.current = null;
+      }
+      return;
+    }
+
+    // Subscribe to realtime changes
+    console.log("Setting up realtime subscription for coupon achievements");
+    const unsubscribe = subscribeToCouponAchievements(user.id, (updatedData) => {
+      console.log("Realtime coupon achievements update received:", updatedData);
+      
+      // Update state with the new data from another device
+      setRedeemedCoupons(updatedData.redeemedCouponIds);
+      setAchievementData(updatedData);
+      
+      // Also save to localStorage for consistency
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          const dataToSave: AchievementDataType = {
+            redeemedCouponIds: updatedData.redeemedCouponIds,
+            achievementsUnlocked: updatedData.achievementsUnlocked,
+            achievementTimestamps: updatedData.achievementTimestamps || {},
+          };
+          localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(dataToSave));
+        }
+      } catch (error) {
+        console.error("Error saving realtime update to localStorage:", error);
+      }
+    });
+
+    unsubscribeCouponsRef.current = unsubscribe;
+
+    // Cleanup on unmount or user change
+    return () => {
+      if (unsubscribeCouponsRef.current) {
+        unsubscribeCouponsRef.current();
+        unsubscribeCouponsRef.current = null;
+      }
+    };
+  }, [user]);
 
   // Load achievement data from Supabase first, then fallback to localStorage
   useEffect(() => {
