@@ -194,8 +194,13 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
         
         // Filter out disabled default stamps
+        // Only use stamps from saved localStorage that match initialItinerary (to avoid duplicates with custom stamps)
         const saved = loadItineraryFromStorage();
-        const baseItinerary = (saved || initialItinerary).filter(
+        const initialTitles = new Set(initialItinerary.map(s => s.title));
+        const savedDefaultStamps = saved 
+          ? saved.filter(stamp => initialTitles.has(stamp.title))
+          : null;
+        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
           (stamp) => !disabledTitles.includes(stamp.title)
         );
         
@@ -253,8 +258,23 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
             location: stamp.location,
           }));
           
-          // Merge custom stamps with defaults (custom stamps come after defaults)
-          mergedItinerary = [...baseItinerary, ...convertedCustomStamps];
+          // Create a map to track existing stamps by time+title to prevent duplicates
+          const existingStampsMap = new Map<string, ItineraryItem>();
+          baseItinerary.forEach(stamp => {
+            const key = `${stamp.time}-${stamp.title}`;
+            existingStampsMap.set(key, stamp);
+          });
+          
+          // Add custom stamps, skipping any that already exist
+          convertedCustomStamps.forEach(stamp => {
+            const key = `${stamp.time}-${stamp.title}`;
+            if (!existingStampsMap.has(key)) {
+              existingStampsMap.set(key, stamp);
+            }
+          });
+          
+          // Convert map back to array, preserving order (defaults first, then custom)
+          mergedItinerary = Array.from(existingStampsMap.values());
         } else {
           // No custom stamps, use filtered defaults
           mergedItinerary = baseItinerary;
@@ -314,7 +334,12 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const saved = loadItineraryFromStorage();
-        const baseItinerary = (saved || initialItinerary).filter(
+        // Only use stamps from saved localStorage that match initialItinerary (to avoid duplicates with custom stamps)
+        const initialTitles = new Set(initialItinerary.map(s => s.title));
+        const savedDefaultStamps = saved 
+          ? saved.filter(stamp => initialTitles.has(stamp.title))
+          : null;
+        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
           (stamp) => !disabledTitles.includes(stamp.title)
         );
 
@@ -355,7 +380,24 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
             isPast: stamp.isPast,
             location: stamp.location,
           }));
-          mergedItinerary = [...baseItinerary, ...convertedCustomStamps];
+          
+          // Create a map to track existing stamps by time+title to prevent duplicates
+          const existingStampsMap = new Map<string, ItineraryItem>();
+          baseItinerary.forEach(stamp => {
+            const key = `${stamp.time}-${stamp.title}`;
+            existingStampsMap.set(key, stamp);
+          });
+          
+          // Add custom stamps, skipping any that already exist
+          convertedCustomStamps.forEach(stamp => {
+            const key = `${stamp.time}-${stamp.title}`;
+            if (!existingStampsMap.has(key)) {
+              existingStampsMap.set(key, stamp);
+            }
+          });
+          
+          // Convert map back to array, preserving order (defaults first, then custom)
+          mergedItinerary = Array.from(existingStampsMap.values());
         } else {
           mergedItinerary = baseItinerary;
         }
@@ -600,9 +642,17 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   // Load coupons on mount and when user changes
+  // Use a ref to prevent multiple simultaneous calls
+  const couponsLoadingRef = useRef(false);
   useEffect(() => {
-    refreshCoupons();
-  }, [refreshCoupons, user]);
+    if (couponsLoadingRef.current) {
+      return; // Already loading, skip
+    }
+    couponsLoadingRef.current = true;
+    refreshCoupons().finally(() => {
+      couponsLoadingRef.current = false;
+    });
+  }, [user]); // Only depend on user, not refreshCoupons to avoid multiple calls
 
   // Reset progress function - memoized to prevent infinite loops
   const resetProgress = useCallback(async () => {
@@ -692,10 +742,15 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Filter out disabled default stamps
-      const saved = loadItineraryFromStorage();
-      const baseItinerary = (saved || initialItinerary).filter(
-        (stamp) => !disabledTitles.includes(stamp.title)
-      );
+        // Only use stamps from saved localStorage that match initialItinerary (to avoid duplicates with custom stamps)
+        const saved = loadItineraryFromStorage();
+        const initialTitles = new Set(initialItinerary.map(s => s.title));
+        const savedDefaultStamps = saved 
+          ? saved.filter(stamp => initialTitles.has(stamp.title))
+          : null;
+        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
+          (stamp) => !disabledTitles.includes(stamp.title)
+        );
 
       // Load custom stamps from Supabase (overwrite local when user logs in)
       let customStamps: any[] = [];

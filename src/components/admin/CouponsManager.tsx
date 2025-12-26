@@ -9,7 +9,10 @@ import {
   deleteCustomCoupon,
   getAdminSettings,
   updateAdminSettings,
+  saveCustomCouponsToIndexedDB,
 } from "@/utils/adminStorage";
+import { loadCustomCoupons, loadAdminSettings } from "@/utils/supabaseSync";
+import { getCurrentUser } from "@/utils/auth";
 
 const DEFAULT_COUPONS = [
   {
@@ -78,15 +81,42 @@ const CouponsManager = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
+      
+      // Load from IndexedDB first (fast, local)
       const [loadedCoupons, settings] = await Promise.all([
         getAllCustomCoupons(),
         getAdminSettings(),
       ]);
+      
+      // Update UI immediately with local data
       setCoupons(loadedCoupons);
       setDisabledDefaultCoupons(settings.disabledDefaultCoupons || []);
+      setIsLoading(false);
+      
+      // Background sync from Supabase (non-blocking)
+      // This will update the UI if there's newer data, but won't block initial render
+      const user = await getCurrentUser();
+      if (user) {
+        try {
+          const supabaseCoupons = await loadCustomCoupons();
+          if (supabaseCoupons.length > 0) {
+            // Only update if we got data from Supabase
+            await saveCustomCouponsToIndexedDB(supabaseCoupons);
+            setCoupons(supabaseCoupons);
+          }
+          
+          // Also refresh settings in background
+          const supabaseSettings = await loadAdminSettings();
+          if (supabaseSettings) {
+            setDisabledDefaultCoupons(supabaseSettings.disabledDefaultCoupons || []);
+          }
+        } catch (syncError) {
+          // Silently fail - we already have local data displayed
+          console.warn("Background sync failed (using local data):", syncError);
+        }
+      }
     } catch (error) {
       console.error("Error loading coupons data:", error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -274,59 +304,61 @@ const CouponsManager = () => {
             return (
               <motion.div
                 key={coupon.id}
-                className={`bg-gradient-to-br ${coupon.color} rounded-lg p-3 text-white relative ${
+                className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative ${
                   isDisabled ? "opacity-50" : ""
                 }`}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xl flex-shrink-0">{coupon.emoji}</span>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
                     <div className="min-w-0 flex-1">
                       <h4
-                        className="font-pixel text-xs font-bold truncate"
+                        className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
                         style={{ textRendering: "optimizeSpeed" }}
                       >
                         {coupon.title}
                       </h4>
                       {coupon.category && (
                         <span
-                          className="font-pixel text-[7px] opacity-75"
+                          className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
                           style={{ textRendering: "optimizeSpeed" }}
                         >
                           {coupon.category}
                         </span>
                       )}
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span
-                      className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1 py-0.5 flex-shrink-0"
+                      className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
                       style={{ textRendering: "optimizeSpeed" }}
                     >
                       DEFAULT
                     </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleDefaultCoupon(e, coupon.id)}
+                      className={`w-6 h-6 flex items-center justify-center backdrop-blur-sm transition-colors rounded ${
+                        isDisabled
+                          ? "bg-white/30 hover:bg-white/40"
+                          : "bg-white/20 hover:bg-white/30"
+                      }`}
+                      title={isDisabled ? "Show coupon" : "Hide coupon"}
+                    >
+                      <EyeOff className="w-3 h-3" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => handleToggleDefaultCoupon(e, coupon.id)}
-                    className={`w-6 h-6 flex items-center justify-center backdrop-blur-sm transition-colors flex-shrink-0 ${
-                      isDisabled
-                        ? "bg-white/30 hover:bg-white/40"
-                        : "bg-white/20 hover:bg-white/30"
-                    }`}
-                    title={isDisabled ? "Show coupon" : "Hide coupon"}
-                  >
-                    <EyeOff className="w-3 h-3" />
-                  </button>
                 </div>
                 <p
-                  className="font-pixel text-[9px] mb-1 opacity-90 line-clamp-2"
+                  className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
                   style={{ textRendering: "optimizeSpeed" }}
                 >
                   {coupon.description}
                 </p>
                 <div
-                  className="font-pixel text-[8px] opacity-75"
+                  className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
                   style={{ textRendering: "optimizeSpeed" }}
                 >
                   Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
@@ -365,61 +397,63 @@ const CouponsManager = () => {
             {coupons.map((coupon) => (
               <motion.div
                 key={coupon.id}
-                className={`bg-gradient-to-br ${coupon.color} rounded-lg p-3 text-white relative`}
+                className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative`}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xl flex-shrink-0">{coupon.emoji}</span>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
                     <div className="min-w-0 flex-1">
                       <h4
-                        className="font-pixel text-xs font-bold truncate"
+                        className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
                         style={{ textRendering: "optimizeSpeed" }}
                       >
                         {coupon.title}
                       </h4>
                       {coupon.category && (
                         <span
-                          className="font-pixel text-[7px] opacity-75"
+                          className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
                           style={{ textRendering: "optimizeSpeed" }}
                         >
                           {coupon.category}
                         </span>
                       )}
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span
-                      className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1 py-0.5 flex-shrink-0"
+                      className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
                       style={{ textRendering: "optimizeSpeed" }}
                     >
                       CUSTOM
                     </span>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => handleEdit(coupon)}
-                      className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors"
-                      title="Edit"
-                    >
-                      <Edit className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(coupon.id)}
-                      className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEdit(coupon)}
+                        className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
+                        title="Edit"
+                      >
+                        <Edit className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(coupon.id)}
+                        className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <p
-                  className="font-pixel text-[9px] mb-1 opacity-90 line-clamp-2"
+                  className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
                   style={{ textRendering: "optimizeSpeed" }}
                 >
                   {coupon.description}
                 </p>
                 <div
-                  className="font-pixel text-[8px] opacity-75"
+                  className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
                   style={{ textRendering: "optimizeSpeed" }}
                 >
                   Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}

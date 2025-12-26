@@ -1,7 +1,7 @@
 import { supabase, isSupabaseAvailable } from "./supabaseClient";
 import { getCurrentUser } from "./auth";
 import type { ItineraryItem } from "@/components/TimelineSection";
-import type { CustomStamp, CustomCoupon } from "@/types/admin";
+import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
 
 export interface AchievementData {
   redeemedCouponIds: number[];
@@ -40,10 +40,15 @@ export const syncStampsProgress = async (
       updated_at: new Date().toISOString(),
     }));
 
+    // Remove duplicates based on stamp_key to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+    const uniqueStampRecords = Array.from(
+      new Map(stampRecords.map((record) => [record.stamp_key, record])).values()
+    );
+
     // Use upsert to insert or update records
     const { data, error } = await supabase
       .from("stamps_progress")
-      .upsert(stampRecords, {
+      .upsert(uniqueStampRecords, {
         onConflict: "user_id,stamp_key",
       })
       .select();
@@ -589,6 +594,122 @@ export const deleteCustomCouponFromSupabase = async (
   } catch (error) {
     console.error("Error in deleteCustomCouponFromSupabase:", error);
     return false;
+  }
+};
+
+// Admin Settings Sync Functions
+
+/**
+ * Sync admin settings to Supabase
+ * @param settings - Admin settings to sync
+ */
+export const syncAdminSettings = async (
+  settings: AdminSettings
+): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  // Get current user
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to sync admin settings");
+    return false;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("admin_settings")
+      .upsert(
+        {
+          user_id: user.id,
+          use_custom_stamps: settings.useCustomStamps,
+          use_custom_coupons: settings.useCustomCoupons,
+          disabled_default_stamps: settings.disabledDefaultStamps,
+          disabled_default_coupons: settings.disabledDefaultCoupons,
+          last_modified: new Date(settings.lastModified).toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id",
+        }
+      )
+      .select();
+
+    if (error) {
+      if (error.code === "PGRST205") {
+        // Table doesn't exist - admin_settings table hasn't been created yet
+        console.warn("admin_settings table doesn't exist yet. Settings will be stored locally only. Please create the table in Supabase for cross-device sync.");
+        return false;
+      }
+      console.error("Error syncing admin settings:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return false;
+    }
+
+    console.log("Admin settings synced successfully");
+    return true;
+  } catch (error) {
+    console.error("Error in syncAdminSettings:", error);
+    return false;
+  }
+};
+
+/**
+ * Load admin settings from Supabase
+ */
+export const loadAdminSettings = async (): Promise<AdminSettings | null> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return null;
+  }
+
+  // Get current user
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to load admin settings");
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("admin_settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No rows returned - user hasn't synced yet
+        return null;
+      }
+      if (error.code === "PGRST205") {
+        // Table doesn't exist - admin_settings table hasn't been created yet
+        console.warn("admin_settings table doesn't exist yet. Please create it in Supabase.");
+        return null;
+      }
+      console.error("Error loading admin settings:", error);
+      return null;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      useCustomStamps: data.use_custom_stamps ?? true,
+      useCustomCoupons: data.use_custom_coupons ?? true,
+      disabledDefaultStamps: data.disabled_default_stamps || [],
+      disabledDefaultCoupons: data.disabled_default_coupons || [],
+      lastModified: new Date(data.last_modified).getTime(),
+    };
+  } catch (error) {
+    console.error("Error in loadAdminSettings:", error);
+    return null;
   }
 };
 

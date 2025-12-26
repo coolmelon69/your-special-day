@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Home, CheckSquare, Gift, BookOpen, Shield, LogIn, LogOut, User } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { NavLink } from "./NavLink";
 import { isAuthenticated } from "@/utils/adminAuth";
 import AuthModal from "./AuthModal";
@@ -10,6 +10,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 const NavigationBar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const authenticated = isAuthenticated();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
@@ -73,8 +74,16 @@ const NavigationBar = () => {
                     {user.email || "User"}
                   </span>
                 </button>
-                {/* Logout dropdown */}
-                <div className="absolute right-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all bg-[hsl(35_40%_90%)] border-2 border-[hsl(30_40%_60%)] rounded-lg shadow-lg min-w-[150px] z-50">
+                {/* User dropdown */}
+                <div className="absolute right-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bg-[hsl(35_40%_90%)] border-2 border-[hsl(30_40%_60%)] rounded-lg shadow-lg min-w-[150px] z-50 overflow-hidden">
+                  <button
+                    onClick={() => navigate("/admin")}
+                    className="w-full flex items-center gap-2 px-4 py-2 font-pixel text-sm text-[hsl(15_70%_40%)] hover:bg-[hsl(15_70%_55%)] hover:text-white transition-all border-b border-[hsl(30_40%_60%)]"
+                    style={{ textRendering: "optimizeSpeed" }}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Admin
+                  </button>
                   <button
                     onClick={handleLogout}
                     disabled={isLoggingOut}

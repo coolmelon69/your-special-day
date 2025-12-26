@@ -563,6 +563,203 @@ const PixelShopping = ({ isActive, isPast }: { isActive: boolean; isPast: boolea
   </svg>
 );
 
+const PixelPlane = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""} ${isActive ? "animate-pulse" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Body */}
+    <rect x="3" y="7" width="10" height="2" fill="hsl(var(--primary))" />
+    {/* Wings */}
+    <rect x="5" y="5" width="2" height="4" fill="hsl(var(--primary))" />
+    <rect x="9" y="5" width="2" height="4" fill="hsl(var(--primary))" />
+    {/* Tail */}
+    <rect x="2" y="6" width="2" height="4" fill="hsl(var(--primary))" />
+    {/* Windows */}
+    <rect x="6" y="7" width="1" height="1" fill="hsl(200 80% 80%)" />
+    <rect x="8" y="7" width="1" height="1" fill="hsl(200 80% 80%)" />
+  </svg>
+);
+
+const PixelHotel = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Building */}
+    <rect x="2" y="4" width="12" height="10" fill="hsl(var(--primary))" />
+    {/* Windows */}
+    <rect x="4" y="6" width="2" height="2" fill="hsl(45 80% 70%)" />
+    <rect x="7" y="6" width="2" height="2" fill="hsl(45 80% 70%)" />
+    <rect x="10" y="6" width="2" height="2" fill="hsl(45 80% 70%)" />
+    <rect x="4" y="9" width="2" height="2" fill="hsl(45 80% 70%)" />
+    <rect x="7" y="9" width="2" height="2" fill="hsl(45 80% 70%)" />
+    <rect x="10" y="9" width="2" height="2" fill="hsl(45 80% 70%)" />
+    {/* Door */}
+    <rect x="7" y="11" width="2" height="3" fill="hsl(30 60% 40%)" />
+    {/* Roof */}
+    <rect x="1" y="3" width="14" height="2" fill="hsl(0 70% 50%)" />
+  </svg>
+);
+
+const PixelMovie = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Screen */}
+    <rect x="2" y="3" width="12" height="8" fill="hsl(220 60% 20%)" />
+    <rect x="3" y="4" width="10" height="6" fill="hsl(220 80% 40%)" />
+    {/* Stand */}
+    <rect x="7" y="11" width="2" height="3" fill="hsl(var(--primary))" />
+    {/* Base */}
+    <rect x="4" y="14" width="8" height="1" fill="hsl(var(--primary))" />
+  </svg>
+);
+
+const PixelBook = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Cover */}
+    <rect x="3" y="2" width="10" height="12" fill="hsl(var(--primary))" />
+    <rect x="4" y="3" width="8" height="10" fill="hsl(45 80% 90%)" />
+    {/* Pages */}
+    <rect x="5" y="4" width="6" height="8" fill="hsl(0 0% 100%)" />
+    {/* Lines */}
+    <rect x="6" y="6" width="4" height="1" fill="hsl(0 0% 70%)" />
+    <rect x="6" y="8" width="4" height="1" fill="hsl(0 0% 70%)" />
+    <rect x="6" y="10" width="3" height="1" fill="hsl(0 0% 70%)" />
+  </svg>
+);
+
+const PixelGame = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Controller body */}
+    <rect x="3" y="5" width="10" height="6" fill="hsl(var(--primary))" />
+    {/* Buttons */}
+    <rect x="5" y="6" width="2" height="2" fill="hsl(0 70% 50%)" />
+    <rect x="9" y="6" width="2" height="2" fill="hsl(120 70% 50%)" />
+    <rect x="7" y="8" width="2" height="2" fill="hsl(240 70% 50%)" />
+    {/* D-pad */}
+    <rect x="4" y="9" width="1" height="1" fill="hsl(0 0% 30%)" />
+    <rect x="5" y="9" width="1" height="1" fill="hsl(0 0% 30%)" />
+    <rect x="6" y="9" width="1" height="1" fill="hsl(0 0% 30%)" />
+    <rect x="5" y="10" width="1" height="1" fill="hsl(0 0% 30%)" />
+  </svg>
+);
+
+const PixelPhone = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Phone body */}
+    <rect x="4" y="2" width="8" height="12" fill="hsl(0 0% 20%)" />
+    <rect x="5" y="3" width="6" height="10" fill="hsl(200 80% 50%)" />
+    {/* Screen */}
+    <rect x="6" y="5" width="4" height="6" fill="hsl(0 0% 10%)" />
+    {/* Home button */}
+    <rect x="7" y="12" width="2" height="1" fill="hsl(0 0% 40%)" />
+  </svg>
+);
+
+const PixelSun = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""} ${isActive ? "animate-spin" : ""}`} style={{ imageRendering: "pixelated", animationDuration: "3s" }}>
+    {/* Center */}
+    <rect x="7" y="7" width="2" height="2" fill="hsl(45 100% 60%)" />
+    {/* Rays */}
+    <rect x="7" y="2" width="2" height="1" fill="hsl(45 100% 60%)" />
+    <rect x="7" y="13" width="2" height="1" fill="hsl(45 100% 60%)" />
+    <rect x="2" y="7" width="1" height="2" fill="hsl(45 100% 60%)" />
+    <rect x="13" y="7" width="1" height="2" fill="hsl(45 100% 60%)" />
+    <rect x="4" y="4" width="1" height="1" fill="hsl(45 100% 60%)" />
+    <rect x="11" y="4" width="1" height="1" fill="hsl(45 100% 60%)" />
+    <rect x="4" y="11" width="1" height="1" fill="hsl(45 100% 60%)" />
+    <rect x="11" y="11" width="1" height="1" fill="hsl(45 100% 60%)" />
+  </svg>
+);
+
+const PixelMoon = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Moon shape */}
+    <rect x="4" y="4" width="8" height="8" fill="hsl(45 60% 80%)" />
+    <rect x="6" y="4" width="6" height="8" fill="hsl(220 40% 30%)" />
+    {/* Craters */}
+    <rect x="6" y="6" width="1" height="1" fill="hsl(45 40% 60%)" />
+    <rect x="9" y="8" width="1" height="1" fill="hsl(45 40% 60%)" />
+    <rect x="7" y="10" width="1" height="1" fill="hsl(45 40% 60%)" />
+  </svg>
+);
+
+const PixelUmbrella = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Canopy */}
+    <rect x="2" y="3" width="12" height="4" fill="hsl(200 80% 50%)" />
+    <rect x="3" y="4" width="10" height="2" fill="hsl(200 90% 60%)" />
+    {/* Ribs */}
+    <rect x="8" y="3" width="1" height="4" fill="hsl(0 0% 30%)" />
+    <rect x="4" y="4" width="1" height="2" fill="hsl(0 0% 30%)" />
+    <rect x="11" y="4" width="1" height="2" fill="hsl(0 0% 30%)" />
+    {/* Handle */}
+    <rect x="7" y="7" width="2" height="6" fill="hsl(30 60% 40%)" />
+    <rect x="8" y="13" width="1" height="2" fill="hsl(30 60% 40%)" />
+  </svg>
+);
+
+const PixelBike = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Wheels */}
+    <rect x="2" y="9" width="4" height="4" fill="hsl(0 0% 20%)" />
+    <rect x="10" y="9" width="4" height="4" fill="hsl(0 0% 20%)" />
+    <rect x="3" y="10" width="2" height="2" fill="hsl(0 0% 50%)" />
+    <rect x="11" y="10" width="2" height="2" fill="hsl(0 0% 50%)" />
+    {/* Frame */}
+    <rect x="6" y="6" width="4" height="1" fill="hsl(var(--primary))" />
+    <rect x="6" y="11" width="4" height="1" fill="hsl(var(--primary))" />
+    <rect x="9" y="7" width="1" height="4" fill="hsl(var(--primary))" />
+    {/* Seat */}
+    <rect x="5" y="5" width="2" height="1" fill="hsl(var(--primary))" />
+    {/* Handlebars */}
+    <rect x="10" y="6" width="1" height="1" fill="hsl(var(--primary))" />
+  </svg>
+);
+
+const PixelTrain = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Train body */}
+    <rect x="1" y="6" width="14" height="6" fill="hsl(var(--primary))" />
+    {/* Windows */}
+    <rect x="3" y="7" width="2" height="2" fill="hsl(200 80% 80%)" />
+    <rect x="6" y="7" width="2" height="2" fill="hsl(200 80% 80%)" />
+    <rect x="9" y="7" width="2" height="2" fill="hsl(200 80% 80%)" />
+    <rect x="12" y="7" width="2" height="2" fill="hsl(200 80% 80%)" />
+    {/* Wheels */}
+    <rect x="2" y="12" width="2" height="2" fill="hsl(0 0% 20%)" />
+    <rect x="6" y="12" width="2" height="2" fill="hsl(0 0% 20%)" />
+    <rect x="10" y="12" width="2" height="2" fill="hsl(0 0% 20%)" />
+    <rect x="14" y="12" width="2" height="2" fill="hsl(0 0% 20%)" />
+  </svg>
+);
+
+const PixelPark = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Tree trunk */}
+    <rect x="7" y="10" width="2" height="4" fill="hsl(30 60% 40%)" />
+    {/* Tree top */}
+    <rect x="5" y="6" width="6" height="5" fill="hsl(120 70% 40%)" />
+    <rect x="6" y="5" width="4" height="3" fill="hsl(120 80% 50%)" />
+    {/* Ground */}
+    <rect x="0" y="14" width="16" height="2" fill="hsl(120 40% 50%)" />
+  </svg>
+);
+
+const PixelFireworks = ({ isActive, isPast }: { isActive: boolean; isPast: boolean }) => (
+  <svg viewBox="0 0 16 16" className={`w-full h-full ${isPast ? "opacity-50 grayscale" : ""}`} style={{ imageRendering: "pixelated" }}>
+    {/* Center */}
+    <rect x="7" y="7" width="2" height="2" fill="hsl(45 100% 60%)" />
+    {/* Explosion */}
+    {isActive && (
+      <>
+        <rect x="7" y="2" width="2" height="1" fill="hsl(0 100% 60%)" />
+        <rect x="7" y="13" width="2" height="1" fill="hsl(120 100% 60%)" />
+        <rect x="2" y="7" width="1" height="2" fill="hsl(240 100% 60%)" />
+        <rect x="13" y="7" width="1" height="2" fill="hsl(45 100% 60%)" />
+        <rect x="4" y="4" width="1" height="1" fill="hsl(0 100% 60%)" />
+        <rect x="11" y="4" width="1" height="1" fill="hsl(120 100% 60%)" />
+        <rect x="4" y="11" width="1" height="1" fill="hsl(240 100% 60%)" />
+        <rect x="11" y="11" width="1" height="1" fill="hsl(45 100% 60%)" />
+      </>
+    )}
+  </svg>
+);
+
 // "You are here" chat bubble
 const PixelAvatar = () => (
   <svg viewBox="0 0 90 45" className="w-24 h-12 md:w-28 md:h-14" style={{ imageRendering: "pixelated" }}>
@@ -613,6 +810,19 @@ export const sprites: Record<string, React.FC<{ isActive: boolean; isPast: boole
   map: PixelMap,
   beach: PixelBeach,
   shopping: PixelShopping,
+  plane: PixelPlane,
+  hotel: PixelHotel,
+  movie: PixelMovie,
+  book: PixelBook,
+  game: PixelGame,
+  phone: PixelPhone,
+  sun: PixelSun,
+  moon: PixelMoon,
+  umbrella: PixelUmbrella,
+  bike: PixelBike,
+  train: PixelTrain,
+  park: PixelPark,
+  fireworks: PixelFireworks,
 };
 
 // Pixel border pattern - Pasar Seni art market theme

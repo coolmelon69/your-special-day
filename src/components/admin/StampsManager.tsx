@@ -12,6 +12,9 @@ import {
 } from "@/utils/adminStorage";
 import { sprites, initialItinerary } from "@/components/TimelineSection";
 import type { ItineraryItem } from "@/components/TimelineSection";
+import { loadCustomStamps, loadAdminSettings } from "@/utils/supabaseSync";
+import { saveCustomStampsToIndexedDB } from "@/utils/adminStorage";
+import { getCurrentUser } from "@/utils/auth";
 
 const AVAILABLE_SPRITES = Object.keys(sprites);
 
@@ -21,6 +24,7 @@ const StampsManager = () => {
   const [editingStamp, setEditingStamp] = useState<CustomStamp | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [isSpriteDropdownOpen, setIsSpriteDropdownOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -40,15 +44,42 @@ const StampsManager = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
+      
+      // Load from IndexedDB first (fast, local)
       const [loadedStamps, settings] = await Promise.all([
         getAllCustomStamps(),
         getAdminSettings(),
       ]);
+      
+      // Update UI immediately with local data
       setStamps(loadedStamps);
       setDisabledDefaultStamps(settings.disabledDefaultStamps || []);
+      setIsLoading(false);
+      
+      // Background sync from Supabase (non-blocking)
+      // This will update the UI if there's newer data, but won't block initial render
+      const user = await getCurrentUser();
+      if (user) {
+        try {
+          const supabaseStamps = await loadCustomStamps();
+          if (supabaseStamps.length > 0) {
+            // Only update if we got data from Supabase
+            await saveCustomStampsToIndexedDB(supabaseStamps);
+            setStamps(supabaseStamps);
+          }
+          
+          // Also refresh settings in background
+          const supabaseSettings = await loadAdminSettings();
+          if (supabaseSettings) {
+            setDisabledDefaultStamps(supabaseSettings.disabledDefaultStamps || []);
+          }
+        } catch (syncError) {
+          // Silently fail - we already have local data displayed
+          console.warn("Background sync failed (using local data):", syncError);
+        }
+      }
     } catch (error) {
       console.error("Error loading stamps data:", error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -81,6 +112,7 @@ const StampsManager = () => {
 
   const handleAddNew = () => {
     setEditingStamp(null);
+    setIsSpriteDropdownOpen(false);
     setFormData({
       time: "",
       title: "",
@@ -95,6 +127,7 @@ const StampsManager = () => {
 
   const handleEdit = (stamp: CustomStamp) => {
     setEditingStamp(stamp);
+    setIsSpriteDropdownOpen(false);
     setFormData({
       time: stamp.time,
       title: stamp.title,
@@ -159,6 +192,7 @@ const StampsManager = () => {
 
       setShowForm(false);
       setEditingStamp(null);
+      setIsSpriteDropdownOpen(false);
       await loadData();
     } catch (error) {
       console.error("Error saving stamp:", error);
@@ -249,9 +283,9 @@ const StampsManager = () => {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span
-                      className="font-pixel text-[10px] bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))]"
+                      className="font-pixel text-[10px] bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded"
                       style={{ textRendering: "optimizeSpeed" }}
                     >
                       {stamp.time}
@@ -263,7 +297,7 @@ const StampsManager = () => {
                       {stamp.title}
                     </h4>
                     <span
-                      className="font-pixel text-[8px] bg-[hsl(200_60%_55%)] px-1.5 py-0.5 text-white"
+                      className="font-pixel text-[8px] bg-[hsl(200_60%_55%)] px-1.5 py-0.5 text-white rounded"
                       style={{ textRendering: "optimizeSpeed" }}
                     >
                       DEFAULT
@@ -279,7 +313,7 @@ const StampsManager = () => {
                 <button
                   type="button"
                   onClick={(e) => handleToggleDefaultStamp(e, stamp.title)}
-                  className={`w-8 h-8 flex items-center justify-center border-2 transition-colors ${
+                  className={`w-8 h-8 flex items-center justify-center border-2 transition-colors rounded flex-shrink-0 ${
                     isDisabled
                       ? "bg-[hsl(0_60%_50%)] border-[hsl(0_50%_40%)] text-white hover:bg-[hsl(0_60%_60%)]"
                       : "bg-[hsl(200_60%_55%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)]"
@@ -432,6 +466,7 @@ const StampsManager = () => {
                     onClick={() => {
                       setShowForm(false);
                       setEditingStamp(null);
+                      setIsSpriteDropdownOpen(false);
                     }}
                     className="w-8 h-8 flex items-center justify-center bg-[hsl(0_60%_50%)] border-2 border-[hsl(0_50%_40%)] text-white hover:bg-[hsl(0_60%_60%)] transition-colors"
                   >
@@ -502,18 +537,75 @@ const StampsManager = () => {
                     >
                       Sprite *
                     </label>
-                    <select
-                      value={formData.sprite}
-                      onChange={(e) => setFormData({ ...formData, sprite: e.target.value })}
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      required
-                    >
-                      {AVAILABLE_SPRITES.map((sprite) => (
-                        <option key={sprite} value={sprite}>
-                          {sprite.charAt(0).toUpperCase() + sprite.slice(1)}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsSpriteDropdownOpen(!isSpriteDropdownOpen)}
+                        className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)] flex items-center gap-2"
+                        style={{ textRendering: "optimizeSpeed" }}
+                      >
+                        <div className="w-6 h-6 flex-shrink-0">
+                          {sprites[formData.sprite] && (
+                            <div className="w-full h-full">
+                              {(() => {
+                                const SpriteComponent = sprites[formData.sprite];
+                                return <SpriteComponent isActive={false} isPast={false} />;
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                        <span className="flex-1 text-left">
+                          {formData.sprite.charAt(0).toUpperCase() + formData.sprite.slice(1)}
+                        </span>
+                        <span className="text-[hsl(15_60%_35%)]">▼</span>
+                      </button>
+                      <AnimatePresence>
+                        {isSpriteDropdownOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setIsSpriteDropdownOpen(false)}
+                            />
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="absolute z-50 w-full mt-1 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] rounded max-h-60 overflow-y-auto"
+                              style={{ imageRendering: "pixelated" }}
+                            >
+                              {AVAILABLE_SPRITES.map((sprite) => {
+                                const SpriteComponent = sprites[sprite];
+                                return (
+                                  <button
+                                    key={sprite}
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData({ ...formData, sprite });
+                                      setIsSpriteDropdownOpen(false);
+                                    }}
+                                    className={`w-full px-3 py-2 font-pixel text-sm text-[hsl(15_60%_35%)] hover:bg-[hsl(35_40%_90%)] transition-colors flex items-center gap-2 ${
+                                      formData.sprite === sprite ? "bg-[hsl(15_70%_55%)] text-white" : ""
+                                    }`}
+                                    style={{ textRendering: "optimizeSpeed" }}
+                                  >
+                                    <div className="w-6 h-6 flex-shrink-0">
+                                      {SpriteComponent && (
+                                        <div className="w-full h-full">
+                                          <SpriteComponent isActive={false} isPast={false} />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="flex-1 text-left">
+                                      {sprite.charAt(0).toUpperCase() + sprite.slice(1)}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
 
                   {/* Location (optional) */}

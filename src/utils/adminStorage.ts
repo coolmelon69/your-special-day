@@ -1,7 +1,7 @@
 // IndexedDB storage for admin data (custom stamps, coupons, settings)
 
 import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
-import { syncCustomStamps, deleteCustomStampFromSupabase, syncCustomCoupons, deleteCustomCouponFromSupabase } from "./supabaseSync";
+import { syncCustomStamps, deleteCustomStampFromSupabase, syncCustomCoupons, deleteCustomCouponFromSupabase, syncAdminSettings, loadAdminSettings } from "./supabaseSync";
 import { getCurrentUser } from "./auth";
 
 const DB_NAME = "admin-data-db";
@@ -395,11 +395,12 @@ const DEFAULT_SETTINGS: AdminSettings = {
 
 export const getAdminSettings = async (): Promise<AdminSettings> => {
   try {
+    // Load from IndexedDB first (fast, local) - don't wait for Supabase
     const database = await getDB();
     const transaction = database.transaction([STORES.SETTINGS], "readonly");
     const store = transaction.objectStore(STORES.SETTINGS);
     
-    return new Promise<AdminSettings>((resolve, reject) => {
+    const localSettings = await new Promise<AdminSettings>((resolve, reject) => {
       const request = store.get("settings");
       request.onsuccess = () => {
         const settings = request.result;
@@ -418,6 +419,34 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
       };
       request.onerror = () => reject(new Error("Failed to get admin settings"));
     });
+
+    // Sync from Supabase in the background (non-blocking)
+    // This updates IndexedDB if Supabase has newer data, but doesn't block the UI
+    const user = await getCurrentUser();
+    if (user) {
+      // Don't await - let it run in background
+      loadAdminSettings().then((supabaseSettings) => {
+        if (supabaseSettings) {
+          // Check if Supabase has newer data
+          if (supabaseSettings.lastModified > localSettings.lastModified) {
+            // Save to IndexedDB for next time
+            getDB().then((db) => {
+              const writeTransaction = db.transaction([STORES.SETTINGS], "readwrite");
+              const writeStore = writeTransaction.objectStore(STORES.SETTINGS);
+              writeStore.put({ id: "settings", ...supabaseSettings });
+            }).catch((err) => {
+              console.warn("Failed to save synced settings to IndexedDB:", err);
+            });
+          }
+        }
+      }).catch((supabaseError) => {
+        // Silently fail - we already have local settings
+        console.warn("Background sync of admin settings failed:", supabaseError);
+      });
+    }
+
+    // Return local settings immediately
+    return localSettings;
   } catch (error) {
     console.error("Error getting admin settings:", error);
     return DEFAULT_SETTINGS;
@@ -453,7 +482,19 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
         };
 
         const putRequest = store.put({ id: "settings", ...updatedSettings });
-        putRequest.onsuccess = () => resolve();
+        putRequest.onsuccess = async () => {
+          // Sync to Supabase after successful IndexedDB save
+          const user = await getCurrentUser();
+          if (user) {
+            try {
+              await syncAdminSettings(updatedSettings);
+            } catch (syncError) {
+              console.error("Error syncing admin settings to Supabase:", syncError);
+              // Don't fail the operation if sync fails
+            }
+          }
+          resolve();
+        };
         putRequest.onerror = () => reject(new Error("Failed to update admin settings"));
       };
       
