@@ -356,35 +356,47 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
           }
         }
 
-        // Merge: use Supabase data if available (last-write-wins)
-        const mergedData = mergeAchievementData(
-          localData,
-          remoteResult?.data || null,
-          localTimestamp,
-          remoteResult?.updatedAt
-        );
-
-        // Update state with merged data
-        setRedeemedCoupons(mergedData.redeemedCouponIds);
-        setAchievementData(mergedData);
-
-        // If we had local data but no remote data, sync local to Supabase immediately
-        // This ensures data is synced on first load
-        if (localData && !remoteResult && user) {
-          try {
-            console.log("Syncing local coupon data to Supabase (first time)");
-            await syncCouponAchievements(localData);
-          } catch (error) {
-            console.error("Error syncing local data to Supabase:", error);
-            // Non-blocking - the sync effect will retry later
+        // When user is authenticated, always prefer Supabase data if it exists
+        let finalData: AchievementDataType;
+        if (remoteResult?.data) {
+          // Supabase data exists - use it (it's the source of truth)
+          finalData = remoteResult.data;
+          console.log("Loaded remote coupon data from Supabase, using it");
+        } else if (localData) {
+          // No Supabase data but local data exists - use local and sync to Supabase
+          finalData = localData;
+          if (user) {
+            try {
+              console.log("Syncing local coupon data to Supabase (first time)");
+              await syncCouponAchievements(localData);
+            } catch (error) {
+              console.error("Error syncing local data to Supabase:", error);
+              // Non-blocking - the sync effect will retry later
+            }
+          }
+        } else {
+          // No data at all - start fresh
+          finalData = {
+            redeemedCouponIds: [],
+            achievementsUnlocked: [],
+            achievementTimestamps: {},
+          };
+          if (user) {
+            console.log("No coupon data found for user, starting fresh");
           }
         }
+
+        // Update state with final data
+        setRedeemedCoupons(finalData.redeemedCouponIds);
+        setAchievementData(finalData);
         
-        // If we have remote data, it takes precedence (already merged above)
-        if (remoteResult) {
-          console.log("Loaded remote coupon data from Supabase, using it");
-        } else if (user) {
-          console.log("No remote coupon data found for user");
+        // Save to localStorage for offline access (always use Supabase data if available)
+        try {
+          if (typeof window !== "undefined" && window.localStorage) {
+            localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(finalData));
+          }
+        } catch (error) {
+          console.error("Error saving to localStorage:", error);
         }
       } catch (error) {
         console.error("Error loading achievement data:", error);

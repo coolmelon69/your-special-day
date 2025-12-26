@@ -194,13 +194,9 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
         
         // Filter out disabled default stamps
-        // Only use stamps from saved localStorage that match initialItinerary (to avoid duplicates with custom stamps)
-        const saved = loadItineraryFromStorage();
-        const initialTitles = new Set(initialItinerary.map(s => s.title));
-        const savedDefaultStamps = saved 
-          ? saved.filter(stamp => initialTitles.has(stamp.title))
-          : null;
-        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
+        // When user is authenticated, use initialItinerary (fresh defaults) as base
+        // Supabase data will override these values. Only use localStorage as fallback when not authenticated.
+        const baseItinerary = initialItinerary.filter(
           (stamp) => !disabledTitles.includes(stamp.title)
         );
         
@@ -341,13 +337,9 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
           console.warn("Could not load admin settings:", settingsError);
         }
 
-        const saved = loadItineraryFromStorage();
-        // Only use stamps from saved localStorage that match initialItinerary (to avoid duplicates with custom stamps)
-        const initialTitles = new Set(initialItinerary.map(s => s.title));
-        const savedDefaultStamps = saved 
-          ? saved.filter(stamp => initialTitles.has(stamp.title))
-          : null;
-        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
+        // When user is authenticated, use initialItinerary (fresh defaults) as base
+        // Supabase data will override these values via loadStampsProgress
+        const baseItinerary = initialItinerary.filter(
           (stamp) => !disabledTitles.includes(stamp.title)
         );
 
@@ -455,12 +447,8 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // Filter out disabled default stamps
-        const saved = loadItineraryFromStorage();
-        const initialTitles = new Set(initialItinerary.map(s => s.title));
-        const savedDefaultStamps = saved 
-          ? saved.filter(stamp => initialTitles.has(stamp.title))
-          : null;
-        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
+        // Use initialItinerary (fresh defaults) as base - Supabase will override state
+        const baseItinerary = initialItinerary.filter(
           (stamp) => !disabledTitles.includes(stamp.title)
         );
 
@@ -879,13 +867,8 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Filter out disabled default stamps
-        // Only use stamps from saved localStorage that match initialItinerary (to avoid duplicates with custom stamps)
-        const saved = loadItineraryFromStorage();
-        const initialTitles = new Set(initialItinerary.map(s => s.title));
-        const savedDefaultStamps = saved 
-          ? saved.filter(stamp => initialTitles.has(stamp.title))
-          : null;
-        const baseItinerary = (savedDefaultStamps || initialItinerary).filter(
+        // Use initialItinerary (fresh defaults) as base - Supabase will override state
+        const baseItinerary = initialItinerary.filter(
           (stamp) => !disabledTitles.includes(stamp.title)
         );
 
