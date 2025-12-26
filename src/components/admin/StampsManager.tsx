@@ -12,7 +12,7 @@ import {
 } from "@/utils/adminStorage";
 import { sprites, initialItinerary } from "@/components/TimelineSection";
 import type { ItineraryItem } from "@/components/TimelineSection";
-import { loadCustomStamps, loadAdminSettings } from "@/utils/supabaseSync";
+import { loadCustomStamps, loadAdminSettings, loadGlobalAdminSettings } from "@/utils/supabaseSync";
 import { saveCustomStampsToIndexedDB } from "@/utils/adminStorage";
 import { getCurrentUser } from "@/utils/auth";
 
@@ -68,14 +68,27 @@ const StampsManager = () => {
             setStamps(supabaseStamps);
           }
           
-          // Also refresh settings in background
-          const supabaseSettings = await loadAdminSettings();
-          if (supabaseSettings) {
-            setDisabledDefaultStamps(supabaseSettings.disabledDefaultStamps || []);
+          // Also refresh global visibility settings in background
+          // Global settings apply to all users, not per-user
+          const globalSettings = await loadGlobalAdminSettings();
+          if (globalSettings) {
+            setDisabledDefaultStamps(globalSettings.disabledDefaultStamps || []);
           }
         } catch (syncError) {
           // Silently fail - we already have local data displayed
           console.warn("Background sync failed (using local data):", syncError);
+        }
+      } else {
+        // Even if user is not logged in, try to load global settings
+        // (they're public and don't require auth)
+        try {
+          const globalSettings = await loadGlobalAdminSettings();
+          if (globalSettings) {
+            setDisabledDefaultStamps(globalSettings.disabledDefaultStamps || []);
+          }
+        } catch (syncError) {
+          // Silently fail - we already have local data displayed
+          console.warn("Background sync of global settings failed (using local data):", syncError);
         }
       }
     } catch (error) {
@@ -97,15 +110,42 @@ const StampsManager = () => {
       
       console.log("Toggling stamp:", title, "Current disabled:", currentDisabled, "New disabled:", newDisabled);
       
-      await updateAdminSettings({ disabledDefaultStamps: newDisabled });
+      // Update local state immediately for responsive UI
       setDisabledDefaultStamps(newDisabled);
       
-      // Reload to verify
-      const updatedSettings = await getAdminSettings();
-      console.log("Updated settings:", updatedSettings);
+      // Save to IndexedDB and sync to Supabase global table
+      await updateAdminSettings({ disabledDefaultStamps: newDisabled });
+      
+      // Reload global settings from Supabase to get the authoritative state
+      // This ensures we have the latest from the database, not just local cache
+      try {
+        const globalSettings = await loadGlobalAdminSettings();
+        if (globalSettings) {
+          setDisabledDefaultStamps(globalSettings.disabledDefaultStamps || []);
+          console.log("Updated settings from global:", globalSettings);
+        } else {
+          // If global settings don't exist yet, use what we just set
+          console.log("Global settings not found, using local update");
+        }
+      } catch (verifyError) {
+        console.warn("Could not reload global settings after update:", verifyError);
+        // Keep the local state we set
+      }
     } catch (error) {
       console.error("Error toggling default stamp:", error);
       alert("Failed to update stamp visibility. Please try again.");
+      // Reload settings on error to restore correct state
+      try {
+        const globalSettings = await loadGlobalAdminSettings();
+        if (globalSettings) {
+          setDisabledDefaultStamps(globalSettings.disabledDefaultStamps || []);
+        } else {
+          const settings = await getAdminSettings();
+          setDisabledDefaultStamps(settings.disabledDefaultStamps || []);
+        }
+      } catch (reloadError) {
+        console.error("Error reloading settings after error:", reloadError);
+      }
     }
   };
 
@@ -670,6 +710,8 @@ const StampsManager = () => {
 };
 
 export default StampsManager;
+
+
 
 
 

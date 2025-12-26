@@ -73,3 +73,4 @@ COMMENT ON TABLE custom_coupons IS 'Stores user-created custom coupons that sync
 
 
 
+

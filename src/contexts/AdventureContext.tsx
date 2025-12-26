@@ -204,11 +204,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
           (stamp) => !disabledTitles.includes(stamp.title)
         );
         
-        // Ensure we have at least some stamps
+        // If all default stamps are disabled, that's fine - we'll show only custom stamps (if any)
+        // Don't fall back to showing all stamps - respect the admin's decision
         if (baseItinerary.length === 0) {
-          console.warn("All default stamps are disabled, using initial itinerary");
-          setItineraryState(initialItinerary);
-          return;
+          console.log("All default stamps are disabled by admin settings");
         }
         
         // Load custom stamps ONLY if user is authenticated
@@ -301,14 +300,23 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (error) {
         console.error("Error loading custom stamps:", error);
-        // Fallback to defaults - ensure we always have something to render
-        const saved = loadItineraryFromStorage();
-        const fallbackItinerary = saved || initialItinerary;
-        if (fallbackItinerary.length > 0) {
-          setItineraryState(fallbackItinerary);
-        } else {
-          // Last resort - use initial itinerary
-          setItineraryState(initialItinerary);
+        // On error, try to load settings again and respect disabled stamps
+        try {
+          const settings = await getAdminSettings();
+          const disabledTitles = settings.disabledDefaultStamps || [];
+          const saved = loadItineraryFromStorage();
+          const initialTitles = new Set(initialItinerary.map(s => s.title));
+          const savedDefaultStamps = saved 
+            ? saved.filter(stamp => initialTitles.has(stamp.title))
+            : null;
+          const fallbackItinerary = (savedDefaultStamps || initialItinerary).filter(
+            (stamp) => !disabledTitles.includes(stamp.title)
+          );
+          setItineraryState(fallbackItinerary.length > 0 ? fallbackItinerary : []);
+        } catch (fallbackError) {
+          console.error("Error in fallback, using empty array:", fallbackError);
+          // Last resort - empty array (respects admin decision to hide all)
+          setItineraryState([]);
         }
       }
     };
@@ -662,13 +670,25 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
           localStorage.removeItem(STORAGE_KEY);
         }
         
+        // Load settings to get disabled default stamps
+        let disabledTitles: string[] = [];
+        try {
+          const settings = await getAdminSettings();
+          disabledTitles = settings.disabledDefaultStamps || [];
+        } catch (settingsError) {
+          console.warn("Could not load admin settings for reset, using defaults:", settingsError);
+        }
+        
         // Reset defaults and reload custom stamps
         getAllCustomStamps().then(async (customStamps) => {
-          const resetDefaults = initialItinerary.map((item, index) => ({
-            ...item,
-            isActive: index === 0,
-            isPast: false,
-          }));
+          // Filter out disabled default stamps
+          const resetDefaults = initialItinerary
+            .filter((stamp) => !disabledTitles.includes(stamp.title))
+            .map((item, index) => ({
+              ...item,
+              isActive: index === 0,
+              isPast: false,
+            }));
           
           let resetItinerary: ItineraryItem[];
           if (customStamps.length > 0) {
@@ -698,12 +718,14 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
             }
           }
         }).catch(() => {
-          // If error loading custom stamps, just reset defaults
-          const resetDefaults = initialItinerary.map((item, index) => ({
-            ...item,
-            isActive: index === 0,
-            isPast: false,
-          }));
+          // If error loading custom stamps, just reset defaults (filtered by disabled stamps)
+          const resetDefaults = initialItinerary
+            .filter((stamp) => !disabledTitles.includes(stamp.title))
+            .map((item, index) => ({
+              ...item,
+              isActive: index === 0,
+              isPast: false,
+            }));
           setItineraryState(resetDefaults);
           
           // Sync reset state to Supabase

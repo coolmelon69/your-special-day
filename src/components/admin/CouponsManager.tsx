@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, EyeOff } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save } from "lucide-react";
 import type { CustomCoupon } from "@/types/admin";
 import {
   getAllCustomCoupons,
@@ -11,7 +11,7 @@ import {
   updateAdminSettings,
   saveCustomCouponsToIndexedDB,
 } from "@/utils/adminStorage";
-import { loadCustomCoupons, loadAdminSettings } from "@/utils/supabaseSync";
+import { loadCustomCoupons, loadAdminSettings, loadGlobalAdminSettings } from "@/utils/supabaseSync";
 import { getCurrentUser } from "@/utils/auth";
 
 const DEFAULT_COUPONS = [
@@ -105,14 +105,27 @@ const CouponsManager = () => {
             setCoupons(supabaseCoupons);
           }
           
-          // Also refresh settings in background
-          const supabaseSettings = await loadAdminSettings();
-          if (supabaseSettings) {
-            setDisabledDefaultCoupons(supabaseSettings.disabledDefaultCoupons || []);
+          // Also refresh global visibility settings in background
+          // Global settings apply to all users, not per-user
+          const globalSettings = await loadGlobalAdminSettings();
+          if (globalSettings) {
+            setDisabledDefaultCoupons(globalSettings.disabledDefaultCoupons || []);
           }
         } catch (syncError) {
           // Silently fail - we already have local data displayed
           console.warn("Background sync failed (using local data):", syncError);
+        }
+      } else {
+        // Even if user is not logged in, try to load global settings
+        // (they're public and don't require auth)
+        try {
+          const globalSettings = await loadGlobalAdminSettings();
+          if (globalSettings) {
+            setDisabledDefaultCoupons(globalSettings.disabledDefaultCoupons || []);
+          }
+        } catch (syncError) {
+          // Silently fail - we already have local data displayed
+          console.warn("Background sync of global settings failed (using local data):", syncError);
         }
       }
     } catch (error) {
@@ -134,15 +147,42 @@ const CouponsManager = () => {
       
       console.log("Toggling coupon:", couponId, "Current disabled:", currentDisabled, "New disabled:", newDisabled);
       
-      await updateAdminSettings({ disabledDefaultCoupons: newDisabled });
+      // Update local state immediately for responsive UI
       setDisabledDefaultCoupons(newDisabled);
       
-      // Reload to verify
-      const updatedSettings = await getAdminSettings();
-      console.log("Updated settings:", updatedSettings);
+      // Save to IndexedDB and sync to Supabase global table
+      await updateAdminSettings({ disabledDefaultCoupons: newDisabled });
+      
+      // Reload global settings from Supabase to get the authoritative state
+      // This ensures we have the latest from the database, not just local cache
+      try {
+        const globalSettings = await loadGlobalAdminSettings();
+        if (globalSettings) {
+          setDisabledDefaultCoupons(globalSettings.disabledDefaultCoupons || []);
+          console.log("Updated settings from global:", globalSettings);
+        } else {
+          // If global settings don't exist yet, use what we just set
+          console.log("Global settings not found, using local update");
+        }
+      } catch (verifyError) {
+        console.warn("Could not reload global settings after update:", verifyError);
+        // Keep the local state we set
+      }
     } catch (error) {
       console.error("Error toggling default coupon:", error);
       alert("Failed to update coupon visibility. Please try again.");
+      // Reload settings on error to restore correct state
+      try {
+        const globalSettings = await loadGlobalAdminSettings();
+        if (globalSettings) {
+          setDisabledDefaultCoupons(globalSettings.disabledDefaultCoupons || []);
+        } else {
+          const settings = await getAdminSettings();
+          setDisabledDefaultCoupons(settings.disabledDefaultCoupons || []);
+        }
+      } catch (reloadError) {
+        console.error("Error reloading settings after error:", reloadError);
+      }
     }
   };
 
@@ -265,7 +305,7 @@ const CouponsManager = () => {
             letterSpacing: "0.05em",
           }}
         >
-          Custom Coupons ({coupons.length})
+          Coupons ({DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).length + coupons.length})
         </h2>
         <motion.button
           onClick={handleAddNew}
@@ -281,119 +321,88 @@ const CouponsManager = () => {
         className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-4 opacity-75"
         style={{ textRendering: "optimizeSpeed" }}
       >
-        Custom coupons are shown together with default coupons. You can hide default coupons below.
+        Manage all coupons. Default coupons can be hidden, custom coupons can be edited or deleted.
       </p>
 
-      {/* Default Coupons Section */}
+      {/* All Coupons Section - Merged */}
       <div className="mb-6">
-        <h3
-          className="font-pixel text-base text-[hsl(15_70%_40%)] mb-3"
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Default Coupons ({DEFAULT_COUPONS.length})
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {DEFAULT_COUPONS.map((coupon) => {
-            const isDisabled = disabledDefaultCoupons.includes(coupon.id);
-            return (
-              <motion.div
-                key={coupon.id}
-                className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative ${
-                  isDisabled ? "opacity-50" : ""
-                }`}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-              >
-                <div className="flex items-center justify-between mb-3 gap-2">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
-                    <div className="min-w-0 flex-1">
-                      <h4
-                        className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        {coupon.title}
-                      </h4>
-                      {coupon.category && (
-                        <span
-                          className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
-                          style={{ textRendering: "optimizeSpeed" }}
-                        >
-                          {coupon.category}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span
-                      className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      DEFAULT
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleDefaultCoupon(e, coupon.id)}
-                      className={`w-6 h-6 flex items-center justify-center backdrop-blur-sm transition-colors rounded ${
-                        isDisabled
-                          ? "bg-white/30 hover:bg-white/40"
-                          : "bg-white/20 hover:bg-white/30"
-                      }`}
-                      title={isDisabled ? "Show coupon" : "Hide coupon"}
-                    >
-                      <EyeOff className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                <p
-                  className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
-                  style={{ textRendering: "optimizeSpeed" }}
-                >
-                  {coupon.description}
-                </p>
-                <div
-                  className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
-                  style={{ textRendering: "optimizeSpeed" }}
-                >
-                  Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Custom Coupons Section */}
-      <div className="mb-6">
-        <h3
-          className="font-pixel text-base text-[hsl(15_70%_40%)] mb-3"
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Custom Coupons ({coupons.length})
-        </h3>
-        {coupons.length === 0 && !showForm ? (
+        {DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).length === 0 && coupons.length === 0 && !showForm ? (
           <div className="text-center py-4 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] rounded-lg">
             <p
               className="font-pixel text-xs text-[hsl(15_60%_35%)]"
               style={{ textRendering: "optimizeSpeed" }}
             >
-              No custom coupons yet. Click "Add New" to create one.
+              No coupons available. Click "Add New" to create a custom coupon.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Default Coupons */}
+            {DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).map((coupon) => {
+              const isDisabled = disabledDefaultCoupons.includes(coupon.id);
+              return (
+                <motion.div
+                  key={coupon.id}
+                  className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative ${
+                    isDisabled ? "opacity-50" : ""
+                  }`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  <div className="flex items-center justify-between mb-3 gap-2">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <h4
+                          className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
+                          style={{ textRendering: "optimizeSpeed" }}
+                        >
+                          {coupon.title}
+                        </h4>
+                        {coupon.category && (
+                          <span
+                            className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
+                            style={{ textRendering: "optimizeSpeed" }}
+                          >
+                            {coupon.category}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span
+                        className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
+                        style={{ textRendering: "optimizeSpeed" }}
+                      >
+                        DEFAULT
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleDefaultCoupon(e, coupon.id)}
+                        className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
+                        title="Hide coupon"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <p
+                    className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
+                    style={{ textRendering: "optimizeSpeed" }}
+                  >
+                    {coupon.description}
+                  </p>
+                  <div
+                    className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
+                    style={{ textRendering: "optimizeSpeed" }}
+                  >
+                    Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
+                  </div>
+                </motion.div>
+              );
+            })}
+            
+            {/* Custom Coupons */}
             {coupons.map((coupon) => (
               <motion.div
                 key={coupon.id}
@@ -657,6 +666,8 @@ const CouponsManager = () => {
 };
 
 export default CouponsManager;
+
+
 
 
 

@@ -713,5 +713,122 @@ export const loadAdminSettings = async (): Promise<AdminSettings | null> => {
   }
 };
 
+// Global Admin Settings Sync Functions
+// These settings apply to ALL visitors, not per-user
+
+/**
+ * Sync global admin settings to Supabase
+ * These settings control visibility of default stamps/coupons for all users
+ * @param disabledDefaultStamps - Array of default stamp titles to hide
+ * @param disabledDefaultCoupons - Array of default coupon IDs to hide
+ */
+export const syncGlobalAdminSettings = async (
+  disabledDefaultStamps: string[],
+  disabledDefaultCoupons: number[]
+): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  // Get current user (admin must be authenticated)
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to sync global admin settings");
+    return false;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("global_admin_settings")
+      .upsert(
+        {
+          id: "global",
+          disabled_default_stamps: disabledDefaultStamps,
+          disabled_default_coupons: disabledDefaultCoupons,
+          last_modified: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+        }
+      )
+      .select();
+
+    if (error) {
+      if (error.code === "PGRST205") {
+        // Table doesn't exist - global_admin_settings table hasn't been created yet
+        console.warn("global_admin_settings table doesn't exist yet. Settings will be stored locally only. Please run CREATE_GLOBAL_ADMIN_SETTINGS.sql in Supabase.");
+        return false;
+      }
+      console.error("Error syncing global admin settings:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return false;
+    }
+
+    console.log("Global admin settings synced successfully");
+    return true;
+  } catch (error) {
+    console.error("Error in syncGlobalAdminSettings:", error);
+    return false;
+  }
+};
+
+/**
+ * Load global admin settings from Supabase
+ * This function does NOT require authentication - anyone can read global settings
+ * Returns null if table doesn't exist or on error
+ */
+export const loadGlobalAdminSettings = async (): Promise<{
+  disabledDefaultStamps: string[];
+  disabledDefaultCoupons: number[];
+  lastModified: number;
+} | null> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("global_admin_settings")
+      .select("*")
+      .eq("id", "global")
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No rows returned - settings haven't been set yet
+        return null;
+      }
+      if (error.code === "PGRST205") {
+        // Table doesn't exist - global_admin_settings table hasn't been created yet
+        console.warn("global_admin_settings table doesn't exist yet. Please run CREATE_GLOBAL_ADMIN_SETTINGS.sql in Supabase.");
+        return null;
+      }
+      console.error("Error loading global admin settings:", error);
+      return null;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      disabledDefaultStamps: data.disabled_default_stamps || [],
+      disabledDefaultCoupons: data.disabled_default_coupons || [],
+      lastModified: new Date(data.last_modified).getTime(),
+    };
+  } catch (error) {
+    console.error("Error in loadGlobalAdminSettings:", error);
+    return null;
+  }
+};
+
+
+
 
 

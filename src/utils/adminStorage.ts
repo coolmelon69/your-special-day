@@ -1,7 +1,7 @@
 // IndexedDB storage for admin data (custom stamps, coupons, settings)
 
 import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
-import { syncCustomStamps, deleteCustomStampFromSupabase, syncCustomCoupons, deleteCustomCouponFromSupabase, syncAdminSettings, loadAdminSettings } from "./supabaseSync";
+import { syncCustomStamps, deleteCustomStampFromSupabase, syncCustomCoupons, deleteCustomCouponFromSupabase, syncAdminSettings, loadAdminSettings, syncGlobalAdminSettings, loadGlobalAdminSettings } from "./supabaseSync";
 import { getCurrentUser } from "./auth";
 
 const DB_NAME = "admin-data-db";
@@ -420,20 +420,66 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
       request.onerror = () => reject(new Error("Failed to get admin settings"));
     });
 
-    // Sync from Supabase in the background (non-blocking)
+    // Load global visibility settings from Supabase (no auth required)
+    // This applies to ALL users, not just the current user
+    let globalVisibilitySettings: { disabledDefaultStamps: string[]; disabledDefaultCoupons: number[] } | null = null;
+    try {
+      const globalSettings = await loadGlobalAdminSettings();
+      if (globalSettings) {
+        globalVisibilitySettings = {
+          disabledDefaultStamps: globalSettings.disabledDefaultStamps,
+          disabledDefaultCoupons: globalSettings.disabledDefaultCoupons,
+        };
+        
+        // Update IndexedDB with global settings for faster access next time
+        getDB().then((db) => {
+          const writeTransaction = db.transaction([STORES.SETTINGS], "readwrite");
+          const writeStore = writeTransaction.objectStore(STORES.SETTINGS);
+          const updatedLocalSettings: AdminSettings = {
+            ...localSettings,
+            disabledDefaultStamps: globalSettings.disabledDefaultStamps,
+            disabledDefaultCoupons: globalSettings.disabledDefaultCoupons,
+            lastModified: Math.max(localSettings.lastModified, globalSettings.lastModified),
+          };
+          writeStore.put({ id: "settings", ...updatedLocalSettings });
+        }).catch((err) => {
+          console.warn("Failed to save global settings to IndexedDB:", err);
+        });
+      }
+    } catch (globalError) {
+      // Silently fail - use local settings if global load fails
+      console.warn("Failed to load global admin settings:", globalError);
+    }
+
+    // Merge local settings with global visibility settings
+    // Global visibility settings take precedence for disabled stamps/coupons
+    const mergedSettings: AdminSettings = {
+      ...localSettings,
+      disabledDefaultStamps: globalVisibilitySettings?.disabledDefaultStamps ?? localSettings.disabledDefaultStamps,
+      disabledDefaultCoupons: globalVisibilitySettings?.disabledDefaultCoupons ?? localSettings.disabledDefaultCoupons,
+    };
+
+    // Sync user-specific settings from Supabase in the background (non-blocking)
     // This updates IndexedDB if Supabase has newer data, but doesn't block the UI
     const user = await getCurrentUser();
     if (user) {
       // Don't await - let it run in background
       loadAdminSettings().then((supabaseSettings) => {
         if (supabaseSettings) {
-          // Check if Supabase has newer data
+          // Check if Supabase has newer data for user-specific settings
+          // Note: visibility settings come from global table, not user table
           if (supabaseSettings.lastModified > localSettings.lastModified) {
-            // Save to IndexedDB for next time
+            // Save to IndexedDB for next time (but keep global visibility settings)
             getDB().then((db) => {
               const writeTransaction = db.transaction([STORES.SETTINGS], "readwrite");
               const writeStore = writeTransaction.objectStore(STORES.SETTINGS);
-              writeStore.put({ id: "settings", ...supabaseSettings });
+              const userSpecificSettings: AdminSettings = {
+                ...supabaseSettings,
+                // Keep global visibility settings, not user-specific ones
+                disabledDefaultStamps: globalVisibilitySettings?.disabledDefaultStamps ?? supabaseSettings.disabledDefaultStamps,
+                disabledDefaultCoupons: globalVisibilitySettings?.disabledDefaultCoupons ?? supabaseSettings.disabledDefaultCoupons,
+              };
+              writeStore.put({ id: "settings", ...userSpecificSettings });
             }).catch((err) => {
               console.warn("Failed to save synced settings to IndexedDB:", err);
             });
@@ -445,8 +491,8 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
       });
     }
 
-    // Return local settings immediately
-    return localSettings;
+    // Return merged settings (local + global visibility)
+    return mergedSettings;
   } catch (error) {
     console.error("Error getting admin settings:", error);
     return DEFAULT_SETTINGS;
@@ -463,7 +509,7 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
     return new Promise<void>((resolve, reject) => {
       const getRequest = store.get("settings");
       
-      getRequest.onsuccess = () => {
+      getRequest.onsuccess = async () => {
         const currentSettings = getRequest.result;
         const baseSettings = currentSettings || DEFAULT_SETTINGS;
         
@@ -487,7 +533,23 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
           const user = await getCurrentUser();
           if (user) {
             try {
-              await syncAdminSettings(updatedSettings);
+              // If visibility settings are being updated, sync to global table
+              if (settings.disabledDefaultStamps !== undefined || settings.disabledDefaultCoupons !== undefined) {
+                await syncGlobalAdminSettings(
+                  updatedSettings.disabledDefaultStamps,
+                  updatedSettings.disabledDefaultCoupons
+                );
+              }
+              
+              // Sync user-specific settings (useCustomStamps, useCustomCoupons) to user table
+              // Note: We don't sync visibility settings to user table anymore
+              await syncAdminSettings({
+                useCustomStamps: updatedSettings.useCustomStamps,
+                useCustomCoupons: updatedSettings.useCustomCoupons,
+                lastModified: updatedSettings.lastModified,
+                disabledDefaultStamps: [], // Not synced to user table
+                disabledDefaultCoupons: [], // Not synced to user table
+              });
             } catch (syncError) {
               console.error("Error syncing admin settings to Supabase:", syncError);
               // Don't fail the operation if sync fails
@@ -505,6 +567,8 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
     throw error;
   }
 };
+
+
 
 
 
