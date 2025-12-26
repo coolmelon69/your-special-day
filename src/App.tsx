@@ -15,6 +15,8 @@ import WrappedPage from "./pages/WrappedPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import ScanQRPage from "./pages/ScanQRPage";
+import RedemptionSuccessPage from "./pages/RedemptionSuccessPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +46,8 @@ const App = () => (
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/admin/login" element={<AdminLoginPage />} />
                   <Route path="/admin" element={<AdminPanelPage />} />
+                  <Route path="/scan-qr" element={<ScanQRPage />} />
+                  <Route path="/redemption-success" element={<RedemptionSuccessPage />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Heart, Quote, Sparkles, CheckSquare, Gift, ArrowRight } from "lucide-react";
+import { Heart, Quote, Sparkles, CheckSquare, Gift, ArrowRight, QrCode } from "lucide-react";
 import { NavLink } from "./NavLink";
 
 const friendWishes = [
@@ -116,7 +116,7 @@ const LoveNoteSection = () => {
           </h3>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {/* Stamps Navigation Card */}
           <NavLink to="/stamps">
             <motion.div
@@ -153,8 +153,8 @@ const LoveNoteSection = () => {
           <NavLink to="/coupons">
             <motion.div
               className="bg-gradient-to-br from-purple-400 to-indigo-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden"
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.05, y: -4 }}
               transition={{ duration: 0.3 }}
@@ -175,6 +175,38 @@ const LoveNoteSection = () => {
                 </p>
                 <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">
                   View Coupons
+                  <ArrowRight size={18} />
+                </div>
+              </div>
+            </motion.div>
+          </NavLink>
+
+          {/* QR Scanner Navigation Card */}
+          <NavLink to="/scan-qr">
+            <motion.div
+              className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden"
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              whileHover={{ scale: 1.05, y: -4 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Decorative elements */}
+              <div className="absolute top-4 right-4">
+                <Sparkles className="text-white/30" size={24} />
+              </div>
+              <div className="absolute bottom-4 left-4">
+                <Sparkles className="text-white/20" size={20} />
+              </div>
+
+              <div className="relative z-10">
+                <QrCode className="mb-4" size={48} />
+                <h4 className="font-serif text-2xl font-bold mb-2">Scan QR Code</h4>
+                <p className="text-white/90 mb-6">
+                  Scan and redeem your coupon QR codes
+                </p>
+                <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">
+                  Scan Now
                   <ArrowRight size={18} />
                 </div>
               </div>
