@@ -4,6 +4,27 @@ import { Check, Clock, RotateCcw } from "lucide-react";
 import type { ItineraryItem } from "./TimelineSection";
 import { burstConfetti, sparkleBurst } from "../utils/particles";
 
+// Helper function to format the checked timestamp nicely
+const formatCheckedDate = (checkedAt: string | null | undefined): string => {
+  if (!checkedAt) return "";
+  
+  try {
+    const date = new Date(checkedAt);
+    // Format: "Jan 5, 4:30 PM"
+    const options: Intl.DateTimeFormatOptions = {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    };
+    return date.toLocaleDateString("en-US", options);
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "";
+  }
+};
+
 interface StampCollectionSectionProps {
   itineraryState: ItineraryItem[];
   onStampClick: (item: ItineraryItem) => void;
@@ -97,14 +118,7 @@ const StampCollectionSection = ({
                 initial={{ opacity: 0, scale: 0.8, y: 20 }}
                 whileInView={{ opacity: 1, scale: 1, y: 0 }}
                 viewport={{ once: true }}
-                animate={isCompleted ? {
-                  scale: [1, 1.05, 1],
-                } : {}}
-                transition={isCompleted ? {
-                  delay: index * 0.1,
-                  duration: 0.4,
-                  scale: { repeat: Infinity, duration: 2, delay: index * 0.1 + 0.4 }
-                } : {
+                transition={{
                   delay: index * 0.1,
                   duration: 0.4
                 }}
@@ -204,13 +218,20 @@ const StampCollectionSection = ({
                     </h3>
 
                     {/* Completion Indicator */}
-                    <div className="flex items-center justify-center gap-1 mt-auto flex-shrink-0">
+                    <div className="flex flex-col items-center justify-center gap-1 mt-auto flex-shrink-0">
                       {isCompleted ? (
                         <>
-                          <Check className="w-4 h-4 text-[hsl(120_60%_50%)]" />
-                          <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(120_60%_50%)] whitespace-nowrap">
-                            STAMPED
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <Check className="w-4 h-4 text-[hsl(120_60%_50%)]" />
+                            <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(120_60%_50%)] whitespace-nowrap">
+                              STAMPED
+                            </span>
+                          </div>
+                          {item.checkedAt && (
+                            <span className="font-pixel text-[7px] md:text-[9px] text-[hsl(15_60%_40%)] text-center mt-0.5">
+                              Checked on: {formatCheckedDate(item.checkedAt)}
+                            </span>
+                          )}
                         </>
                       ) : (
                         <>

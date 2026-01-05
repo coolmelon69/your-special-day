@@ -193,6 +193,7 @@ export type ItineraryItem = {
   sprite: string;
   isActive: boolean;
   isPast: boolean;
+  checkedAt?: string | null; // ISO timestamp when stamp was checked (from database)
   location?: {
     latitude: number;
     longitude: number;

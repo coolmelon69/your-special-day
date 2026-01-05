@@ -31,15 +31,23 @@ export const syncSingleStamp = async (
   }
 
   try {
+    const now = new Date().toISOString();
+    // If stamp is being checked and doesn't have a checked_at timestamp yet, set it to now
+    // Otherwise preserve existing timestamp or set to null if unchecked
+    const checkedAt = stampItem.isPast 
+      ? (stampItem.checkedAt || now) // Preserve existing timestamp or set to now if newly checked
+      : null; // Set to null when unchecked
+    
     const stampRecord = {
       user_id: user.id,
       stamp_key: `${stampItem.time}-${stampItem.title}`,
       is_active: stampItem.isActive,
       is_past: stampItem.isPast,
-      updated_at: new Date().toISOString(),
+      checked_at: checkedAt,
+      updated_at: now,
     };
 
-    console.log(`Syncing single stamp: ${stampRecord.stamp_key}, is_past=${stampRecord.is_past}`);
+    console.log(`Syncing single stamp: ${stampRecord.stamp_key}, is_past=${stampRecord.is_past}, checked_at=${stampRecord.checked_at}`);
 
     // Use upsert to insert or update the record
     const { data, error } = await supabase
@@ -88,13 +96,15 @@ export const syncStampsProgress = async (
   }
 
   try {
+    const now = new Date().toISOString();
     // Convert itineraryState to individual stamp records
     const stampRecords = itineraryState.map((item) => ({
       user_id: user.id,
       stamp_key: `${item.time}-${item.title}`,
       is_active: item.isActive,
       is_past: item.isPast,
-      updated_at: new Date().toISOString(),
+      checked_at: item.isPast ? (item.checkedAt || now) : null, // Preserve existing checked_at or set to now if newly checked
+      updated_at: now,
     }));
 
     // Log what we're syncing
@@ -194,6 +204,7 @@ export const loadStampsProgress = async (
         {
           isActive: record.is_active,
           isPast: record.is_past,
+          checkedAt: record.checked_at || null, // Include checked_at timestamp from database
           updatedAt: new Date(record.updated_at).getTime(),
         },
       ])
@@ -206,11 +217,12 @@ export const loadStampsProgress = async (
       const supabaseData = supabaseStampsMap.get(stampKey);
 
       if (supabaseData) {
-        console.log(`Merging stamp ${stampKey}: isPast=${supabaseData.isPast}, isActive=${supabaseData.isActive}`);
+        console.log(`Merging stamp ${stampKey}: isPast=${supabaseData.isPast}, isActive=${supabaseData.isActive}, checkedAt=${supabaseData.checkedAt}`);
         return {
           ...item,
           isActive: supabaseData.isActive,
           isPast: supabaseData.isPast,
+          checkedAt: supabaseData.checkedAt || null, // Include checked_at from database
         };
       }
 

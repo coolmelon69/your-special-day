@@ -115,7 +115,13 @@ const StampsPage = () => {
 
     // If no location is set for this item, allow marking as done without location check
     if (!item.location) {
-      const updatedItem = { ...item, isPast: true, isActive: false };
+      const now = new Date().toISOString();
+      const updatedItem = { 
+        ...item, 
+        isPast: true, 
+        isActive: false,
+        checkedAt: now // Set timestamp immediately so it shows in UI right away
+      };
       await updateStampAndSync(updatedItem);
       setSelectedEvent(null);
       setLocationError(null);
@@ -146,7 +152,13 @@ const StampsPage = () => {
       // Location check passed, mark as done and sync
       setIsCheckingLocation(false);
       setLocationError(null);
-      const updatedItem = { ...item, isPast: true, isActive: false };
+      const now = new Date().toISOString();
+      const updatedItem = { 
+        ...item, 
+        isPast: true, 
+        isActive: false,
+        checkedAt: now // Set timestamp immediately so it shows in UI right away
+      };
       await updateStampAndSync(updatedItem);
       setSelectedEvent(null);
       // Play stamp sound on successful check-in
