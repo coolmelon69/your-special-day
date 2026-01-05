@@ -118,9 +118,9 @@ const LoveNoteSection = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {/* Stamps Navigation Card */}
-          <NavLink to="/stamps">
+          <NavLink to="/stamps" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden"
+              className="bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -135,10 +135,10 @@ const LoveNoteSection = () => {
                 <Sparkles className="text-white/20" size={20} />
               </div>
 
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col flex-grow">
                 <CheckSquare className="mb-4" size={48} />
                 <h4 className="font-serif text-2xl font-bold mb-2">Stamp Collection</h4>
-                <p className="text-white/90 mb-6">
+                <p className="text-white/90 mb-6 flex-grow">
                   View all your collected adventure stamps
                 </p>
                 <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">
@@ -150,9 +150,9 @@ const LoveNoteSection = () => {
           </NavLink>
 
           {/* Coupons Navigation Card */}
-          <NavLink to="/coupons">
+          <NavLink to="/coupons" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-purple-400 to-indigo-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden"
+              className="bg-gradient-to-br from-purple-400 to-indigo-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -167,10 +167,10 @@ const LoveNoteSection = () => {
                 <Sparkles className="text-white/20" size={20} />
               </div>
 
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col flex-grow">
                 <Gift className="mb-4" size={48} />
                 <h4 className="font-serif text-2xl font-bold mb-2">Gift Coupons</h4>
-                <p className="text-white/90 mb-6">
+                <p className="text-white/90 mb-6 flex-grow">
                   Unlock and redeem your special gift coupons
                 </p>
                 <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">
@@ -182,9 +182,9 @@ const LoveNoteSection = () => {
           </NavLink>
 
           {/* QR Scanner Navigation Card */}
-          <NavLink to="/scan-qr">
+          <NavLink to="/scan-qr" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden"
+              className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -199,10 +199,10 @@ const LoveNoteSection = () => {
                 <Sparkles className="text-white/20" size={20} />
               </div>
 
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col flex-grow">
                 <QrCode className="mb-4" size={48} />
                 <h4 className="font-serif text-2xl font-bold mb-2">Scan QR Code</h4>
-                <p className="text-white/90 mb-6">
+                <p className="text-white/90 mb-6 flex-grow">
                   Scan and redeem your coupon QR codes
                 </p>
                 <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">

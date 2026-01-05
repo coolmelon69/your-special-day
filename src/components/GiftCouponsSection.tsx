@@ -306,18 +306,20 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
 
   // Load achievement data from Supabase first, then fallback to localStorage
   useEffect(() => {
-    // Reset flag when user changes
-    hasLoadedFromSupabase.current = false;
+    // If no user, reset flag and return early
+    // This ensures we load from Supabase when user becomes available
+    if (!user) {
+      hasLoadedFromSupabase.current = false;
+      return;
+    }
     
     const loadAchievementData = async () => {
-      if (!user) {
-        return;
-      }
-      
       if (hasLoadedFromSupabase.current) {
         return;
       }
       hasLoadedFromSupabase.current = true;
+      
+      console.log("Loading coupon achievements from Supabase...");
 
       try {
         // Load from localStorage first (as fallback)
@@ -336,9 +338,9 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
           }
         }
 
-        // Load from Supabase (only if user is authenticated)
-        console.log("Loading coupon achievements from Supabase for user:", user?.email);
-        const remoteResult = user ? await loadCouponAchievements() : null;
+        // Load from Supabase
+        console.log("Loading coupon achievements from Supabase for user:", user.email);
+        const remoteResult = await loadCouponAchievements();
         console.log("Loaded coupon achievements from Supabase:", remoteResult);
 
         // Get localStorage timestamp if available (try to parse from stored data)
@@ -365,14 +367,12 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
         } else if (localData) {
           // No Supabase data but local data exists - use local and sync to Supabase
           finalData = localData;
-          if (user) {
-            try {
-              console.log("Syncing local coupon data to Supabase (first time)");
-              await syncCouponAchievements(localData);
-            } catch (error) {
-              console.error("Error syncing local data to Supabase:", error);
-              // Non-blocking - the sync effect will retry later
-            }
+          try {
+            console.log("Syncing local coupon data to Supabase (first time)");
+            await syncCouponAchievements(localData);
+          } catch (error) {
+            console.error("Error syncing local data to Supabase:", error);
+            // Non-blocking - the sync effect will retry later
           }
         } else {
           // No data at all - start fresh
@@ -381,9 +381,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             achievementsUnlocked: [],
             achievementTimestamps: {},
           };
-          if (user) {
-            console.log("No coupon data found for user, starting fresh");
-          }
+          console.log("No coupon data found for user, starting fresh");
         }
 
         // Update state with final data

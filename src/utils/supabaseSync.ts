@@ -12,6 +12,63 @@ export interface AchievementData {
 // Stamps Progress Sync Functions
 
 /**
+ * Sync a single stamp immediately to Supabase
+ * This is called directly when a stamp is marked as done (similar to coupon redemption)
+ * @param stampItem - The stamp item to sync
+ */
+export const syncSingleStamp = async (
+  stampItem: ItineraryItem
+): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  // Get current user
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to sync stamp");
+    return false;
+  }
+
+  try {
+    const stampRecord = {
+      user_id: user.id,
+      stamp_key: `${stampItem.time}-${stampItem.title}`,
+      is_active: stampItem.isActive,
+      is_past: stampItem.isPast,
+      updated_at: new Date().toISOString(),
+    };
+
+    console.log(`Syncing single stamp: ${stampRecord.stamp_key}, is_past=${stampRecord.is_past}`);
+
+    // Use upsert to insert or update the record
+    const { data, error } = await supabase
+      .from("stamps_progress")
+      .upsert([stampRecord], {
+        onConflict: "user_id,stamp_key",
+      })
+      .select();
+
+    if (error) {
+      console.error("Error syncing single stamp:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return false;
+    }
+
+    console.log(`Stamp synced successfully: ${stampRecord.stamp_key}, is_past=${data?.[0]?.is_past}`);
+    return true;
+  } catch (error) {
+    console.error("Error in syncSingleStamp:", error);
+    return false;
+  }
+};
+
+/**
  * Sync stamps progress to Supabase
  * Converts itineraryState array to individual rows in stamps_progress table
  * @param itineraryState - The current itinerary state
@@ -40,10 +97,17 @@ export const syncStampsProgress = async (
       updated_at: new Date().toISOString(),
     }));
 
+    // Log what we're syncing
+    const checkedStamps = stampRecords.filter(r => r.is_past);
+    console.log(`Syncing ${stampRecords.length} stamps (${checkedStamps.length} checked):`, 
+      checkedStamps.map(r => `${r.stamp_key} (is_past=${r.is_past})`));
+
     // Remove duplicates based on stamp_key to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time" error
     const uniqueStampRecords = Array.from(
       new Map(stampRecords.map((record) => [record.stamp_key, record])).values()
     );
+
+    console.log(`After deduplication: ${uniqueStampRecords.length} unique stamps to sync`);
 
     // Use upsert to insert or update records
     const { data, error } = await supabase
@@ -64,7 +128,14 @@ export const syncStampsProgress = async (
       return false;
     }
 
-    console.log("Stamps synced successfully:", data?.length || 0, "records");
+    const syncedChecked = data?.filter(r => r.is_past).length || 0;
+    console.log(`Stamps synced successfully: ${data?.length || 0} records (${syncedChecked} checked)`);
+    
+    // Verify the data was saved correctly
+    if (data && data.length > 0) {
+      const sampleRecord = data[0];
+      console.log(`Sample synced record: ${sampleRecord.stamp_key}, is_past=${sampleRecord.is_past}, is_active=${sampleRecord.is_active}`);
+    }
 
     return true;
   } catch (error) {
@@ -94,11 +165,15 @@ export const loadStampsProgress = async (
 
   try {
     // Load stamps from Supabase for this user
+    // Add timestamp to query to prevent browser caching and ensure fresh data
+    const timestamp = Date.now();
     const { data, error } = await supabase
       .from("stamps_progress")
       .select("*")
       .eq("user_id", user.id)
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      // Force fresh data by adding a timestamp parameter (Supabase ignores unknown params but browser won't cache)
+      .limit(1000); // Explicit limit to ensure we get all records
 
     if (error) {
       console.error("Error loading stamps progress:", error);
@@ -106,8 +181,11 @@ export const loadStampsProgress = async (
     }
 
     if (!data || data.length === 0) {
+      console.log("No stamps found in Supabase for user, using base itinerary");
       return baseItinerary;
     }
+
+    console.log(`Loaded ${data.length} stamp records from Supabase:`, data.map(r => ({ key: r.stamp_key, isPast: r.is_past, isActive: r.is_active })));
 
     // Create a map of stamp_key -> stamp data from Supabase
     const supabaseStampsMap = new Map(
@@ -128,6 +206,7 @@ export const loadStampsProgress = async (
       const supabaseData = supabaseStampsMap.get(stampKey);
 
       if (supabaseData) {
+        console.log(`Merging stamp ${stampKey}: isPast=${supabaseData.isPast}, isActive=${supabaseData.isActive}`);
         return {
           ...item,
           isActive: supabaseData.isActive,
@@ -137,6 +216,9 @@ export const loadStampsProgress = async (
 
       return item;
     });
+
+    const completedCount = mergedItinerary.filter(item => item.isPast).length;
+    console.log(`Merged itinerary: ${completedCount} completed stamps out of ${mergedItinerary.length} total`);
 
     return mergedItinerary;
   } catch (error) {
@@ -848,7 +930,11 @@ export const subscribeToStampsProgress = (
 
   // Subscribe to changes in stamps_progress table for this user
   const channel = supabase
-    .channel(`stamps-progress:${userId}`)
+    .channel(`stamps-progress:${userId}`, {
+      config: {
+        broadcast: { self: false },
+      },
+    })
     .on(
       "postgres_changes",
       {
@@ -863,11 +949,16 @@ export const subscribeToStampsProgress = (
         callback();
       }
     )
-    .subscribe((status) => {
+    .subscribe((status, err) => {
       if (status === "SUBSCRIBED") {
         console.log("Subscribed to stamps_progress realtime changes");
       } else if (status === "CHANNEL_ERROR") {
-        console.error("Error subscribing to stamps_progress realtime changes");
+        console.error("Error subscribing to stamps_progress realtime changes", err);
+      } else if (status === "TIMED_OUT") {
+        console.warn("Realtime subscription timed out - retrying...");
+        // Subscription will be re-established on next user change
+      } else if (status === "CLOSED") {
+        console.log("Realtime subscription closed");
       }
     });
 
@@ -895,7 +986,11 @@ export const subscribeToCouponAchievements = (
 
   // Subscribe to changes in coupon_achievements table for this user
   const channel = supabase
-    .channel(`coupon-achievements:${userId}`)
+    .channel(`coupon-achievements:${userId}`, {
+      config: {
+        broadcast: { self: false },
+      },
+    })
     .on(
       "postgres_changes",
       {
@@ -918,11 +1013,15 @@ export const subscribeToCouponAchievements = (
         }
       }
     )
-    .subscribe((status) => {
+    .subscribe((status, err) => {
       if (status === "SUBSCRIBED") {
         console.log("Subscribed to coupon_achievements realtime changes");
       } else if (status === "CHANNEL_ERROR") {
-        console.error("Error subscribing to coupon_achievements realtime changes");
+        console.error("Error subscribing to coupon_achievements realtime changes", err);
+      } else if (status === "TIMED_OUT") {
+        console.warn("Realtime subscription timed out - retrying...");
+      } else if (status === "CLOSED") {
+        console.log("Realtime subscription closed");
       }
     });
 

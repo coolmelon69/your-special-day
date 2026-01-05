@@ -36,7 +36,8 @@ const ScanQRPage = () => {
           async (result) => {
             if (hasScanned) return; // Prevent multiple scans
             setHasScanned(true);
-            await handleQRScan(result);
+            // QrScanner returns a ScanResult object with a 'data' property
+            await handleQRScan(result.data);
           },
           {
             highlightScanRegion: false,
@@ -77,11 +78,18 @@ const ScanQRPage = () => {
         scannerRef.current.stop();
       }
 
+      // Trim whitespace from the scanned data
+      const trimmedData = qrData.trim();
+      
+      // Debug: log the raw data (remove in production if needed)
+      console.log("Scanned QR data:", trimmedData);
+
       // Parse QR code data (format: JSON string with { code, couponId, title })
       let parsedData: { code?: string; couponId?: number; title?: string };
       try {
-        parsedData = JSON.parse(qrData);
+        parsedData = JSON.parse(trimmedData);
       } catch (parseError) {
+        console.error("JSON parse error:", parseError, "Data:", trimmedData);
         toast({
           variant: "destructive",
           title: "Invalid QR code",

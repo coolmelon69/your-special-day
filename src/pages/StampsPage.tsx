@@ -1,7 +1,8 @@
 import { Helmet } from "react-helmet-async";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Trash2 } from "lucide-react";
+import { X, Camera, Trash2, Loader2 } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import StampCollectionSection from "@/components/StampCollectionSection";
 import Footer from "@/components/Footer";
 import { useAdventure } from "@/contexts/AdventureContext";
@@ -9,9 +10,13 @@ import { sprites, type ItineraryItem, checkLocation, type Photo as PhotoType } f
 import { playStampSound } from "@/utils/sound";
 import PhotoCaptureModal from "@/components/PhotoCaptureModal";
 import PhotoEditor from "@/components/PhotoEditor";
+import { syncSingleStamp } from "@/utils/supabaseSync";
 
 const StampsPage = () => {
-  const { itineraryState, resetProgress, setItineraryState, addPhoto, getPhotosByCheckpoint, deletePhoto } = useAdventure();
+  const location = useLocation();
+  const { itineraryState, resetProgress, setItineraryState, addPhoto, getPhotosByCheckpoint, deletePhoto, reloadStampsFromCloud, user } = useAdventure();
+  const [isLoadingStamps, setIsLoadingStamps] = useState(false);
+  const hasLoadedOnMountRef = useRef(false);
   const [selectedEvent, setSelectedEvent] = useState<ItineraryItem | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
@@ -21,6 +26,51 @@ const StampsPage = () => {
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
 
+  // Reload stamps data from Supabase when navigating to this page
+  // This ensures fresh data every time the user visits the Stamps page
+  const previousPathnameRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    // Only reload if user is authenticated and we're on the stamps route
+    if (location.pathname === "/stamps" && user) {
+      const isNavigatingToStamps = previousPathnameRef.current !== "/stamps";
+      previousPathnameRef.current = location.pathname;
+
+      const loadFreshData = async () => {
+        // On initial mount, reload silently (don't show loading spinner)
+        if (!hasLoadedOnMountRef.current) {
+          hasLoadedOnMountRef.current = true;
+          try {
+            console.log("Loading fresh stamps data on initial mount...");
+            await reloadStampsFromCloud();
+          } catch (error) {
+            console.error("Error loading stamps on mount:", error);
+          }
+          return;
+        }
+
+        // For subsequent navigations TO this page, show loading and reload fresh data
+        if (isNavigatingToStamps) {
+          setIsLoadingStamps(true);
+          try {
+            console.log("Reloading stamps from Supabase on navigation...");
+            await reloadStampsFromCloud();
+            console.log("Stamps reloaded successfully");
+          } catch (error) {
+            console.error("Error reloading stamps:", error);
+          } finally {
+            setIsLoadingStamps(false);
+          }
+        }
+      };
+
+      loadFreshData();
+    } else {
+      // Track pathname even when not on stamps page
+      previousPathnameRef.current = location.pathname;
+    }
+  }, [location.pathname, user, reloadStampsFromCloud]);
+
   // Load photos for selected checkpoint
   useEffect(() => {
     if (selectedEvent) {
@@ -29,15 +79,16 @@ const StampsPage = () => {
     }
   }, [selectedEvent, getPhotosByCheckpoint]);
 
-  const handleMarkAsDone = (eventIndex: number) => {
+  const handleMarkAsDone = async (eventIndex: number) => {
     const item = itineraryState[eventIndex];
     
-    // If no location is set for this item, allow marking as done without location check
-    if (!item.location) {
+    // Helper function to update state and sync
+    const updateStampAndSync = async (updatedItem: ItineraryItem) => {
+      // Update local state first
       setItineraryState(prev => {
         const updated = [...prev];
         const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
-        updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
+        updated[eventIndex] = updatedItem;
         // If this was the active event, activate the next one
         if (wasActive) {
           const nextIndex = eventIndex + 1;
@@ -47,6 +98,25 @@ const StampsPage = () => {
         }
         return updated;
       });
+
+      // Immediately sync to Supabase (like coupons do)
+      try {
+        const success = await syncSingleStamp(updatedItem);
+        if (success) {
+          console.log(`Stamp ${updatedItem.title} synced successfully to Supabase`);
+        } else {
+          console.warn(`Failed to sync stamp ${updatedItem.title} to Supabase`);
+        }
+      } catch (error) {
+        console.error(`Error syncing stamp ${updatedItem.title}:`, error);
+        // Non-blocking: continue even if sync fails (the debounced sync in context will retry)
+      }
+    };
+
+    // If no location is set for this item, allow marking as done without location check
+    if (!item.location) {
+      const updatedItem = { ...item, isPast: true, isActive: false };
+      await updateStampAndSync(updatedItem);
       setSelectedEvent(null);
       setLocationError(null);
       // Play stamp sound on successful check-in
@@ -60,7 +130,7 @@ const StampsPage = () => {
     setLocationError(null);
 
     // Call checkLocation synchronously to preserve user gesture for permission prompt
-    checkLocation(item.location).then((locationResult) => {
+    checkLocation(item.location).then(async (locationResult) => {
       if (!locationResult.isAtLocation) {
         setIsCheckingLocation(false);
         if (locationResult.distance !== undefined) {
@@ -73,22 +143,11 @@ const StampsPage = () => {
         return;
       }
 
-      // Location check passed, mark as done
+      // Location check passed, mark as done and sync
       setIsCheckingLocation(false);
       setLocationError(null);
-      setItineraryState(prev => {
-        const updated = [...prev];
-        const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
-        updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
-        // If this was the active event, activate the next one
-        if (wasActive) {
-          const nextIndex = eventIndex + 1;
-          if (nextIndex < updated.length) {
-            updated[nextIndex] = { ...updated[nextIndex], isActive: true };
-          }
-        }
-        return updated;
-      });
+      const updatedItem = { ...item, isPast: true, isActive: false };
+      await updateStampAndSync(updatedItem);
       setSelectedEvent(null);
       // Play stamp sound on successful check-in
       playStampSound();
@@ -170,12 +229,29 @@ const StampsPage = () => {
           </div>
         </section>
 
-        <StampCollectionSection 
-          itineraryState={itineraryState}
-          onStampClick={handleStampClick}
-          onResetProgress={resetProgress}
-          sprites={sprites}
-        />
+        {/* Loading State */}
+        {isLoadingStamps ? (
+          <div className="min-h-[400px] flex items-center justify-center bg-[hsl(35_40%_85%)]">
+            <motion.div
+              className="text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Loader2 className="mx-auto mb-4 text-[hsl(15_70%_40%)] w-8 h-8 animate-spin" />
+              <p className="font-pixel text-sm md:text-base text-[hsl(15_60%_35%)]">
+                Loading your stamps...
+              </p>
+            </motion.div>
+          </div>
+        ) : (
+          <StampCollectionSection 
+            itineraryState={itineraryState}
+            onStampClick={handleStampClick}
+            onResetProgress={resetProgress}
+            sprites={sprites}
+          />
+        )}
 
         {/* Pixel Modal */}
         <AnimatePresence>

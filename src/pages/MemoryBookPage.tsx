@@ -93,7 +93,7 @@ const MemoryBookPage = () => {
                 fontSmooth: "never",
               }}
             >
-              Start capturing photos at checkpoints to build your memory book!
+              Start capturing photos at checkpoints (stamps) to build your memory book!
             </p>
           </div>
         </div>

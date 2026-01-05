@@ -97,17 +97,9 @@ type CouponType = {
 };
 
 export const AdventureProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize state from localStorage or use initial itinerary
-  // Ensure we always have a valid initial state
-  const [itineraryState, setItineraryState] = useState<ItineraryItem[]>(() => {
-    try {
-      const saved = loadItineraryFromStorage();
-      return saved && saved.length > 0 ? saved : initialItinerary;
-    } catch (error) {
-      console.error("Error loading initial itinerary:", error);
-      return initialItinerary;
-    }
-  });
+  // Always start with fresh initial itinerary - don't load from localStorage initially
+  // We'll load from Supabase first, then use localStorage only as a fallback if user is not authenticated
+  const [itineraryState, setItineraryState] = useState<ItineraryItem[]>(initialItinerary);
   
   // Photos state
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -148,6 +140,8 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
 
   // Track if initial load from Supabase has completed to prevent infinite loops
   const hasLoadedFromSupabase = useRef(false);
+  // Track the initial state to detect if changes are from user actions vs initial load
+  const initialItineraryStateRef = useRef<ItineraryItem[]>(initialItinerary);
 
   // Initialize user auth state and listen for changes
   useEffect(() => {
@@ -160,13 +154,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         // Reset the load flag when user changes
         hasLoadedFromSupabase.current = false;
         
-        // If user logged out, reset to defaults
+        // If user logged out, reset to defaults (fresh initial itinerary)
         if (previousUser && !authUser) {
           console.log("User logged out - resetting to defaults");
-          // Reset to default itinerary (no custom stamps)
-          const saved = loadItineraryFromStorage();
-          const defaultItinerary = saved || initialItinerary;
-          setItineraryState(defaultItinerary);
+          setItineraryState(initialItinerary);
           // Coupons will be refreshed automatically via the useEffect that depends on user
         }
         
@@ -180,7 +171,16 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Load custom stamps, merge with defaults, then sync from Supabase
+  // Only run once when user becomes available, not on every user change
   useEffect(() => {
+    // Skip if already loaded or no user
+    if (hasLoadedFromSupabase.current || !user) {
+      console.log("Load effect skipped - hasLoaded:", hasLoadedFromSupabase.current, "user:", !!user);
+      return;
+    }
+
+    console.log("Load effect running - loading from Supabase");
+
     const loadCustomStamps = async () => {
       try {
         // Load settings to get disabled default stamps
@@ -277,35 +277,50 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
 
         // Load from Supabase and merge (Supabase takes precedence - last-write-wins)
         // Only load if user is authenticated
-        if (!hasLoadedFromSupabase.current) {
-          hasLoadedFromSupabase.current = true;
-          if (user) {
+        if (user) {
+          // User is authenticated - load from Supabase
+          if (!hasLoadedFromSupabase.current) {
             try {
+              console.log("Loading stamps progress from Supabase for user:", user.email);
               const supabaseItinerary = await loadStampsProgress(mergedItinerary);
-              setItineraryState(supabaseItinerary);
+              console.log("Loaded stamps from Supabase, applying state. Found", supabaseItinerary.length, "stamps");
+              
+              // Set flag BEFORE setting state to prevent other effects from interfering
+              hasLoadedFromSupabase.current = true;
+              
+              // Update the initial state ref to the loaded state BEFORE setting state
+              // This ensures sync effect knows this is the baseline
+              initialItineraryStateRef.current = [...supabaseItinerary];
+              
+              // Use functional update to ensure we're setting the correct state
+              setItineraryState(() => {
+                console.log("Setting state from Supabase load");
+                return supabaseItinerary;
+              });
             } catch (error) {
               console.error("Error loading from Supabase, using local data:", error);
+              // Only set flag on error too, so we don't retry endlessly
+              hasLoadedFromSupabase.current = true;
+              initialItineraryStateRef.current = [...mergedItinerary];
               setItineraryState(mergedItinerary);
             }
           } else {
-            // No user yet, just use local data
-            setItineraryState(mergedItinerary);
+            // Already loaded from Supabase - DO NOT update state
+            // This prevents overwriting user changes
+            console.log("Already loaded from Supabase - skipping to preserve user changes");
           }
         } else {
-          setItineraryState(mergedItinerary);
+          // No user yet - don't set state (keep initial state)
+          // When user becomes available, we'll load from Supabase
+          console.log("No user yet, keeping initial state");
         }
       } catch (error) {
         console.error("Error loading custom stamps:", error);
-        // On error, try to load settings again and respect disabled stamps
+        // On error, try to load settings and use fresh defaults (respecting disabled stamps)
         try {
           const settings = await getAdminSettings();
           const disabledTitles = settings.disabledDefaultStamps || [];
-          const saved = loadItineraryFromStorage();
-          const initialTitles = new Set(initialItinerary.map(s => s.title));
-          const savedDefaultStamps = saved 
-            ? saved.filter(stamp => initialTitles.has(stamp.title))
-            : null;
-          const fallbackItinerary = (savedDefaultStamps || initialItinerary).filter(
+          const fallbackItinerary = initialItinerary.filter(
             (stamp) => !disabledTitles.includes(stamp.title)
           );
           setItineraryState(fallbackItinerary.length > 0 ? fallbackItinerary : []);
@@ -318,100 +333,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadCustomStamps();
-  }, [user]);
-
-  // Reload from Supabase when user becomes available or changes
-  useEffect(() => {
-    if (!user || !hasLoadedFromSupabase.current) {
-      return;
-    }
-
-    // Reload stamps when user changes (e.g., after login)
-    const reloadWithUser = async () => {
-      try {
-        let disabledTitles: string[] = [];
-        try {
-          const settings = await getAdminSettings();
-          disabledTitles = settings.disabledDefaultStamps || [];
-        } catch (settingsError) {
-          console.warn("Could not load admin settings:", settingsError);
-        }
-
-        // When user is authenticated, use initialItinerary (fresh defaults) as base
-        // Supabase data will override these values via loadStampsProgress
-        const baseItinerary = initialItinerary.filter(
-          (stamp) => !disabledTitles.includes(stamp.title)
-        );
-
-        // Load custom stamps ONLY if user is authenticated
-        let customStamps: any[] = [];
-        if (user) {
-          try {
-            const supabaseStamps = await loadCustomStampsFromSupabase();
-            if (supabaseStamps.length > 0) {
-              // Save to IndexedDB for offline access
-              await saveCustomStampsToIndexedDB(supabaseStamps);
-              customStamps = supabaseStamps;
-            } else {
-              // No Supabase stamps, fallback to IndexedDB
-              customStamps = await getAllCustomStamps();
-            }
-          } catch (customError) {
-            console.warn("Could not load custom stamps:", customError);
-            try {
-              customStamps = await getAllCustomStamps();
-            } catch (fallbackError) {
-              console.warn("Could not load custom stamps from IndexedDB:", fallbackError);
-            }
-          }
-        } else {
-          // User not logged in - don't load custom stamps
-          console.log("User not logged in - showing default stamps only");
-        }
-
-        let mergedItinerary: ItineraryItem[];
-        if (customStamps.length > 0) {
-          const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
-            time: stamp.time,
-            title: stamp.title,
-            description: stamp.description,
-            sprite: stamp.sprite,
-            isActive: false,
-            isPast: stamp.isPast,
-            location: stamp.location,
-          }));
-          
-          // Create a map to track existing stamps by time+title to prevent duplicates
-          const existingStampsMap = new Map<string, ItineraryItem>();
-          baseItinerary.forEach(stamp => {
-            const key = `${stamp.time}-${stamp.title}`;
-            existingStampsMap.set(key, stamp);
-          });
-          
-          // Add custom stamps, skipping any that already exist
-          convertedCustomStamps.forEach(stamp => {
-            const key = `${stamp.time}-${stamp.title}`;
-            if (!existingStampsMap.has(key)) {
-              existingStampsMap.set(key, stamp);
-            }
-          });
-          
-          // Convert map back to array, preserving order (defaults first, then custom)
-          mergedItinerary = Array.from(existingStampsMap.values());
-        } else {
-          mergedItinerary = baseItinerary;
-        }
-
-        // Load from Supabase for the current user
-        const supabaseItinerary = await loadStampsProgress(mergedItinerary);
-        setItineraryState(supabaseItinerary);
-      } catch (error) {
-        console.error("Error reloading stamps with user:", error);
-      }
-    };
-
-    reloadWithUser();
-  }, [user]);
+  }, [user]); // Only run when user changes from null to a user (initial load)
 
   // Debounce timer for Supabase sync
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -536,22 +458,60 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       // Always save to localStorage (immediate, always succeeds)
       saveItineraryToStorage(defaultPortion);
       
+      // Only sync if user is authenticated
+      if (!user) {
+        return;
+      }
+      
+      // Check if this is a user action (state changed from what we last synced)
+      // Compare the checked stamps count, not the full state (more reliable)
+      const currentCheckedCount = itineraryState.filter(item => item.isPast).length;
+      const lastSyncedCheckedCount = initialItineraryStateRef.current.filter(item => item.isPast).length;
+      const isUserAction = currentCheckedCount !== lastSyncedCheckedCount || 
+                          JSON.stringify(itineraryState.map(i => ({ time: i.time, title: i.title, isPast: i.isPast, isActive: i.isActive }))) !== 
+                          JSON.stringify(initialItineraryStateRef.current.map(i => ({ time: i.time, title: i.title, isPast: i.isPast, isActive: i.isActive })));
+      
+      console.log(`Sync effect: checkedCount=${currentCheckedCount}, lastSynced=${lastSyncedCheckedCount}, isUserAction=${isUserAction}, hasLoaded=${hasLoadedFromSupabase.current}`);
+      
+      // Don't sync initial state to Supabase (prevents overwriting with old localStorage data)
+      // But DO sync if it's a user action, even if initial load hasn't completed yet
+      if (!isUserAction && !hasLoadedFromSupabase.current) {
+        console.log("Skipping Supabase sync - this is initial state, waiting for load from Supabase");
+        // Update ref to track this as the new initial state (but don't sync)
+        initialItineraryStateRef.current = [...itineraryState];
+        return;
+      }
+      
+      // Only update ref AFTER we've determined we're going to sync
+      // This way, if sync fails, we can retry
+      
       // Debounce Supabase sync (500ms delay to avoid too many requests)
       if (syncTimerRef.current) {
         clearTimeout(syncTimerRef.current);
       }
       
       syncTimerRef.current = setTimeout(async () => {
-        if (!user) {
-          // User not authenticated, skip sync
-          return;
-        }
         try {
+          // Capture current state at sync time (in case it changes during debounce)
+          const stateToSync = [...itineraryState];
+          
+          // Count how many stamps are checked
+          const checkedCount = stateToSync.filter(item => item.isPast).length;
+          console.log(`Syncing ${stateToSync.length} stamps to Supabase (${checkedCount} checked) - isUserAction: ${isUserAction}`);
+          
           // Sync full itineraryState (including custom stamps) to Supabase
-          await syncStampsProgress(itineraryState);
+          const success = await syncStampsProgress(stateToSync);
+          if (success) {
+            console.log("Stamps synced successfully to Supabase");
+            // Only update ref AFTER successful sync
+            initialItineraryStateRef.current = [...stateToSync];
+          } else {
+            console.warn("Stamps sync returned false - not updating ref, will retry on next change");
+          }
         } catch (error) {
           console.error("Error syncing stamps to Supabase:", error);
           // Non-blocking: continue even if sync fails
+          // Don't update ref on error, so we can retry
         }
       }, 500);
     }

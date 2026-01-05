@@ -85,7 +85,7 @@ const StampCollectionSection = ({
         </motion.div>
 
         {/* Stamp Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 max-w-6xl mx-auto items-stretch">
           {itineraryState.map((item, index) => {
             const SpriteComponent = sprites[item.sprite];
             const isCompleted = item.isPast;
@@ -93,6 +93,7 @@ const StampCollectionSection = ({
             return (
               <motion.div
                 key={index}
+                className="h-full flex"
                 initial={{ opacity: 0, scale: 0.8, y: 20 }}
                 whileInView={{ opacity: 1, scale: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -125,14 +126,14 @@ const StampCollectionSection = ({
                     }
                   }}
                   data-stamp-index={index}
-                  className={`w-full relative cursor-pointer focus:outline-none ${
+                  className={`w-full h-full relative cursor-pointer focus:outline-none ${
                     isCompleted ? "cursor-pointer" : ""
                   }`}
                   whileHover={{ scale: 1.05, y: -5 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   {/* Stamp Card */}
-                  <div className={`relative p-4 md:p-6 rounded-lg border-4 transition-all ${
+                  <div className={`relative h-full min-h-[200px] p-4 md:p-6 rounded-lg border-4 transition-all flex flex-col ${
                     isCompleted
                       ? "bg-[hsl(35_45%_90%)] border-[hsl(15_70%_55%)] shadow-lg"
                       : "bg-[hsl(35_40%_88%)] border-[hsl(30_30%_60%)] opacity-70"
@@ -178,23 +179,23 @@ const StampCollectionSection = ({
                     </div>
 
                     {/* Sprite Icon */}
-                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-3">
+                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-3 flex-shrink-0">
                       <SpriteComponent isActive={item.isActive} isPast={item.isPast} />
                     </div>
 
                     {/* Time Badge */}
-                    <div className={`inline-block px-2 py-1 mb-2 rounded ${
+                    <div className={`inline-block px-2 py-1 mb-2 rounded flex-shrink-0 ${
                       isCompleted
                         ? "bg-[hsl(15_70%_55%)] text-white"
                         : "bg-[hsl(30_30%_60%)] text-[hsl(30_20%_40%)]"
                     }`}>
-                      <span className="font-pixel text-[8px] md:text-[10px]">
+                      <span className="font-pixel text-[8px] md:text-[10px] whitespace-nowrap">
                         {item.time}
                       </span>
                     </div>
 
                     {/* Title */}
-                    <h3 className={`font-pixel text-xs md:text-sm mb-2 ${
+                    <h3 className={`font-pixel text-xs md:text-sm mb-2 flex-grow flex items-center justify-center text-center break-words line-clamp-2 ${
                       isCompleted
                         ? "text-[hsl(15_70%_40%)]"
                         : "text-[hsl(30_20%_40%)]"
@@ -203,18 +204,18 @@ const StampCollectionSection = ({
                     </h3>
 
                     {/* Completion Indicator */}
-                    <div className="flex items-center justify-center gap-1 mt-2">
+                    <div className="flex items-center justify-center gap-1 mt-auto flex-shrink-0">
                       {isCompleted ? (
                         <>
                           <Check className="w-4 h-4 text-[hsl(120_60%_50%)]" />
-                          <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(120_60%_50%)]">
+                          <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(120_60%_50%)] whitespace-nowrap">
                             STAMPED
                           </span>
                         </>
                       ) : (
                         <>
                           <Clock className="w-4 h-4 text-[hsl(30_20%_50%)]" />
-                          <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(30_20%_50%)]">
+                          <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(30_20%_50%)] whitespace-nowrap">
                             PENDING
                           </span>
                         </>
