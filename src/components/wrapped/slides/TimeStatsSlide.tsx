@@ -1,10 +1,34 @@
 import { motion } from 'framer-motion';
-import { differenceInMinutes } from 'date-fns';
+import { useState, useEffect } from 'react';
 import { RELATIONSHIP_START_DATE } from '../slideData';
 import CountUp from 'react-countup';
 
 const TimeStatsSlide = () => {
-  const minutesSpentTogether = differenceInMinutes(new Date(), RELATIONSHIP_START_DATE);
+  // Calculate minutes since start date
+  const calculateMinutes = (): number => {
+    const now = new Date();
+    const startDate = RELATIONSHIP_START_DATE;
+    const diffMs = now.getTime() - startDate.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    // Return 0 if date is in the future (negative minutes)
+    return Math.max(0, diffMinutes);
+  };
+
+  const [minutesSpentTogether, setMinutesSpentTogether] = useState(calculateMinutes);
+
+  // Update every minute (60,000ms)
+  useEffect(() => {
+    // Set initial value
+    setMinutesSpentTogether(calculateMinutes());
+
+    // Update every minute
+    const interval = setInterval(() => {
+      setMinutesSpentTogether(calculateMinutes());
+    }, 60000); // 60,000ms = 1 minute
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center px-4">

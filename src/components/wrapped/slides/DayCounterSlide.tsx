@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
 import { differenceInDays } from 'date-fns';
 import CountUp from 'react-countup';
+import { RELATIONSHIP_START_DATE } from '../slideData';
 
-const RELATIONSHIP_START = "2025-11-19";
+const RELATIONSHIP_START = RELATIONSHIP_START_DATE;
 
 const DayCounterSlide = () => {
-  const daysTogether = differenceInDays(new Date(), new Date(RELATIONSHIP_START));
+  const daysTogether = differenceInDays(new Date(), RELATIONSHIP_START);
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center px-4 overflow-hidden">

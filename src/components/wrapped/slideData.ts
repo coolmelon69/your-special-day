@@ -1,7 +1,7 @@
 // Slide data configuration for Wrapped feature
 // Mock data and slide metadata
 
-export const RELATIONSHIP_START_DATE = new Date('2020-01-01');
+export const RELATIONSHIP_START_DATE = new Date('2025-11-19T00:00:00');
 
 export interface SlideConfig {
   id: string;
@@ -26,23 +26,23 @@ export const TOTAL_SLIDES = SLIDE_CONFIGS.length;
 
 // Mock data for slides
 export const MOCK_DATA = {
-  topMonth: 'February',
-  longestStreak: 14,
+  topMonth: 'December',
+  longestStreak: 5,
   genres: [
-    'Late Night Drives',
-    'Ordering Takeout',
-    'Nap Time',
-    'Binge Watching',
-    'Deep Conversations',
+    'Lepak 24 Gang',
+    'Most Random Couple',
+    'Late night Emart sessions',
+    'Kene pressure tunang gang',
+    'strawberry and melon',
   ],
   mostQuoted: "Idk, what do you want to eat?",
   persona: {
-    title: 'The Cozy Explorers',
+    title: 'Chaos & Cuddles Inc.',
     traits: [
-      { name: 'Cuddliness', value: 80 },
-      { name: 'Patience', value: 30 },
-      { name: 'Chaos', value: 200 },
-      { name: 'Hunger', value: 70 },
+      { name: 'Ragebaiting', value: 200 },
+      { name: 'Cari Pintu', value: 70 },
+      { name: 'Cuddliness', value: 99 },
+      { name: "I love U's given", value: 180 },
     ],
   },
 };

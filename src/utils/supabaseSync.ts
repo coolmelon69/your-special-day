@@ -44,6 +44,7 @@ export const syncSingleStamp = async (
       is_active: stampItem.isActive,
       is_past: stampItem.isPast,
       checked_at: checkedAt,
+      image_url: stampItem.imageUrl || null, // Include image URL from Supabase Storage
       updated_at: now,
     };
 
@@ -104,6 +105,7 @@ export const syncStampsProgress = async (
       is_active: item.isActive,
       is_past: item.isPast,
       checked_at: item.isPast ? (item.checkedAt || now) : null, // Preserve existing checked_at or set to now if newly checked
+      image_url: item.imageUrl || null, // Include image URL from Supabase Storage
       updated_at: now,
     }));
 
@@ -205,6 +207,7 @@ export const loadStampsProgress = async (
           isActive: record.is_active,
           isPast: record.is_past,
           checkedAt: record.checked_at || null, // Include checked_at timestamp from database
+          imageUrl: record.image_url || null, // Include image URL from Supabase Storage
           updatedAt: new Date(record.updated_at).getTime(),
         },
       ])
@@ -217,12 +220,13 @@ export const loadStampsProgress = async (
       const supabaseData = supabaseStampsMap.get(stampKey);
 
       if (supabaseData) {
-        console.log(`Merging stamp ${stampKey}: isPast=${supabaseData.isPast}, isActive=${supabaseData.isActive}, checkedAt=${supabaseData.checkedAt}`);
+        console.log(`Merging stamp ${stampKey}: isPast=${supabaseData.isPast}, isActive=${supabaseData.isActive}, checkedAt=${supabaseData.checkedAt}, imageUrl=${supabaseData.imageUrl}`);
         return {
           ...item,
           isActive: supabaseData.isActive,
           isPast: supabaseData.isPast,
           checkedAt: supabaseData.checkedAt || null, // Include checked_at from database
+          imageUrl: supabaseData.imageUrl || null, // Include image URL from database
         };
       }
 

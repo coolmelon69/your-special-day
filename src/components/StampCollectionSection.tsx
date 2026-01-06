@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Clock, RotateCcw } from "lucide-react";
 import type { ItineraryItem } from "./TimelineSection";
 import { burstConfetti, sparkleBurst } from "../utils/particles";
@@ -23,6 +23,33 @@ const formatCheckedDate = (checkedAt: string | null | undefined): string => {
     console.error("Error formatting date:", error);
     return "";
   }
+};
+
+// Component to display evidence image with fallback to sprite
+const EvidenceImage = ({ 
+  imageUrl, 
+  fallback, 
+  alt 
+}: { 
+  imageUrl: string; 
+  fallback: React.ReactNode; 
+  alt: string;
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  if (imageError) {
+    return <>{fallback}</>;
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={alt}
+      className="w-full h-full object-cover rounded border-2 border-[hsl(15_70%_55%)]"
+      style={{ imageRendering: "pixelated" }}
+      onError={() => setImageError(true)}
+    />
+  );
 };
 
 interface StampCollectionSectionProps {
@@ -192,9 +219,19 @@ const StampCollectionSection = ({
                       })}
                     </div>
 
-                    {/* Sprite Icon */}
-                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-3 flex-shrink-0">
-                      <SpriteComponent isActive={item.isActive} isPast={item.isPast} />
+                    {/* Sprite Icon or Evidence Image */}
+                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-3 flex-shrink-0 relative">
+                      {isCompleted && item.imageUrl ? (
+                        // Show synced evidence image if available
+                        <EvidenceImage 
+                          imageUrl={item.imageUrl}
+                          fallback={<SpriteComponent isActive={item.isActive} isPast={item.isPast} />}
+                          alt={item.title}
+                        />
+                      ) : (
+                        // Show sprite icon if no image or not completed
+                        <SpriteComponent isActive={item.isActive} isPast={item.isPast} />
+                      )}
                     </div>
 
                     {/* Time Badge */}

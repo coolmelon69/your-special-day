@@ -11,6 +11,7 @@ import { playStampSound } from "@/utils/sound";
 import PhotoCaptureModal from "@/components/PhotoCaptureModal";
 import PhotoEditor from "@/components/PhotoEditor";
 import { syncSingleStamp } from "@/utils/supabaseSync";
+import { uploadPhotoToStorage } from "@/utils/photoUpload";
 
 const StampsPage = () => {
   const location = useLocation();
@@ -180,7 +181,68 @@ const StampsPage = () => {
 
   const handlePhotoSave = async (photoData: Omit<PhotoType, "id" | "timestamp">) => {
     try {
-      await addPhoto(photoData.checkpointId, photoData);
+      // Generate unique photo ID
+      const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const stampKey = `${selectedEvent?.time || ""}-${selectedEvent?.title || ""}`;
+      
+      // Upload photo to Supabase Storage if user is authenticated
+      let storageUrl: string | undefined = undefined;
+      if (user && photoData.src) {
+        try {
+          console.log("Uploading photo to Supabase Storage...");
+          const uploadedUrl = await uploadPhotoToStorage(photoData.src, stampKey, photoId);
+          if (uploadedUrl) {
+            storageUrl = uploadedUrl;
+            console.log("Photo uploaded successfully:", uploadedUrl);
+          } else {
+            console.warn("Photo upload failed, saving locally only");
+          }
+        } catch (uploadError) {
+          console.error("Error uploading photo:", uploadError);
+          // Continue with local save even if upload fails
+        }
+      }
+
+      // Save photo with storage URL if available
+      const photoWithStorage: Omit<PhotoType, "id" | "timestamp"> = {
+        ...photoData,
+        storageUrl,
+      };
+
+      await addPhoto(photoData.checkpointId, photoWithStorage);
+      
+      // If this is the first photo for this stamp and we have a storage URL,
+      // update the stamp's image_url in the database
+      if (selectedEvent && storageUrl && user) {
+        try {
+          const eventIndex = itineraryState.findIndex(item => 
+            item.time === selectedEvent.time && 
+            item.title === selectedEvent.title
+          );
+          
+          if (eventIndex >= 0) {
+            const currentItem = itineraryState[eventIndex];
+            // Only update if stamp doesn't already have an image_url
+            if (!currentItem.imageUrl) {
+              const updatedItem = {
+                ...currentItem,
+                imageUrl: storageUrl,
+              };
+              await syncSingleStamp(updatedItem);
+              // Update local state
+              setItineraryState(prev => {
+                const updated = [...prev];
+                updated[eventIndex] = updatedItem;
+                return updated;
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error updating stamp image_url:", error);
+          // Non-blocking: photo is already saved locally
+        }
+      }
+      
       if (selectedEvent) {
         const checkpointId = `${selectedEvent.time}-${selectedEvent.title}`;
         const photos = await getPhotosByCheckpoint(checkpointId);
@@ -307,7 +369,7 @@ const StampsPage = () => {
 
                     {/* Content */}
                     <div className="text-center">
-                      {/* Sprite preview */}
+                      {/* Sprite preview or Evidence Image */}
                       <div className="w-16 h-16 mx-auto mb-4">
                         {(() => {
                           const eventIndex = itineraryState.findIndex(item => 
@@ -316,6 +378,24 @@ const StampsPage = () => {
                           );
                           const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
                           const SpriteComponent = sprites[selectedEvent.sprite];
+                          
+                          // Show evidence image if available and stamp is completed
+                          if (currentItem.isPast && currentItem.imageUrl) {
+                            return (
+                              <img
+                                src={currentItem.imageUrl}
+                                alt={currentItem.title}
+                                className="w-full h-full object-cover rounded border-2 border-[hsl(15_70%_55%)]"
+                                style={{ imageRendering: "pixelated" }}
+                                onError={(e) => {
+                                  // Fallback to sprite if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                }}
+                              />
+                            );
+                          }
+                          
                           return <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />;
                         })()}
                       </div>
@@ -371,10 +451,17 @@ const StampsPage = () => {
                                 className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden group"
                               >
                                 <img
-                                  src={photo.src}
+                                  src={photo.storageUrl || photo.src}
                                   alt={photo.caption || "Memory"}
                                   className="w-full h-full object-cover"
                                   style={{ imageRendering: "pixelated" }}
+                                  onError={(e) => {
+                                    // Fallback to local src if storage URL fails
+                                    const target = e.target as HTMLImageElement;
+                                    if (photo.storageUrl && target.src !== photo.src) {
+                                      target.src = photo.src;
+                                    }
+                                  }}
                                 />
                                 {/* Delete button */}
                                 <button

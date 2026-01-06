@@ -177,7 +177,8 @@ export type Sticker = {
 export type Photo = {
   id: string;
   checkpointId: string; // References checkpoint title/time
-  src: string; // Data URL or blob URL
+  src: string; // Data URL or blob URL (local)
+  storageUrl?: string; // Supabase Storage URL (synced across devices)
   timestamp: number;
   filter?: string; // Filter preset name
   frame?: string; // Frame preset name
@@ -194,6 +195,7 @@ export type ItineraryItem = {
   isActive: boolean;
   isPast: boolean;
   checkedAt?: string | null; // ISO timestamp when stamp was checked (from database)
+  imageUrl?: string | null; // Primary evidence image URL from Supabase Storage
   location?: {
     latitude: number;
     longitude: number;
