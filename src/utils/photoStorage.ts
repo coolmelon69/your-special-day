@@ -69,6 +69,65 @@ export const addPhoto = async (photo: Photo): Promise<void> => {
   }
 };
 
+// Upsert (insert or replace) a photo by ID
+// Use this for cloud sync merges to avoid duplicate key errors.
+export const upsertPhoto = async (photo: Photo): Promise<void> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORE_NAME], "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    await new Promise<void>((resolve, reject) => {
+      const request = store.put(photo);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(new Error("Failed to upsert photo"));
+    });
+  } catch (error) {
+    console.error("Error upserting photo:", error);
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      throw new Error("Storage quota exceeded. Please delete some photos.");
+    }
+    throw error;
+  }
+};
+
+// Upsert multiple photos in a single transaction (best for bulk cloud merges)
+export const upsertPhotos = async (photos: Photo[]): Promise<void> => {
+  if (photos.length === 0) return;
+
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORE_NAME], "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+
+    await new Promise<void>((resolve, reject) => {
+      let completed = 0;
+      let failed = false;
+
+      const onDone = () => {
+        completed += 1;
+        if (!failed && completed >= photos.length) {
+          resolve();
+        }
+      };
+
+      for (const photo of photos) {
+        const request = store.put(photo);
+        request.onsuccess = () => onDone();
+        request.onerror = () => {
+          failed = true;
+          reject(new Error("Failed to upsert photos"));
+        };
+      }
+    });
+  } catch (error) {
+    console.error("Error upserting photos:", error);
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      throw new Error("Storage quota exceeded. Please delete some photos.");
+    }
+    throw error;
+  }
+};
+
 // Get all photos
 export const getAllPhotos = async (): Promise<Photo[]> => {
   try {

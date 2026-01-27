@@ -3,9 +3,10 @@ import { initialItinerary, type ItineraryItem, type Photo } from "@/components/T
 import * as photoStorage from "@/utils/photoStorage";
 import { getAllCustomStamps, getAllCustomCoupons, getAdminSettings, saveCustomStampsToIndexedDB, saveCustomCouponsToIndexedDB } from "@/utils/adminStorage";
 import type { CustomStamp, CustomCoupon } from "@/types/admin";
-import { syncStampsProgress, loadStampsProgress, loadCustomStamps as loadCustomStampsFromSupabase, loadCustomCoupons as loadCustomCouponsFromSupabase, subscribeToStampsProgress } from "@/utils/supabaseSync";
+import { syncStampsProgress, loadStampsProgress, loadCustomStamps as loadCustomStampsFromSupabase, loadCustomCoupons as loadCustomCouponsFromSupabase, subscribeToStampsProgress, loadCheckpointPhotos, deleteCheckpointPhoto } from "@/utils/supabaseSync";
 import { getCurrentUser, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { deletePhotoFromStorage } from "@/utils/photoUpload";
 
 // localStorage key for saving progress
 const STORAGE_KEY = "birthday-adventure-progress";
@@ -74,6 +75,7 @@ interface AdventureContextType {
   resetProgress: () => void;
   photos: Photo[];
   addPhoto: (checkpointId: string, photoData: Omit<Photo, "id" | "timestamp">) => Promise<void>;
+  upsertPhoto: (photo: Photo) => Promise<void>;
   getPhotosByCheckpoint: (checkpointId: string) => Promise<Photo[]>;
   getAllPhotos: () => Promise<Photo[]>;
   deletePhoto: (photoId: string) => Promise<void>;
@@ -81,6 +83,7 @@ interface AdventureContextType {
   coupons: Array<{ id: number | string; title: string; description: string; emoji: string; color: string; requiredStamps: number; category?: string }>;
   refreshCoupons: () => Promise<void>;
   reloadStampsFromCloud: () => Promise<void>;
+  reloadPhotosFromCloud: () => Promise<void>;
   user: SupabaseUser | null;
 }
 
@@ -555,6 +558,17 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [refreshPhotos]);
 
+  // Upsert a photo (used for cloud merges and for keeping stable IDs across devices)
+  const upsertPhoto = useCallback(async (photo: Photo) => {
+    try {
+      await photoStorage.upsertPhoto(photo);
+      await refreshPhotos();
+    } catch (error) {
+      console.error("Error upserting photo:", error);
+      throw error;
+    }
+  }, [refreshPhotos]);
+
   // Get photos by checkpoint - memoized to prevent infinite loops
   const getPhotosByCheckpoint = useCallback(async (checkpointId: string): Promise<Photo[]> => {
     try {
@@ -578,13 +592,50 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   // Delete a photo - memoized to prevent infinite loops
   const deletePhoto = useCallback(async (photoId: string) => {
     try {
+      // Best-effort: delete cloud metadata + storage object (if logged in)
+      const existing = await photoStorage.getPhoto(photoId);
+      if (user) {
+        try {
+          await deleteCheckpointPhoto(photoId);
+        } catch (err) {
+          console.warn("Failed to delete checkpoint photo from Supabase:", err);
+        }
+        if (existing?.storageUrl) {
+          try {
+            await deletePhotoFromStorage(existing.storageUrl);
+          } catch (err) {
+            console.warn("Failed to delete photo from Storage:", err);
+          }
+        }
+      }
+
       await photoStorage.deletePhoto(photoId);
       await refreshPhotos();
     } catch (error) {
       console.error("Error deleting photo:", error);
       throw error;
     }
-  }, [refreshPhotos]);
+  }, [refreshPhotos, user]);
+
+  // Load photos from Supabase and merge into IndexedDB (cross-device sync)
+  const reloadPhotosFromCloud = useCallback(async () => {
+    if (!user) return;
+    try {
+      const cloudPhotos = await loadCheckpointPhotos();
+      if (cloudPhotos.length > 0) {
+        await photoStorage.upsertPhotos(cloudPhotos);
+      }
+      await refreshPhotos();
+    } catch (error) {
+      console.error("Error reloading photos from cloud:", error);
+    }
+  }, [user, refreshPhotos]);
+
+  // Pull latest photos whenever a user logs in
+  useEffect(() => {
+    if (!user) return;
+    reloadPhotosFromCloud();
+  }, [user, reloadPhotosFromCloud]);
 
   // Refresh coupons - memoized to prevent infinite loops
   // Only load custom coupons if user is authenticated
@@ -892,6 +943,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         resetProgress,
         photos,
         addPhoto,
+        upsertPhoto,
         getPhotosByCheckpoint,
         getAllPhotos,
         deletePhoto,
@@ -899,6 +951,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         coupons,
         refreshCoupons,
         reloadStampsFromCloud,
+        reloadPhotosFromCloud,
         user,
       }}
     >

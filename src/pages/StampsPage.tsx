@@ -10,12 +10,12 @@ import { sprites, type ItineraryItem, checkLocation, type Photo as PhotoType } f
 import { playStampSound } from "@/utils/sound";
 import PhotoCaptureModal from "@/components/PhotoCaptureModal";
 import PhotoEditor from "@/components/PhotoEditor";
-import { syncSingleStamp } from "@/utils/supabaseSync";
+import { syncCheckpointPhoto, syncSingleStamp } from "@/utils/supabaseSync";
 import { uploadPhotoToStorage } from "@/utils/photoUpload";
 
 const StampsPage = () => {
   const location = useLocation();
-  const { itineraryState, resetProgress, setItineraryState, addPhoto, getPhotosByCheckpoint, deletePhoto, reloadStampsFromCloud, user } = useAdventure();
+  const { itineraryState, resetProgress, setItineraryState, addPhoto, upsertPhoto, getPhotosByCheckpoint, deletePhoto, reloadStampsFromCloud, user } = useAdventure();
   const [isLoadingStamps, setIsLoadingStamps] = useState(false);
   const hasLoadedOnMountRef = useRef(false);
   const [selectedEvent, setSelectedEvent] = useState<ItineraryItem | null>(null);
@@ -184,6 +184,7 @@ const StampsPage = () => {
       // Generate unique photo ID
       const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const stampKey = `${selectedEvent?.time || ""}-${selectedEvent?.title || ""}`;
+      const timestamp = Date.now();
       
       // Upload photo to Supabase Storage if user is authenticated
       let storageUrl: string | undefined = undefined;
@@ -203,13 +204,25 @@ const StampsPage = () => {
         }
       }
 
-      // Save photo with storage URL if available
-      const photoWithStorage: Omit<PhotoType, "id" | "timestamp"> = {
+      // Create a stable Photo object (same id across devices via Supabase metadata)
+      const photoToSave: PhotoType = {
         ...photoData,
+        id: photoId,
+        timestamp,
         storageUrl,
       };
 
-      await addPhoto(photoData.checkpointId, photoWithStorage);
+      // Save locally with stable ID (upsert to avoid collisions)
+      await upsertPhoto(photoToSave);
+
+      // Sync photo metadata to Supabase for cross-device Memory Book
+      if (user && storageUrl) {
+        try {
+          await syncCheckpointPhoto(photoToSave);
+        } catch (err) {
+          console.warn("Failed to sync checkpoint photo metadata:", err);
+        }
+      }
       
       // If this is the first photo for this stamp and we have a storage URL,
       // update the stamp's image_url in the database

@@ -1,6 +1,7 @@
 import { supabase, isSupabaseAvailable } from "./supabaseClient";
 import { getCurrentUser } from "./auth";
 import type { ItineraryItem } from "@/components/TimelineSection";
+import type { Photo } from "@/components/TimelineSection";
 import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
 
 export interface AchievementData {
@@ -8,6 +9,149 @@ export interface AchievementData {
   achievementsUnlocked: string[];
   achievementTimestamps: Record<string, number>;
 }
+
+// Checkpoint Photos Sync Functions (Memory Book cross-device sync)
+
+/**
+ * Upsert a single checkpoint photo metadata row to Supabase.
+ * The file itself should already be uploaded to Supabase Storage; we store the public URL here.
+ */
+export const syncCheckpointPhoto = async (photo: Photo): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to sync checkpoint photo");
+    return false;
+  }
+
+  const storageUrl = photo.storageUrl || photo.src;
+  if (!storageUrl) {
+    console.warn("No storageUrl/src available to sync checkpoint photo");
+    return false;
+  }
+
+  try {
+    const createdAtIso =
+      typeof photo.timestamp === "number" ? new Date(photo.timestamp).toISOString() : new Date().toISOString();
+
+    const record = {
+      user_id: user.id,
+      photo_id: photo.id,
+      checkpoint_id: photo.checkpointId,
+      storage_url: storageUrl,
+      caption: photo.caption || null,
+      filter: photo.filter || null,
+      frame: photo.frame || null,
+      stickers: photo.stickers || null,
+      created_at: createdAtIso,
+    };
+
+    const { error } = await supabase
+      .from("checkpoint_photos")
+      .upsert([record], { onConflict: "user_id,photo_id" });
+
+    if (error) {
+      console.error("Error syncing checkpoint photo:", error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error in syncCheckpointPhoto:", err);
+    return false;
+  }
+};
+
+/**
+ * Load all checkpoint photos for the current user from Supabase.
+ * Returned items are mapped to the app `Photo` type.
+ */
+export const loadCheckpointPhotos = async (): Promise<Photo[]> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return [];
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to load checkpoint photos");
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("checkpoint_photos")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+
+    if (error) {
+      console.error("Error loading checkpoint photos:", error);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    return data.map((row: any) => {
+      const storageUrl = row.storage_url as string;
+      const createdAt = row.created_at ? new Date(row.created_at).getTime() : Date.now();
+
+      return {
+        id: row.photo_id as string,
+        checkpointId: row.checkpoint_id as string,
+        // For cross-device render, use the remote URL as `src` (MemoryBook can also prefer storageUrl).
+        src: storageUrl,
+        storageUrl,
+        timestamp: createdAt,
+        caption: row.caption || undefined,
+        filter: row.filter || undefined,
+        frame: row.frame || undefined,
+        stickers: row.stickers || undefined,
+      } satisfies Photo;
+    });
+  } catch (err) {
+    console.error("Error in loadCheckpointPhotos:", err);
+    return [];
+  }
+};
+
+/**
+ * Delete a checkpoint photo metadata row from Supabase.
+ */
+export const deleteCheckpointPhoto = async (photoId: string): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to delete checkpoint photo");
+    return false;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("checkpoint_photos")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("photo_id", photoId);
+
+    if (error) {
+      console.error("Error deleting checkpoint photo:", error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error in deleteCheckpointPhoto:", err);
+    return false;
+  }
+};
 
 // Stamps Progress Sync Functions
 

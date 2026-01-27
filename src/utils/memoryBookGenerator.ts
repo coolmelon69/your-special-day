@@ -194,7 +194,7 @@ export const generateMemoryBookHTML = (
           .map(
             (photo) => `
         <div class="photo-item">
-          <img src="${photo.src}" alt="${photo.caption || "Memory"}" />
+          <img src="${photo.storageUrl || photo.src}" alt="${photo.caption || "Memory"}" />
           ${photo.caption ? `<div class="photo-caption">${photo.caption}</div>` : ""}
         </div>
         `

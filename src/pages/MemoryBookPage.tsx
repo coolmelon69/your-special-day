@@ -5,9 +5,11 @@ import { Download, BookOpen, Trash2 } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { generateMemoryBookPages, generateMemoryBookHTML, downloadMemoryBook } from "@/utils/memoryBookGenerator";
 import type { MemoryBookPage } from "@/utils/memoryBookGenerator";
+import { useLocation } from "react-router-dom";
 
 const MemoryBookPage = () => {
-  const { getAllPhotos, itineraryState, deletePhoto, refreshPhotos } = useAdventure();
+  const { getAllPhotos, itineraryState, deletePhoto, refreshPhotos, reloadPhotosFromCloud, user } = useAdventure();
+  const location = useLocation();
   const [pages, setPages] = useState<MemoryBookPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
@@ -15,6 +17,10 @@ const MemoryBookPage = () => {
   const loadMemoryBook = async () => {
     setIsLoading(true);
     try {
+      // Pull latest photos from cloud when logged in (cross-device sync)
+      if (user) {
+        await reloadPhotosFromCloud();
+      }
       const photos = await getAllPhotos();
       const memoryPages = generateMemoryBookPages(photos, itineraryState);
       setPages(memoryPages);
@@ -26,8 +32,12 @@ const MemoryBookPage = () => {
   };
 
   useEffect(() => {
-    loadMemoryBook();
-  }, [getAllPhotos, itineraryState]);
+    // Refresh when entering this route (and when user logs in)
+    if (location.pathname === "/memory-book") {
+      loadMemoryBook();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, itineraryState, user]);
 
   const handleDeletePhoto = async (photoId: string) => {
     if (!window.confirm("Are you sure you want to delete this photo? This cannot be undone.")) {
@@ -222,7 +232,7 @@ const MemoryBookPage = () => {
                       </motion.button>
 
                       <img
-                        src={photo.src}
+                        src={photo.storageUrl || photo.src}
                         alt={photo.caption || "Memory"}
                         className="w-full h-auto object-cover"
                         style={{ imageRendering: "pixelated" }}

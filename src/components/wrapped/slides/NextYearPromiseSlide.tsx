@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 
 const promises = [
-  "1. Japan Trip",
-  "2. Learn to cook steak",
+  "1. MORE RAGEBAITINGGG 😈",
+  "2. Adapt to the increase of difficulty",
   "3. Love you even more.",
+  "4. More money.",
 ];
 
 const NextYearPromiseSlide = () => {
