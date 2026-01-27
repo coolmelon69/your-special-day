@@ -172,6 +172,7 @@ export type Sticker = {
   x: number; // Position percentage
   y: number;
   scale: number;
+  rotation?: number; // Rotation in degrees (0-360)
 };
 
 export type Photo = {
@@ -181,6 +182,7 @@ export type Photo = {
   storageUrl?: string; // Supabase Storage URL (synced across devices)
   timestamp: number;
   filter?: string; // Filter preset name
+  filterIntensity?: number; // Filter intensity (0-100)
   frame?: string; // Frame preset name
   stickers?: Sticker[]; // Array of sticker overlays
   caption?: string;

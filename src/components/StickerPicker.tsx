@@ -118,7 +118,7 @@ const PixelSparkle = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-const stickerComponents: Record<StickerType, React.FC<{ size?: number }>> = {
+export const stickerComponents: Record<StickerType, React.FC<{ size?: number }>> = {
   heart: PixelHeart,
   "heart-filled": PixelHeartFilled,
   star: PixelStar,
@@ -150,6 +150,7 @@ const StickerPicker = ({ onStickerSelect, onClose }: StickerPickerProps) => {
       x: 50, // Default center position
       y: 50,
       scale: 1,
+      rotation: 0,
     };
     onStickerSelect(sticker);
   };

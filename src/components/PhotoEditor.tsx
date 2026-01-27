@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { X, Save, Sparkles } from "lucide-react";
 import type { Photo, Sticker } from "@/components/TimelineSection";
 import { applyFilter, type FilterPreset, getAllFilters, getFilterName } from "@/utils/pixelFilters";
 import { applyFrame, type FramePreset, getAllFrames, getFrameName } from "@/utils/pixelFrames";
 import { createCanvasFromImage, canvasToDataURL } from "@/utils/photoProcessing";
-import StickerPicker, { type StickerType } from "./StickerPicker";
+import StickerPicker, { type StickerType, stickerComponents } from "./StickerPicker";
+import { Slider } from "@/components/ui/slider";
 
 interface PhotoEditorProps {
   photoSrc: string;
@@ -16,6 +17,7 @@ interface PhotoEditorProps {
 
 const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorProps) => {
   const [selectedFilter, setSelectedFilter] = useState<FilterPreset>("none");
+  const [filterIntensity, setFilterIntensity] = useState<number>(100);
   const [selectedFrame, setSelectedFrame] = useState<FramePreset>("none");
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [caption, setCaption] = useState("");
@@ -23,23 +25,70 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string>(photoSrc);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [selectedSticker, setSelectedSticker] = useState<Sticker | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [resizeStartDistance, setResizeStartDistance] = useState(0);
+  const [resizeStartScale, setResizeStartScale] = useState(1);
+  const [rotateStartAngle, setRotateStartAngle] = useState(0);
+  const [rotateStartRotation, setRotateStartRotation] = useState(0);
 
-  // Render preview when filter, frame, or stickers change
+  // Reset intensity to 100 when filter changes
+  useEffect(() => {
+    setFilterIntensity(100);
+  }, [selectedFilter]);
+
+  // Render preview when filter, frame, stickers, or intensity change
   useEffect(() => {
     renderPreview();
-  }, [selectedFilter, selectedFrame, stickers, photoSrc]);
+  }, [selectedFilter, filterIntensity, selectedFrame, stickers, photoSrc]);
+
+  // Update overlay when canvas size changes
+  useEffect(() => {
+    const updateOverlay = () => {
+      if (!canvasRef.current || !overlayRef.current) return;
+      
+      // The overlay should match the canvas container size
+      // Since canvas uses object-contain, we need to account for the actual displayed size
+      const canvas = canvasRef.current;
+      const container = canvas.parentElement;
+      if (!container) return;
+      
+      // Get the actual displayed canvas dimensions
+      const canvasRect = canvas.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      
+      // Position overlay to match canvas display area
+      overlayRef.current.style.width = `${canvasRect.width}px`;
+      overlayRef.current.style.height = `${canvasRect.height}px`;
+      overlayRef.current.style.left = `${canvasRect.left - containerRect.left}px`;
+      overlayRef.current.style.top = `${canvasRect.top - containerRect.top}px`;
+    };
+
+    // Use ResizeObserver to watch canvas size changes
+    const resizeObserver = new ResizeObserver(updateOverlay);
+    if (canvasRef.current) {
+      resizeObserver.observe(canvasRef.current);
+    }
+
+    updateOverlay();
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [previewSrc]);
 
   const renderPreview = async () => {
     try {
       setIsProcessing(true);
       let canvas = await createCanvasFromImage(photoSrc);
       
-      // Apply filter
+      // Apply filter with intensity
       if (selectedFilter !== "none") {
-        canvas = applyFilter(canvas, selectedFilter);
+        canvas = applyFilter(canvas, selectedFilter, filterIntensity);
       }
 
       // Apply frame
@@ -47,13 +96,8 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
         canvas = applyFrame(canvas, selectedFrame);
       }
 
-      // Draw stickers
-      const ctx = canvas.getContext("2d");
-      if (ctx && stickers.length > 0) {
-        stickers.forEach((sticker) => {
-          drawSticker(ctx, canvas, sticker);
-        });
-      }
+      // Don't draw stickers on canvas during editing - they're rendered on the overlay instead
+      // Stickers will only be drawn on canvas when saving
 
       const dataURL = canvasToDataURL(canvas);
       setPreviewSrc(dataURL);
@@ -74,12 +118,14 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
 
   const drawSticker = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, sticker: Sticker) => {
     const size = Math.min(canvas.width, canvas.height) * 0.1 * sticker.scale;
-    const x = (canvas.width * sticker.x) / 100 - size / 2;
-    const y = (canvas.height * sticker.y) / 100 - size / 2;
+    const x = (canvas.width * sticker.x) / 100;
+    const y = (canvas.height * sticker.y) / 100;
+    const rotation = sticker.rotation || 0;
 
     // Draw sticker as SVG (simplified - in production, use actual sticker rendering)
     ctx.save();
-    ctx.translate(x + size / 2, y + size / 2);
+    ctx.translate(x, y);
+    ctx.rotate((rotation * Math.PI) / 180); // Convert degrees to radians
     ctx.scale(sticker.scale, sticker.scale);
     
     // Draw a simple shape for the sticker (you can enhance this)
@@ -135,24 +181,276 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
     setShowStickerPicker(false);
   };
 
-  const handleStickerClick = (sticker: Sticker, event: React.MouseEvent) => {
+  // Coordinate conversion utilities
+  const pixelToPercent = useCallback((clientX: number, clientY: number) => {
+    const overlayRect = overlayRef.current?.getBoundingClientRect();
+    if (!overlayRect) return { x: 50, y: 50 };
+    
+    const x = ((clientX - overlayRect.left) / overlayRect.width) * 100;
+    const y = ((clientY - overlayRect.top) / overlayRect.height) * 100;
+    
+    return {
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y)),
+    };
+  }, []);
+
+  const handleStickerClick = (sticker: Sticker, event: React.MouseEvent | React.TouchEvent) => {
     event.stopPropagation();
     setSelectedSticker(sticker);
   };
 
-  const handleStickerDrag = (sticker: Sticker, event: React.MouseEvent) => {
-    if (!isDragging || !selectedSticker || selectedSticker.id !== sticker.id) return;
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-
-    setStickers(
-      stickers.map((s) =>
-        s.id === sticker.id ? { ...s, x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) } : s
-      )
-    );
+  const handleStickerMouseDown = (sticker: Sticker, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setSelectedSticker(sticker);
+    
+    const overlayRect = overlayRef.current?.getBoundingClientRect();
+    if (!overlayRect) return;
+    
+    const stickerX = (overlayRect.width * sticker.x) / 100;
+    const stickerY = (overlayRect.height * sticker.y) / 100;
+    
+    setDragOffset({
+      x: event.clientX - overlayRect.left - stickerX,
+      y: event.clientY - overlayRect.top - stickerY,
+    });
+    
+    setIsDragging(true);
   };
+
+  const handleStickerTouchStart = (sticker: Sticker, event: React.TouchEvent) => {
+    event.stopPropagation();
+    setSelectedSticker(sticker);
+    
+    const overlayRect = overlayRef.current?.getBoundingClientRect();
+    if (!overlayRect) return;
+    
+    const touch = event.touches[0];
+    const stickerX = (overlayRect.width * sticker.x) / 100;
+    const stickerY = (overlayRect.height * sticker.y) / 100;
+    
+    setDragOffset({
+      x: touch.clientX - overlayRect.left - stickerX,
+      y: touch.clientY - overlayRect.top - stickerY,
+    });
+    
+    setIsDragging(true);
+  };
+
+  const handleResizeMouseDown = (sticker: Sticker, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setSelectedSticker(sticker);
+    setIsResizing(true);
+    setResizeStartScale(sticker.scale);
+    
+    const overlayRect = overlayRef.current?.getBoundingClientRect();
+    if (!overlayRect) return;
+    
+    // Calculate distance from sticker center to mouse position
+    const stickerCenterX = (overlayRect.width * sticker.x) / 100 + overlayRect.left;
+    const stickerCenterY = (overlayRect.height * sticker.y) / 100 + overlayRect.top;
+    
+    const baseSize = 48;
+    const currentSize = baseSize * sticker.scale;
+    const distance = Math.max(currentSize / 2, Math.sqrt(
+      Math.pow(event.clientX - stickerCenterX, 2) + Math.pow(event.clientY - stickerCenterY, 2)
+    ));
+    setResizeStartDistance(distance);
+  };
+
+  const handleResizeTouchStart = (sticker: Sticker, event: React.TouchEvent) => {
+    event.stopPropagation();
+    setSelectedSticker(sticker);
+    
+    if (event.touches.length === 2) {
+      // Pinch to zoom
+      setIsResizing(true);
+      setResizeStartScale(sticker.scale);
+      
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+      setResizeStartDistance(distance);
+    }
+  };
+
+  const handleRotateMouseDown = (sticker: Sticker, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setSelectedSticker(sticker);
+    setIsRotating(true);
+    
+    const overlayRect = overlayRef.current?.getBoundingClientRect();
+    if (!overlayRect) return;
+    
+    const stickerCenterX = (overlayRect.width * sticker.x) / 100 + overlayRect.left;
+    const stickerCenterY = (overlayRect.height * sticker.y) / 100 + overlayRect.top;
+    
+    const angle = Math.atan2(
+      event.clientY - stickerCenterY,
+      event.clientX - stickerCenterX
+    ) * (180 / Math.PI);
+    
+    setRotateStartAngle(angle);
+    setRotateStartRotation(sticker.rotation || 0);
+  };
+
+  const handleRotateTouchStart = (sticker: Sticker, event: React.TouchEvent) => {
+    event.stopPropagation();
+    setSelectedSticker(sticker);
+    setIsRotating(true);
+    
+    const overlayRect = overlayRef.current?.getBoundingClientRect();
+    if (!overlayRect) return;
+    
+    const touch = event.touches[0];
+    const stickerCenterX = (overlayRect.width * sticker.x) / 100 + overlayRect.left;
+    const stickerCenterY = (overlayRect.height * sticker.y) / 100 + overlayRect.top;
+    
+    const angle = Math.atan2(
+      touch.clientY - stickerCenterY,
+      touch.clientX - stickerCenterX
+    ) * (180 / Math.PI);
+    
+    setRotateStartAngle(angle);
+    setRotateStartRotation(sticker.rotation || 0);
+  };
+
+  // Global mouse/touch move handlers
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging && !isResizing && !isRotating) return;
+      if (!selectedSticker || !overlayRef.current) return;
+
+      const overlayRect = overlayRef.current.getBoundingClientRect();
+      
+      if (isDragging) {
+        const newPos = pixelToPercent(e.clientX - dragOffset.x, e.clientY - dragOffset.y);
+        setStickers(
+          stickers.map((s) =>
+            s.id === selectedSticker.id ? { ...s, x: newPos.x, y: newPos.y } : s
+          )
+        );
+      } else if (isResizing) {
+        const stickerCenterX = (overlayRect.width * selectedSticker.x) / 100 + overlayRect.left;
+        const stickerCenterY = (overlayRect.height * selectedSticker.y) / 100 + overlayRect.top;
+        
+        const currentDistance = Math.sqrt(
+          Math.pow(e.clientX - stickerCenterX, 2) + Math.pow(e.clientY - stickerCenterY, 2)
+        );
+        
+        const scaleFactor = currentDistance / resizeStartDistance;
+        const newScale = Math.max(0.1, Math.min(3.0, resizeStartScale * scaleFactor));
+        
+        setStickers(
+          stickers.map((s) =>
+            s.id === selectedSticker.id ? { ...s, scale: newScale } : s
+          )
+        );
+      } else if (isRotating) {
+        const stickerCenterX = (overlayRect.width * selectedSticker.x) / 100 + overlayRect.left;
+        const stickerCenterY = (overlayRect.height * selectedSticker.y) / 100 + overlayRect.top;
+        
+        const currentAngle = Math.atan2(
+          e.clientY - stickerCenterY,
+          e.clientX - stickerCenterX
+        ) * (180 / Math.PI);
+        
+        const angleDiff = currentAngle - rotateStartAngle;
+        let newRotation = rotateStartRotation + angleDiff;
+        
+        // Normalize to 0-360
+        newRotation = ((newRotation % 360) + 360) % 360;
+        
+        setStickers(
+          stickers.map((s) =>
+            s.id === selectedSticker.id ? { ...s, rotation: newRotation } : s
+          )
+        );
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging && !isResizing && !isRotating) return;
+      if (!selectedSticker || !overlayRef.current) return;
+      
+      e.preventDefault(); // Prevent scrolling
+
+      if (isDragging && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const newPos = pixelToPercent(touch.clientX - dragOffset.x, touch.clientY - dragOffset.y);
+        setStickers(
+          stickers.map((s) =>
+            s.id === selectedSticker.id ? { ...s, x: newPos.x, y: newPos.y } : s
+          )
+        );
+      } else if (isResizing && e.touches.length === 2) {
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const currentDistance = Math.sqrt(
+          Math.pow(touch2.clientX - touch1.clientX, 2) + Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+        
+        const scaleFactor = currentDistance / resizeStartDistance;
+        const newScale = Math.max(0.1, Math.min(3.0, resizeStartScale * scaleFactor));
+        
+        setStickers(
+          stickers.map((s) =>
+            s.id === selectedSticker.id ? { ...s, scale: newScale } : s
+          )
+        );
+      } else if (isRotating && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const overlayRect = overlayRef.current.getBoundingClientRect();
+        const stickerCenterX = (overlayRect.width * selectedSticker.x) / 100 + overlayRect.left;
+        const stickerCenterY = (overlayRect.height * selectedSticker.y) / 100 + overlayRect.top;
+        
+        const currentAngle = Math.atan2(
+          touch.clientY - stickerCenterY,
+          touch.clientX - stickerCenterX
+        ) * (180 / Math.PI);
+        
+        const angleDiff = currentAngle - rotateStartAngle;
+        let newRotation = rotateStartRotation + angleDiff;
+        
+        // Normalize to 0-360
+        newRotation = ((newRotation % 360) + 360) % 360;
+        
+        setStickers(
+          stickers.map((s) =>
+            s.id === selectedSticker.id ? { ...s, rotation: newRotation } : s
+          )
+        );
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+      setIsRotating(false);
+    };
+
+    const handleTouchEnd = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+      setIsRotating(false);
+    };
+
+    if (isDragging || isResizing || isRotating) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("touchmove", handleTouchMove, { passive: false });
+      window.addEventListener("touchend", handleTouchEnd);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [isDragging, isResizing, isRotating, selectedSticker, dragOffset, resizeStartDistance, resizeStartScale, rotateStartAngle, rotateStartRotation, stickers, pixelToPercent]);
 
   const handleDeleteSticker = (stickerId: string) => {
     setStickers(stickers.filter((s) => s.id !== stickerId));
@@ -167,7 +465,7 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
       let canvas = await createCanvasFromImage(photoSrc);
       
       if (selectedFilter !== "none") {
-        canvas = applyFilter(canvas, selectedFilter);
+        canvas = applyFilter(canvas, selectedFilter, filterIntensity);
       }
       
       if (selectedFrame !== "none") {
@@ -187,6 +485,7 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
         checkpointId,
         src: finalDataURL,
         filter: selectedFilter !== "none" ? selectedFilter : undefined,
+        filterIntensity: selectedFilter !== "none" ? filterIntensity : undefined,
         frame: selectedFrame !== "none" ? selectedFrame : undefined,
         stickers: stickers.length > 0 ? stickers : undefined,
         caption: caption || undefined,
@@ -237,8 +536,220 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
               className="w-full h-auto max-h-[400px] object-contain"
               style={{ imageRendering: "pixelated" }}
             />
+            {/* Interactive Sticker Overlay */}
+            <div
+              ref={overlayRef}
+              className="absolute inset-0 pointer-events-none"
+              onClick={(e) => {
+                // Click outside to deselect
+                if (e.target === e.currentTarget) {
+                  setSelectedSticker(null);
+                }
+              }}
+            >
+              {stickers.map((sticker) => {
+                const StickerComponent = stickerComponents[sticker.type];
+                const isSelected = selectedSticker?.id === sticker.id;
+                const baseSize = 48; // Base size in pixels
+                const rotation = sticker.rotation || 0;
+                
+                return (
+                  <div
+                    key={sticker.id}
+                    className="absolute pointer-events-auto cursor-move select-none"
+                    style={{
+                      left: `${sticker.x}%`,
+                      top: `${sticker.y}%`,
+                      transform: `translate(-50%, -50%) rotate(${rotation}deg) scale(${sticker.scale})`,
+                      zIndex: isSelected ? 10 : 1,
+                    }}
+                    onClick={(e) => handleStickerClick(sticker, e)}
+                    onMouseDown={(e) => handleStickerMouseDown(sticker, e)}
+                    onTouchStart={(e) => handleStickerTouchStart(sticker, e)}
+                  >
+                    <div className="relative flex items-center justify-center">
+                      <StickerComponent size={baseSize} />
+                      {isSelected && (
+                        <>
+                          {/* Selection border with glow effect */}
+                          <motion.div
+                            className="absolute inset-0 border-2 rounded-sm"
+                            style={{
+                              width: `${baseSize}px`,
+                              height: `${baseSize}px`,
+                              transform: "translate(-50%, -50%)",
+                              left: "50%",
+                              top: "50%",
+                              borderColor: "hsl(200, 80%, 60%)",
+                              boxShadow: "0 0 8px rgba(59, 130, 246, 0.5), inset 0 0 8px rgba(59, 130, 246, 0.2)",
+                            }}
+                            animate={{
+                              boxShadow: [
+                                "0 0 8px rgba(59, 130, 246, 0.5), inset 0 0 8px rgba(59, 130, 246, 0.2)",
+                                "0 0 12px rgba(59, 130, 246, 0.7), inset 0 0 8px rgba(59, 130, 246, 0.3)",
+                                "0 0 8px rgba(59, 130, 246, 0.5), inset 0 0 8px rgba(59, 130, 246, 0.2)",
+                              ],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                          />
+                          {/* Resize handles - enhanced with gradients and shadows */}
+                          {[
+                            { pos: "top-left", x: -baseSize / 2, y: -baseSize / 2, cursor: "nwse-resize" },
+                            { pos: "top-right", x: baseSize / 2, y: -baseSize / 2, cursor: "nesw-resize" },
+                            { pos: "bottom-left", x: -baseSize / 2, y: baseSize / 2, cursor: "nesw-resize" },
+                            { pos: "bottom-right", x: baseSize / 2, y: baseSize / 2, cursor: "nwse-resize" },
+                          ].map((handle) => (
+                            <motion.div
+                              key={handle.pos}
+                              className="absolute cursor-pointer rounded-full flex items-center justify-center"
+                              style={{
+                                left: `calc(50% + ${handle.x}px)`,
+                                top: `calc(50% + ${handle.y}px)`,
+                                transform: "translate(-50%, -50%)",
+                                width: "20px",
+                                height: "20px",
+                                background: "linear-gradient(135deg, hsl(200, 85%, 65%) 0%, hsl(200, 75%, 55%) 100%)",
+                                border: "2px solid white",
+                                boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3), 0 0 8px rgba(59, 130, 246, 0.6)",
+                                cursor: handle.cursor,
+                              }}
+                              whileHover={{
+                                scale: 1.2,
+                                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(59, 130, 246, 0.8)",
+                              }}
+                              whileTap={{ scale: 0.9 }}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                handleResizeMouseDown(sticker, e);
+                              }}
+                              onTouchStart={(e) => {
+                                e.stopPropagation();
+                                handleResizeTouchStart(sticker, e);
+                              }}
+                            >
+                              {/* Inner dot indicator */}
+                              <div
+                                className="w-2 h-2 rounded-full bg-white"
+                                style={{
+                                  boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.2)",
+                                }}
+                              />
+                            </motion.div>
+                          ))}
+                          {/* Rotation handle - enhanced with better icon and styling */}
+                          <motion.div
+                            className="absolute cursor-grab active:cursor-grabbing rounded-full flex items-center justify-center"
+                            style={{
+                              left: "50%",
+                              top: `calc(50% - ${baseSize / 2 + 24}px)`,
+                              transform: "translate(-50%, -50%)",
+                              width: "32px",
+                              height: "32px",
+                              background: "linear-gradient(135deg, hsl(200, 85%, 65%) 0%, hsl(200, 75%, 55%) 100%)",
+                              border: "3px solid white",
+                              boxShadow: "0 3px 8px rgba(0, 0, 0, 0.3), 0 0 10px rgba(59, 130, 246, 0.6)",
+                            }}
+                            whileHover={{
+                              scale: 1.15,
+                              rotate: 15,
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4), 0 0 14px rgba(59, 130, 246, 0.8)",
+                            }}
+                            whileTap={{ scale: 0.9 }}
+                            animate={{
+                              rotate: [0, 5, -5, 0],
+                            }}
+                            transition={{
+                              rotate: {
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                              },
+                            }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              handleRotateMouseDown(sticker, e);
+                            }}
+                            onTouchStart={(e) => {
+                              e.stopPropagation();
+                              handleRotateTouchStart(sticker, e);
+                            }}
+                          >
+                            {/* Enhanced rotation icon */}
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 18 18"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="text-white"
+                            >
+                              {/* Outer circle with arrow indicators */}
+                              <circle
+                                cx="9"
+                                cy="9"
+                                r="7"
+                                stroke="white"
+                                strokeWidth="1.5"
+                                fill="none"
+                              />
+                              {/* Curved arrows */}
+                              <path
+                                d="M 9 2 Q 11 4, 11 6"
+                                stroke="white"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                fill="none"
+                              />
+                              <path
+                                d="M 11 6 L 9.5 5 L 9.5 7 Z"
+                                fill="white"
+                              />
+                              <path
+                                d="M 9 16 Q 7 14, 7 12"
+                                stroke="white"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                fill="none"
+                              />
+                              <path
+                                d="M 7 12 L 8.5 11 L 8.5 13 Z"
+                                fill="white"
+                              />
+                              {/* Center dot */}
+                              <circle
+                                cx="9"
+                                cy="9"
+                                r="1.5"
+                                fill="white"
+                              />
+                            </svg>
+                          </motion.div>
+                          {/* Connecting line from rotation handle to sticker */}
+                          <div
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: "50%",
+                              top: `calc(50% - ${baseSize / 2 + 4}px)`,
+                              transform: "translateX(-50%)",
+                              width: "2px",
+                              height: "20px",
+                              background: "linear-gradient(to top, hsl(200, 80%, 60%) 0%, transparent 100%)",
+                              opacity: 0.6,
+                            }}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             {isProcessing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[hsl(0_0%_0%)] bg-opacity-50">
+              <div className="absolute inset-0 flex items-center justify-center bg-[hsl(0_0%_0%)] bg-opacity-50 pointer-events-none">
                 <div className="text-white font-pixel text-xs">Processing...</div>
               </div>
             )}
@@ -267,6 +778,30 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                 </button>
               ))}
             </div>
+            {/* Filter Intensity Slider */}
+            {selectedFilter !== "none" && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label
+                    className="font-pixel text-xs text-[hsl(15_60%_35%)]"
+                    style={{ textRendering: "optimizeSpeed" }}
+                  >
+                    Intensity
+                  </label>
+                  <span className="font-pixel text-xs text-[hsl(15_60%_35%)]">
+                    {filterIntensity}%
+                  </span>
+                </div>
+                <Slider
+                  value={[filterIntensity]}
+                  onValueChange={(value) => setFilterIntensity(value[0])}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+            )}
           </div>
 
           {/* Frames */}
