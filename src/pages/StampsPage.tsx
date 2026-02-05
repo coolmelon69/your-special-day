@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Trash2, Loader2 } from "lucide-react";
+import { X, Camera, Trash2, Loader2, Navigation } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import StampCollectionSection from "@/components/StampCollectionSection";
 import Footer from "@/components/Footer";
@@ -289,6 +289,13 @@ const StampsPage = () => {
     }
   };
 
+  const handleWazeNavigation = () => {
+    if (!selectedEvent?.location) return;
+    const { latitude, longitude } = selectedEvent.location;
+    const wazeUrl = `https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`;
+    window.open(wazeUrl, '_blank');
+  };
+
   return (
     <>
       <Helmet>
@@ -498,16 +505,31 @@ const StampsPage = () => {
                         </div>
                       )}
 
-                      {/* Add Photo button */}
-                      <motion.button
-                        onClick={() => setShowPhotoCapture(true)}
-                        className="w-full mb-4 px-4 py-2 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(200_60%_55%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-all flex items-center justify-center gap-2"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Camera className="w-4 h-4" />
-                        Add Photo
-                      </motion.button>
+                      {/* Add Photo and Waze Navigation buttons - side by side */}
+                      <div className="flex gap-2 mb-4">
+                        {/* Waze Navigation button - only show if location exists */}
+                        {selectedEvent.location && (
+                          <motion.button
+                            onClick={handleWazeNavigation}
+                            className="flex-1 px-4 py-3 md:py-4 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(280_60%_55%)] border-[hsl(280_50%_45%)] text-white hover:bg-[hsl(280_60%_60%)] transition-all flex items-center justify-center gap-2"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <Navigation className="w-4 h-4" />
+                            Navigate
+                          </motion.button>
+                        )}
+
+                        <motion.button
+                          onClick={() => setShowPhotoCapture(true)}
+                          className="flex-1 px-4 py-3 md:py-4 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(200_60%_55%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-all flex items-center justify-center gap-2"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Camera className="w-4 h-4" />
+                          Add Photo
+                        </motion.button>
+                      </div>
 
                       {/* Location error message */}
                       {locationError && (
