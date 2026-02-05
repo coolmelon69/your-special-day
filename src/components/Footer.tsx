@@ -17,7 +17,7 @@ const Footer = () => {
           <div className="flex items-center justify-center gap-2 mb-4">
             <span className="font-script text-2xl text-foreground">Made with</span>
             <Heart className="text-primary animate-pulse-soft" size={24} fill="currentColor" />
-            <span className="font-script text-2xl text-foreground">for you</span>
+            <span className="font-script text-2xl text-foreground">for you by Melon</span>
           </div>
           <p className="text-muted-foreground text-sm mb-2">
             Here's to many more birthdays together! 🥂

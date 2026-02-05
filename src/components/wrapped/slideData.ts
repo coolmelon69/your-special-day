@@ -29,11 +29,15 @@ export const MOCK_DATA = {
   topMonth: 'December',
   longestStreak: 5,
   genres: [
-    'Lepak 24 Gang',
+    'choc waffle',
     'Most Random Couple',
-    'Late night Emart sessions',
-    'Kene pressure tunang gang',
+    'Late night Emart',
+    'Kene pressure tunang',
     'strawberry and melon',
+    'non-celen',
+    'minecrafter',
+    'acah2 software engineer',
+    'ayammm',
   ],
   mostQuoted: "Idk, what do you want to eat?",
   persona: {

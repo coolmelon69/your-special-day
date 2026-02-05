@@ -38,8 +38,10 @@ const StoryContainer = () => {
   const startTimeRef = useRef<number>(Date.now());
 
   // Toggle manual pause/play
-  const togglePause = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering navigation
+  const togglePause = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation(); // Prevent triggering navigation
+    }
     setIsManuallyPaused((prev) => !prev);
   }, []);
 
@@ -135,6 +137,30 @@ const StoryContainer = () => {
     setProgress(0);
     startTimeRef.current = Date.now();
   }, [currentSlide]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle arrow keys for navigation
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goToPrevious();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goToNext();
+      } else if (e.key === ' ') {
+        // Spacebar to toggle pause/resume
+        e.preventDefault();
+        togglePause();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [goToNext, goToPrevious, togglePause]);
 
   const CurrentSlideComponent = SLIDE_COMPONENTS[currentSlide];
 

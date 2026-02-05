@@ -24,7 +24,7 @@ const WhereItStartedSlide = () => {
         )}
       </motion.div>
 
-      {/* Photo Collage Overlay - 3-4 placeholder images */}
+      {/* Photo Collage Overlay - 4 photos */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Collage images arranged artistically - Larger sizes */}
         <motion.div
@@ -33,9 +33,11 @@ const WhereItStartedSlide = () => {
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          <div className="w-full h-full bg-primary/30 flex items-center justify-center">
-            <span className="text-white/50 text-sm sm:text-base">Photo 1</span>
-          </div>
+          <img
+            src="/images/gallery/pic5.JPG"
+            alt="First Date Photo 1"
+            className="w-full h-full object-cover"
+          />
         </motion.div>
 
         <motion.div
@@ -44,9 +46,11 @@ const WhereItStartedSlide = () => {
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
         >
-          <div className="w-full h-full bg-secondary/30 flex items-center justify-center">
-            <span className="text-white/50 text-sm sm:text-base">Photo 2</span>
-          </div>
+          <img
+            src="/images/gallery/pic2.JPG"
+            alt="First Date Photo 2"
+            className="w-full h-full object-cover"
+          />
         </motion.div>
 
         <motion.div
@@ -55,9 +59,11 @@ const WhereItStartedSlide = () => {
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
           transition={{ duration: 0.6, delay: 0.7 }}
         >
-          <div className="w-full h-full bg-primary/30 flex items-center justify-center">
-            <span className="text-white/50 text-sm sm:text-base">Photo 3</span>
-          </div>
+          <img
+            src="/images/gallery/pic3.JPG"
+            alt="First Date Photo 3"
+            className="w-full h-full object-cover"
+          />
         </motion.div>
 
         <motion.div
@@ -66,9 +72,11 @@ const WhereItStartedSlide = () => {
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
           transition={{ duration: 0.6, delay: 0.9 }}
         >
-          <div className="w-full h-full bg-secondary/30 flex items-center justify-center">
-            <span className="text-white/50 text-sm sm:text-base">Photo 4</span>
-          </div>
+          <img
+            src="/images/gallery/pic4.JPG"
+            alt="First Date Photo 4"
+            className="w-full h-full object-cover"
+          />
         </motion.div>
       </div>
 
