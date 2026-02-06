@@ -6,6 +6,41 @@ export interface MemoryBookPage {
   photos: Photo[];
 }
 
+// Convert image URL (data URL, blob URL, or external URL) to data URL
+const convertImageToDataURL = async (imageUrl: string): Promise<string> => {
+  // If already a data URL, return it
+  if (imageUrl.startsWith('data:')) {
+    return imageUrl;
+  }
+  
+  try {
+    // Fetch the image (works for both blob URLs and external URLs)
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    
+    // Convert blob to data URL
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result === 'string') {
+          resolve(result);
+        } else {
+          reject(new Error('Failed to convert image to data URL'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to convert image to data URL'));
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting image to data URL:', error);
+    throw error;
+  }
+};
+
 // Generate memory book pages grouped by checkpoint
 export const generateMemoryBookPages = (
   photos: Photo[],
@@ -31,9 +66,42 @@ export const generateMemoryBookPages = (
 };
 
 // Generate HTML for memory book
-export const generateMemoryBookHTML = (
+export const generateMemoryBookHTML = async (
   pages: MemoryBookPage[]
-): string => {
+): Promise<string> => {
+  // Convert all images to data URLs
+  const pagesWithDataURLs = await Promise.all(
+    pages.map(async (page) => ({
+      ...page,
+      photos: await Promise.all(
+        page.photos.map(async (photo) => {
+          try {
+            const imageUrl = photo.storageUrl || photo.src;
+            if (!imageUrl) {
+              console.warn(`Photo ${photo.id} has no image URL`);
+              return {
+                ...photo,
+                dataURL: null,
+              };
+            }
+            const dataURL = await convertImageToDataURL(imageUrl);
+            return {
+              ...photo,
+              dataURL, // Store converted data URL
+            };
+          } catch (error) {
+            console.error(`Failed to convert image ${photo.id}:`, error);
+            // Return photo with original URL as fallback (will show broken image if external)
+            return {
+              ...photo,
+              dataURL: null,
+            };
+          }
+        })
+      ),
+    }))
+  );
+
   const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -180,7 +248,7 @@ export const generateMemoryBookHTML = (
       <p>Your Special Day Adventure</p>
     </div>
     
-    ${pages
+    ${pagesWithDataURLs
       .map(
         (page) => `
     <div class="page">
@@ -192,12 +260,16 @@ export const generateMemoryBookHTML = (
       <div class="photos-grid">
         ${page.photos
           .map(
-            (photo) => `
+            (photo: Photo & { dataURL?: string | null }) => {
+              // Use dataURL if available, otherwise fall back to original URLs
+              const imageSrc = photo.dataURL || photo.storageUrl || photo.src || '';
+              return `
         <div class="photo-item">
-          <img src="${photo.storageUrl || photo.src}" alt="${photo.caption || "Memory"}" />
+          <img src="${imageSrc}" alt="${photo.caption || "Memory"}" />
           ${photo.caption ? `<div class="photo-caption">${photo.caption}</div>` : ""}
         </div>
-        `
+        `;
+            }
           )
           .join("")}
       </div>
@@ -208,7 +280,7 @@ export const generateMemoryBookHTML = (
     
     <div class="footer">
       <p>Generated with love &lt;3</p>
-      <p>Total Memories: ${pages.reduce((sum, page) => sum + page.photos.length, 0)}</p>
+      <p>Total Memories: ${pagesWithDataURLs.reduce((sum, page) => sum + page.photos.length, 0)}</p>
     </div>
   </div>
 </body>

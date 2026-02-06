@@ -245,19 +245,19 @@ const ThreeDCouponCard = ({
           ) : (
             <motion.div
               key="back"
-              className="relative bg-muted rounded-3xl p-8 text-center shadow-lg overflow-hidden min-h-[400px] flex flex-col justify-between"
+              className="relative bg-muted rounded-3xl p-4 sm:p-6 md:p-8 text-center shadow-lg overflow-hidden min-h-[280px] sm:min-h-[320px] md:min-h-[400px] flex flex-col justify-between"
               initial={{ rotateX: -90 }}
               animate={{ rotateX: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="text-6xl mb-4 grayscale opacity-50">{coupon.emoji}</div>
-              <h3 className="font-serif text-2xl font-bold text-muted-foreground mb-2">
+              <div className="text-4xl sm:text-5xl md:text-6xl mb-2 sm:mb-3 md:mb-4 grayscale opacity-50">{coupon.emoji}</div>
+              <h3 className="font-serif text-lg sm:text-xl md:text-2xl font-bold text-muted-foreground mb-1 sm:mb-2">
                 {coupon.title}
               </h3>
-              <p className="text-muted-foreground/60 mb-6">{coupon.description}</p>
+              <p className="text-muted-foreground/60 text-sm sm:text-base mb-3 sm:mb-4 md:mb-6">{coupon.description}</p>
               
-              <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 rounded-full text-primary font-medium">
-                <Gift size={18} />
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-6 sm:py-3 bg-primary/10 rounded-full text-primary font-medium text-xs sm:text-sm">
+                <Gift className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                 Redeemed!
               </div>
               

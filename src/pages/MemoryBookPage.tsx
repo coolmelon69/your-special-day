@@ -1,10 +1,11 @@
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Download, BookOpen, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Download, BookOpen, Trash2, X, Calendar, MapPin } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { generateMemoryBookPages, generateMemoryBookHTML, downloadMemoryBook } from "@/utils/memoryBookGenerator";
 import type { MemoryBookPage } from "@/utils/memoryBookGenerator";
+import type { Photo } from "@/components/TimelineSection";
 import { useLocation } from "react-router-dom";
 
 const MemoryBookPage = () => {
@@ -13,6 +14,8 @@ const MemoryBookPage = () => {
   const [pages, setPages] = useState<MemoryBookPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ photo: Photo; page: MemoryBookPage } | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const loadMemoryBook = async () => {
     setIsLoading(true);
@@ -39,7 +42,7 @@ const MemoryBookPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, itineraryState, user]);
 
-  const handleDeletePhoto = async (photoId: string) => {
+  const handleDeletePhoto = async (photoId: string, closeModalAfterDelete = false) => {
     if (!window.confirm("Are you sure you want to delete this photo? This cannot be undone.")) {
       return;
     }
@@ -50,6 +53,10 @@ const MemoryBookPage = () => {
       await refreshPhotos();
       // Reload memory book after deletion
       await loadMemoryBook();
+      // Close modal if it was opened from the detail view
+      if (closeModalAfterDelete) {
+        setSelectedPhoto(null);
+      }
     } catch (error) {
       console.error("Error deleting photo:", error);
       alert("Failed to delete photo. Please try again.");
@@ -58,9 +65,51 @@ const MemoryBookPage = () => {
     }
   };
 
-  const handleDownload = () => {
-    const html = generateMemoryBookHTML(pages);
-    downloadMemoryBook(html);
+  const handleDownload = async () => {
+    try {
+      // Show loading indicator
+      setIsDownloading(true);
+      
+      const html = await generateMemoryBookHTML(pages);
+      downloadMemoryBook(html);
+    } catch (error) {
+      console.error("Error generating memory book:", error);
+      alert("Failed to generate memory book. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handlePhotoClick = (photo: Photo, page: MemoryBookPage) => {
+    setSelectedPhoto({ photo, page });
+  };
+
+  const handleCloseModal = () => {
+    setSelectedPhoto(null);
+  };
+
+  // Close modal on ESC key
+  useEffect(() => {
+    if (!selectedPhoto) return;
+    
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedPhoto(null);
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedPhoto]);
+
+  const formatTimestamp = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   if (isLoading) {
@@ -154,12 +203,13 @@ const MemoryBookPage = () => {
             {/* Download button */}
             <motion.button
               onClick={handleDownload}
-              className="px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all flex items-center gap-2 mx-auto"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              disabled={isDownloading}
+              className="px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all flex items-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              whileHover={!isDownloading ? { scale: 1.05 } : {}}
+              whileTap={!isDownloading ? { scale: 0.95 } : {}}
             >
               <Download className="w-4 h-4" />
-              Download Memory Book
+              {isDownloading ? "Generating..." : "Download Memory Book"}
             </motion.button>
           </motion.div>
 
@@ -221,7 +271,7 @@ const MemoryBookPage = () => {
                     >
                       {/* Delete button */}
                       <motion.button
-                        onClick={() => handleDeletePhoto(photo.id)}
+                        onClick={() => handleDeletePhoto(photo.id, false)}
                         disabled={deletingPhotoId === photo.id}
                         className="absolute top-1 right-1 z-10 bg-[hsl(0_70%_50%)] hover:bg-[hsl(0_70%_60%)] text-white p-1.5 rounded border-2 border-[hsl(0_60%_40%)] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                         whileHover={{ scale: 1.1 }}
@@ -234,8 +284,9 @@ const MemoryBookPage = () => {
                       <img
                         src={photo.storageUrl || photo.src}
                         alt={photo.caption || "Memory"}
-                        className="w-full h-auto object-cover"
+                        className="w-full h-auto object-cover cursor-pointer"
                         style={{ imageRendering: "pixelated" }}
+                        onClick={() => handlePhotoClick(photo, page)}
                       />
                       {photo.caption && (
                         <p
@@ -257,6 +308,171 @@ const MemoryBookPage = () => {
             ))}
           </div>
         </div>
+
+        {/* Photo Detail Modal */}
+        <AnimatePresence>
+          {selectedPhoto && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCloseModal}
+            >
+              <motion.div
+                className="relative bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] max-w-4xl w-full max-h-[90vh] overflow-auto"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ imageRendering: "pixelated" }}
+              >
+                {/* Close and Delete buttons */}
+                <div className="absolute top-2 right-2 z-10 flex gap-2">
+                  <motion.button
+                    onClick={() => handleDeletePhoto(selectedPhoto.photo.id, true)}
+                    disabled={deletingPhotoId === selectedPhoto.photo.id}
+                    className="bg-[hsl(0_70%_50%)] hover:bg-[hsl(0_70%_60%)] text-white p-2 rounded border-2 border-[hsl(0_60%_40%)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    title="Delete photo"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="font-pixel text-xs hidden sm:inline">Delete</span>
+                  </motion.button>
+                  <motion.button
+                    onClick={handleCloseModal}
+                    className="bg-[hsl(0_70%_50%)] hover:bg-[hsl(0_70%_60%)] text-white p-2 rounded border-2 border-[hsl(0_60%_40%)]"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    title="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </motion.button>
+                </div>
+
+                {/* Expanded Image */}
+                <div className="p-4 md:p-6">
+                  <img
+                    src={selectedPhoto.photo.storageUrl || selectedPhoto.photo.src}
+                    alt={selectedPhoto.photo.caption || "Memory"}
+                    className="w-full h-auto object-contain max-h-[60vh] mx-auto"
+                    style={{ imageRendering: "pixelated" }}
+                  />
+
+                  {/* Photo Details */}
+                  <div className="mt-6 space-y-4">
+                    {/* Checkpoint Info */}
+                    <div className="bg-[hsl(35_40%_88%)] border-2 border-[hsl(15_60%_50%)] p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-[hsl(15_70%_40%)]" />
+                        <span
+                          className="font-pixel text-xs text-[hsl(15_70%_40%)]"
+                          style={{ textRendering: "optimizeSpeed" }}
+                        >
+                          {selectedPhoto.page.checkpoint.time}
+                        </span>
+                      </div>
+                      <h3
+                        className="font-pixel text-base md:text-lg text-[hsl(15_70%_40%)] mb-2"
+                        style={{
+                          textRendering: "optimizeSpeed",
+                          WebkitFontSmoothing: "none",
+                          MozOsxFontSmoothing: "unset",
+                          fontSmooth: "never",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        {selectedPhoto.page.checkpoint.title}
+                      </h3>
+                      <p
+                        className="font-pixel text-[10px] md:text-xs text-[hsl(15_60%_35%)]"
+                        style={{
+                          textRendering: "optimizeSpeed",
+                          WebkitFontSmoothing: "none",
+                          MozOsxFontSmoothing: "unset",
+                          fontSmooth: "never",
+                        }}
+                      >
+                        {selectedPhoto.page.checkpoint.description}
+                      </p>
+                    </div>
+
+                    {/* Caption */}
+                    {selectedPhoto.photo.caption && (
+                      <div className="bg-[hsl(35_40%_88%)] border-2 border-[hsl(340_70%_65%)] p-4">
+                        <p
+                          className="font-pixel text-sm md:text-base text-[hsl(340_60%_50%)]"
+                          style={{
+                            textRendering: "optimizeSpeed",
+                            WebkitFontSmoothing: "none",
+                            MozOsxFontSmoothing: "unset",
+                            fontSmooth: "never",
+                          }}
+                        >
+                          {selectedPhoto.photo.caption}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Timestamp */}
+                    <div className="flex items-center gap-2 text-[hsl(15_60%_35%)]">
+                      <Calendar className="w-4 h-4" />
+                      <span
+                        className="font-pixel text-xs md:text-sm"
+                        style={{
+                          textRendering: "optimizeSpeed",
+                          WebkitFontSmoothing: "none",
+                          MozOsxFontSmoothing: "unset",
+                          fontSmooth: "never",
+                        }}
+                      >
+                        {formatTimestamp(selectedPhoto.photo.timestamp)}
+                      </span>
+                    </div>
+
+                    {/* Filter Info */}
+                    {selectedPhoto.photo.filter && selectedPhoto.photo.filter !== "none" && (
+                      <div className="text-[hsl(15_60%_35%)]">
+                        <span
+                          className="font-pixel text-xs md:text-sm"
+                          style={{
+                            textRendering: "optimizeSpeed",
+                            WebkitFontSmoothing: "none",
+                            MozOsxFontSmoothing: "unset",
+                            fontSmooth: "never",
+                          }}
+                        >
+                          Filter: {selectedPhoto.photo.filter}
+                          {selectedPhoto.photo.filterIntensity !== undefined &&
+                            selectedPhoto.photo.filterIntensity !== 100 &&
+                            ` (${selectedPhoto.photo.filterIntensity}%)`}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Frame Info */}
+                    {selectedPhoto.photo.frame && (
+                      <div className="text-[hsl(15_60%_35%)]">
+                        <span
+                          className="font-pixel text-xs md:text-sm"
+                          style={{
+                            textRendering: "optimizeSpeed",
+                            WebkitFontSmoothing: "none",
+                            MozOsxFontSmoothing: "unset",
+                            fontSmooth: "never",
+                          }}
+                        >
+                          Frame: {selectedPhoto.photo.frame}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </>
   );

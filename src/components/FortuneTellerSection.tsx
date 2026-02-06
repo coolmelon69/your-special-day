@@ -283,6 +283,24 @@ const hiddenQualities = [
   "You have an extraordinary ability to see the best in people",
 ];
 
+const halalFood = [
+  "Nasi Lemak at Village Park Restaurant, Bangsar",
+  "Roti Canai at Restoran Yut Kee, KL",
+  "Satay at Haji Samuri, Ampang",
+  "Biryani at Al-Amin Restaurant, KLCC",
+  "Mee Goreng at Mamak Corner, Petaling Street",
+  "Ayam Percik at Bijan Restaurant, KL",
+  "Laksa at Laksa Shack, Bangsar",
+  "Rendang at Seri Melayu Restaurant, KL",
+  "Char Kuey Teow at Weng Heong Restaurant, Petaling Street",
+  "Nasi Kandar at Pelita Nasi Kandar, KL",
+  "Murtabak at Al-Amar Express, Pavilion KL",
+  "Sup Tulang at Restoran Hameediyah, KL",
+  "Roti John at Zainal Abidin, KL",
+  "Nasi Kerabu at Kelantan Delights, KL",
+  "Cendol at SS2 Cendol, Petaling Jaya",
+];
+
 const FortuneTellerSection = () => {
   const [selectedType, setSelectedType] = useState<PredictionType | null>(null);
   const [currentPrediction, setCurrentPrediction] = useState<string>("");
@@ -295,11 +313,12 @@ const FortuneTellerSection = () => {
       dateIdeas,
       compliments,
       hiddenQualities,
+      halalFood,
     };
     const array = predictions[type];
     
-    // For date ideas, return 5 random locations in the required format
-    if (type === "dateIdeas") {
+    // For date ideas and halal food, return 5 random locations in the required format
+    if (type === "dateIdeas" || type === "halalFood") {
       // Shuffle array and pick 5 unique items
       const shuffled = [...array].sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, 5);
@@ -614,8 +633,8 @@ const FortuneTellerSection = () => {
   }, []);
 
   const formatPrediction = (prediction: string, type: PredictionType | null): React.ReactNode => {
-    // For date ideas, format structured bullet points nicely
-    if (type === "dateIdeas") {
+    // For date ideas and halal food, format structured bullet points nicely
+    if (type === "dateIdeas" || type === "halalFood") {
       // Try to parse structured format first
       if (prediction.includes("Spot:") || prediction.includes("spot:")) {
         // Handle both single-line and multi-line formats
@@ -780,8 +799,8 @@ const FortuneTellerSection = () => {
     const aiPrediction = await generateAIPrediction(type);
     
     if (aiPrediction) {
-      // Check if we can format it properly (for date ideas, must be structured)
-      if (type === "dateIdeas") {
+      // Check if we can format it properly (for date ideas and halal food, must be structured)
+      if (type === "dateIdeas" || type === "halalFood") {
         const formatted = formatPrediction(aiPrediction, type);
         // If formatted returns null, it means parsing failed - use preset
         if (formatted === null) {
@@ -816,8 +835,8 @@ const FortuneTellerSection = () => {
     const aiPrediction = await generateAIPrediction(selectedType);
 
     if (aiPrediction) {
-      // Check if we can format it properly (for date ideas, must be structured)
-      if (selectedType === "dateIdeas") {
+      // Check if we can format it properly (for date ideas and halal food, must be structured)
+      if (selectedType === "dateIdeas" || selectedType === "halalFood") {
         const formatted = formatPrediction(aiPrediction, selectedType);
         // If formatted returns null, it means parsing failed - use preset
         if (formatted === null) {
@@ -1031,8 +1050,9 @@ const FortuneTellerSection = () => {
           >
             {[
               { type: "dateIdeas" as PredictionType, label: "Date Ideas", icon: "💕" },
-              { type: "compliments" as PredictionType, label: "Compliments", icon: "✨" },
-              { type: "hiddenQualities" as PredictionType, label: "Hidden Qualities", icon: "🌟" },
+              { type: "halalFood" as PredictionType, label: "Foodies", icon: "🍽️" },
+              { type: "compliments" as PredictionType, label: "Fun Questions!", icon: "✨" },
+              { type: "hiddenQualities" as PredictionType, label: "Deep Talks", icon: "🗣️" },
             ].map(({ type, label, icon }) => (
               <motion.button
                 key={type}
