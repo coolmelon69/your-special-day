@@ -8,8 +8,21 @@ import type { MemoryBookPage } from "@/utils/memoryBookGenerator";
 import type { Photo } from "@/components/TimelineSection";
 import { useLocation } from "react-router-dom";
 
+const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
+
+function convertCouponId(id: number | string): number {
+  if (typeof id === "number") return id;
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    const char = id.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return 10000 + Math.abs(hash);
+}
+
 const MemoryBookPage = () => {
-  const { getAllPhotos, itineraryState, deletePhoto, refreshPhotos, reloadPhotosFromCloud, user } = useAdventure();
+  const { getAllPhotos, itineraryState, deletePhoto, refreshPhotos, reloadPhotosFromCloud, user, coupons } = useAdventure();
   const location = useLocation();
   const [pages, setPages] = useState<MemoryBookPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,7 +83,28 @@ const MemoryBookPage = () => {
       // Show loading indicator
       setIsDownloading(true);
       
-      const html = await generateMemoryBookHTML(pages);
+      const stampsCompleted = itineraryState.filter((item) => item.isPast).length;
+      const stampsTotal = itineraryState.length;
+      let couponsRedeemed = 0;
+      let redeemedCouponIds: number[] = [];
+      try {
+        const saved = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as { redeemedCouponIds?: number[] };
+          redeemedCouponIds = Array.isArray(parsed?.redeemedCouponIds) ? parsed.redeemedCouponIds : [];
+          couponsRedeemed = redeemedCouponIds.length;
+        }
+      } catch {
+        redeemedCouponIds = [];
+      }
+      const redeemedCouponTitles = redeemedCouponIds.map((rid) => {
+        const coupon = coupons.find((c) => convertCouponId(c.id) === rid);
+        return coupon ? coupon.title : "Treasure claimed";
+      });
+      const displayCouponsRedeemed = redeemedCouponTitles.filter((t) => t !== "Treasure claimed").length;
+      const stats = { stampsCompleted, stampsTotal, couponsRedeemed, redeemedCouponTitles, displayCouponsRedeemed };
+
+      const html = await generateMemoryBookHTML(pages, stats);
       downloadMemoryBook(html);
     } catch (error) {
       console.error("Error generating memory book:", error);
@@ -258,12 +292,12 @@ const MemoryBookPage = () => {
                   </p>
                 </div>
 
-                {/* Photos grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {/* Photos grid - items-start so each frame follows its image aspect ratio */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 items-start">
                   {page.photos.map((photo, photoIndex) => (
                     <motion.div
                       key={photo.id}
-                      className="relative bg-[hsl(35_40%_88%)] p-2 border-4 border-[hsl(340_70%_65%)] group"
+                      className="relative w-full bg-[hsl(35_40%_88%)] p-2 border-4 border-[hsl(340_70%_65%)] group"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: pageIndex * 0.1 + photoIndex * 0.05 }}
@@ -284,8 +318,8 @@ const MemoryBookPage = () => {
                       <img
                         src={photo.storageUrl || photo.src}
                         alt={photo.caption || "Memory"}
-                        className="w-full h-auto object-cover cursor-pointer"
-                        style={{ imageRendering: "pixelated" }}
+                        className="w-full h-auto max-w-full cursor-pointer block"
+                        style={{ imageRendering: "pixelated", verticalAlign: "middle" }}
                         onClick={() => handlePhotoClick(photo, page)}
                       />
                       {photo.caption && (
