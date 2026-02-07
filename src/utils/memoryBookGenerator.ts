@@ -397,9 +397,9 @@ export const generateMemoryBookHTML = async (
     
     .stamp-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
       gap: 0.75rem;
-      max-width: 20rem;
+      width: 100%;
     }
     
     .stamp-slot {
@@ -601,6 +601,17 @@ export const generateMemoryBookHTML = async (
       font-style: italic;
     }
     
+    @media (max-width: 480px) {
+      .stamp-grid {
+        grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr));
+        gap: 0.5rem;
+      }
+      .stamp-slot .stamp-icon {
+        width: 1rem;
+        height: 1rem;
+      }
+    }
+    
     @media print {
       body { background: var(--cream); padding: 0; }
       body::after { display: none; }
@@ -631,7 +642,7 @@ export const generateMemoryBookHTML = async (
       <div class="dashboard-section">
         <div class="dashboard-label">Milestones Captured</div>
         <div class="stamp-grid">
-          ${Array.from({ length: 6 }, (_, i) => {
+          ${Array.from({ length: Math.max(0, stats.stampsTotal) }, (_, i) => {
             const completed = i < stats.stampsCompleted;
             const icons = [
               '<svg class="stamp-icon" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
@@ -642,7 +653,7 @@ export const generateMemoryBookHTML = async (
               '<svg class="stamp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l2 2"/><path d="M6 10V8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2h-2"/><circle cx="12" cy="12" r="10"/></svg>'
             ];
             const lockSvg = '<svg class="stamp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
-            return `<div class="stamp-slot ${completed ? 'completed' : 'incomplete'}" aria-label="${completed ? 'Stamp earned' : 'Stamp not yet earned'}">${completed ? icons[i] : lockSvg}</div>`;
+            return `<div class="stamp-slot ${completed ? 'completed' : 'incomplete'}" aria-label="${completed ? 'Stamp earned' : 'Stamp not yet earned'}">${completed ? icons[i % icons.length] : lockSvg}</div>`;
           }).join('')}
         </div>
       </div>
