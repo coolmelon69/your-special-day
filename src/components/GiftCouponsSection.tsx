@@ -16,7 +16,6 @@ import { useAdventure } from "@/contexts/AdventureContext";
 import {
   syncCouponAchievements,
   loadCouponAchievements,
-  mergeAchievementData,
   subscribeToCouponAchievements,
   type AchievementData as AchievementDataType,
 } from "@/utils/supabaseSync";
@@ -214,13 +213,15 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
     achievementTimestamps: {},
   });
   const [newlyUnlockedAchievements, setNewlyUnlockedAchievements] = useState<string[]>([]);
+  const [processingCouponId, setProcessingCouponId] = useState<number | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
   
   // Track if initial load from Supabase has completed
   const hasLoadedFromSupabase = useRef(false);
-  // Debounce timer for Supabase sync
-  const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Realtime subscription cleanup ref
   const unsubscribeCouponsRef = useRef<(() => void) | null>(null);
+  // Track previous unlocked achievements to animate newly unlocked (DB-driven)
+  const prevUnlockedRef = useRef<string[]>([]);
 
   // Helper function to convert string IDs to unique numeric IDs
   // Maps custom coupon string IDs to a range starting from 10000 to avoid collisions with default coupon IDs (1-3)
@@ -277,20 +278,6 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
       // Update state with the new data from another device
       setRedeemedCoupons(updatedData.redeemedCouponIds);
       setAchievementData(updatedData);
-      
-      // Also save to localStorage for consistency
-      try {
-        if (typeof window !== "undefined" && window.localStorage) {
-          const dataToSave: AchievementDataType = {
-            redeemedCouponIds: updatedData.redeemedCouponIds,
-            achievementsUnlocked: updatedData.achievementsUnlocked,
-            achievementTimestamps: updatedData.achievementTimestamps || {},
-          };
-          localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(dataToSave));
-        }
-      } catch (error) {
-        console.error("Error saving realtime update to localStorage:", error);
-      }
     });
 
     unsubscribeCouponsRef.current = unsubscribe;
@@ -304,7 +291,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
     };
   }, [user]);
 
-  // Load achievement data from Supabase first, then fallback to localStorage
+  // Load achievement data from Supabase only (DB is source of truth)
   useEffect(() => {
     // If no user, reset flag and return early
     // This ensures we load from Supabase when user becomes available
@@ -322,101 +309,37 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
       console.log("Loading coupon achievements from Supabase...");
 
       try {
-        // Load from localStorage first (as fallback)
-        let localData: AchievementDataType | null = null;
-        if (typeof window !== "undefined" && window.localStorage) {
-          const saved = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
-          if (saved) {
-            try {
-              const parsed = JSON.parse(saved) as AchievementDataType;
-              if (parsed.redeemedCouponIds && Array.isArray(parsed.redeemedCouponIds)) {
-                localData = parsed;
-              }
-            } catch (parseError) {
-              console.error("Error parsing localStorage achievement data:", parseError);
-            }
-          }
-        }
-
-        // Load from Supabase
         console.log("Loading coupon achievements from Supabase for user:", user.email);
         const remoteResult = await loadCouponAchievements();
         console.log("Loaded coupon achievements from Supabase:", remoteResult);
 
-        // Get localStorage timestamp if available (try to parse from stored data)
-        let localTimestamp: number | undefined;
-        if (localData && typeof window !== "undefined" && window.localStorage) {
-          try {
-            // Try to get timestamp from achievement_timestamps (use the latest one)
-            const timestamps = Object.values(localData.achievementTimestamps || {});
-            if (timestamps.length > 0) {
-              localTimestamp = Math.max(...timestamps);
-            }
-          } catch {
-            // If we can't determine local timestamp, use current time as fallback
-            localTimestamp = Date.now();
-          }
-        }
+        const finalData: AchievementDataType = remoteResult?.data ?? {
+          redeemedCouponIds: [],
+          achievementsUnlocked: [],
+          achievementTimestamps: {},
+        };
 
-        // When user is authenticated, always prefer Supabase data if it exists
-        let finalData: AchievementDataType;
-        if (remoteResult?.data) {
-          // Supabase data exists - use it (it's the source of truth)
-          finalData = remoteResult.data;
-          console.log("Loaded remote coupon data from Supabase, using it");
-        } else if (localData) {
-          // No Supabase data but local data exists - use local and sync to Supabase
-          finalData = localData;
-          try {
-            console.log("Syncing local coupon data to Supabase (first time)");
-            await syncCouponAchievements(localData);
-          } catch (error) {
-            console.error("Error syncing local data to Supabase:", error);
-            // Non-blocking - the sync effect will retry later
-          }
-        } else {
-          // No data at all - start fresh
-          finalData = {
-            redeemedCouponIds: [],
-            achievementsUnlocked: [],
-            achievementTimestamps: {},
-          };
-          console.log("No coupon data found for user, starting fresh");
-        }
-
-        // Update state with final data
         setRedeemedCoupons(finalData.redeemedCouponIds);
         setAchievementData(finalData);
-        
-        // Save to localStorage for offline access (always use Supabase data if available)
+        prevUnlockedRef.current = finalData.achievementsUnlocked;
+
         try {
           if (typeof window !== "undefined" && window.localStorage) {
             localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(finalData));
           }
-        } catch (error) {
-          console.error("Error saving to localStorage:", error);
+        } catch (err) {
+          console.error("Error saving to localStorage:", err);
         }
       } catch (error) {
         console.error("Error loading achievement data:", error);
-        // Fallback to localStorage only
-        if (typeof window !== "undefined" && window.localStorage) {
-          const saved = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
-          if (saved) {
-            try {
-              const parsed = JSON.parse(saved) as AchievementDataType;
-              if (parsed.redeemedCouponIds && Array.isArray(parsed.redeemedCouponIds)) {
-                setRedeemedCoupons(parsed.redeemedCouponIds);
-                setAchievementData({
-                  redeemedCouponIds: parsed.redeemedCouponIds || [],
-                  achievementsUnlocked: parsed.achievementsUnlocked || [],
-                  achievementTimestamps: parsed.achievementTimestamps || {},
-                });
-              }
-            } catch (parseError) {
-              console.error("Error parsing localStorage data:", parseError);
-            }
-          }
-        }
+        const empty: AchievementDataType = {
+          redeemedCouponIds: [],
+          achievementsUnlocked: [],
+          achievementTimestamps: {},
+        };
+        setRedeemedCoupons(empty.redeemedCouponIds);
+        setAchievementData(empty);
+        prevUnlockedRef.current = empty.achievementsUnlocked;
       }
     };
 
@@ -426,176 +349,116 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
     }
   }, [user]);
 
-  // Save achievement data to localStorage and sync to Supabase
+  // DB-driven micro-celebrations when achievements become unlocked
   useEffect(() => {
-    // Skip if this is the initial load (we handle that separately)
-    if (!hasLoadedFromSupabase.current) {
+    const prev = prevUnlockedRef.current;
+    const current = achievementData.achievementsUnlocked || [];
+    const newly = current.filter((id) => !prev.includes(id));
+    if (newly.length === 0) {
+      prevUnlockedRef.current = current;
       return;
     }
 
-    const dataToSave: AchievementDataType = {
-      redeemedCouponIds: redeemedCoupons,
-      achievementsUnlocked: achievementData.achievementsUnlocked,
-      achievementTimestamps: achievementData.achievementTimestamps || {},
-    };
-
-    // Always save to localStorage (immediate, always succeeds)
-    try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(dataToSave));
-      }
-    } catch (error) {
-      console.error("Error saving achievement data to localStorage:", error);
-      if (error instanceof DOMException && error.name === "QuotaExceededError") {
-        console.warn("localStorage quota exceeded, achievements not saved");
-      }
-    }
-
-    // Debounce Supabase sync (500ms delay to avoid too many requests)
-    if (syncTimerRef.current) {
-      clearTimeout(syncTimerRef.current);
-    }
-
-    syncTimerRef.current = setTimeout(async () => {
-      if (!user) {
-        // User not authenticated, skip sync
-        console.log("Skipping coupon sync - user not authenticated");
-        return;
-      }
-      try {
-        console.log("Syncing coupon achievements:", dataToSave);
-        const success = await syncCouponAchievements(dataToSave);
-        if (success) {
-          console.log("Coupon achievements synced successfully");
-        } else {
-          console.warn("Coupon achievements sync returned false");
+    newly.forEach((achievementId, index) => {
+      setTimeout(() => {
+        switch (achievementId) {
+          case "adventure-seeker":
+            spiralConfetti({ particleCount: 150, origin: { x: 0.5, y: 0.6 } });
+            sparkleBurst({ x: window.innerWidth / 2, y: window.innerHeight * 0.6, particleCount: 30 });
+            break;
+          case "romantic-explorer":
+            heartRain({ duration: 4000, heartCount: 40 });
+            burstConfetti({ particleCount: 120, origin: { x: 0.5, y: 0.6 } });
+            break;
+          case "coupon-master":
+            celebrationConfetti({ bursts: 8, particleCount: 150 });
+            setTimeout(() => {
+              pixelBurst({ x: window.innerWidth / 2, y: window.innerHeight / 2, particleCount: 80 });
+            }, 500);
+            break;
+          default:
+            burstConfetti({ particleCount: 100, origin: { x: 0.5, y: 0.6 } });
         }
-      } catch (error) {
-        console.error("Error syncing coupon achievements to Supabase:", error);
-        // Non-blocking: continue even if sync fails
-      }
-    }, 500);
+      }, index * 400);
+    });
 
-    // Cleanup timer on unmount or dependency change
-    return () => {
-      if (syncTimerRef.current) {
-        clearTimeout(syncTimerRef.current);
-      }
-    };
-  }, [redeemedCoupons, achievementData.achievementsUnlocked, achievementData.achievementTimestamps, user]);
+    setNewlyUnlockedAchievements(newly);
+    setTimeout(() => setNewlyUnlockedAchievements([]), 5000);
+    prevUnlockedRef.current = current;
+  }, [achievementData.achievementsUnlocked]);
 
   // Calculate completed stamps
   const completedStamps = itineraryState.filter(item => item.isPast).length;
 
-  // Check and award achievements
-  useEffect(() => {
-    const redeemedCount = redeemedCoupons.length;
-    const newAchievements: string[] = [];
-    const now = Date.now();
-    
-    setAchievementData(prev => {
-      const updatedUnlocked = [...prev.achievementsUnlocked];
-      const updatedTimestamps = { ...prev.achievementTimestamps };
-
-      // Adventure Seeker: 1+ redeemed
-      if (redeemedCount >= 1 && !updatedUnlocked.includes("adventure-seeker")) {
-        updatedUnlocked.push("adventure-seeker");
-        updatedTimestamps["adventure-seeker"] = now;
-        newAchievements.push("adventure-seeker");
-      }
-
-      // Romantic Explorer: 2+ redeemed
-      if (redeemedCount >= 2 && !updatedUnlocked.includes("romantic-explorer")) {
-        updatedUnlocked.push("romantic-explorer");
-        updatedTimestamps["romantic-explorer"] = now;
-        newAchievements.push("romantic-explorer");
-      }
-
-      // Coupon Master: All coupons redeemed
-      if (redeemedCount >= coupons.length && !updatedUnlocked.includes("coupon-master")) {
-        updatedUnlocked.push("coupon-master");
-        updatedTimestamps["coupon-master"] = now;
-        newAchievements.push("coupon-master");
-      }
-
-      if (newAchievements.length > 0) {
-        // Trigger context-aware particle effects based on achievement type
-        newAchievements.forEach((achievementId, index) => {
-          setTimeout(() => {
-            switch (achievementId) {
-              case "adventure-seeker":
-                // Adventure theme: spiral confetti + sparkle burst
-                spiralConfetti({
-                  particleCount: 150,
-                  origin: { x: 0.5, y: 0.6 },
-                });
-                sparkleBurst({
-                  x: window.innerWidth / 2,
-                  y: window.innerHeight * 0.6,
-                  particleCount: 30,
-                });
-                break;
-              case "romantic-explorer":
-                // Romantic theme: heart rain + burst confetti
-                heartRain({
-                  duration: 4000,
-                  heartCount: 40,
-                });
-                burstConfetti({
-                  particleCount: 120,
-                  origin: { x: 0.5, y: 0.6 },
-                });
-                break;
-              case "coupon-master":
-                // Grand finale: celebration confetti + pixel burst
-                celebrationConfetti({
-                  bursts: 8,
-                  particleCount: 150,
-                });
-                setTimeout(() => {
-                  pixelBurst({
-                    x: window.innerWidth / 2,
-                    y: window.innerHeight / 2,
-                    particleCount: 80,
-                  });
-                }, 500);
-                break;
-              default:
-                // Default celebration
-                burstConfetti({
-                  particleCount: 100,
-                  origin: { x: 0.5, y: 0.6 },
-                });
-            }
-          }, index * 400);
-        });
-
-        // Clear newly unlocked after animation
-        setTimeout(() => {
-          setNewlyUnlockedAchievements([]);
-        }, 5000);
-      }
-
-      return {
-        ...prev,
-        achievementsUnlocked: updatedUnlocked,
-        achievementTimestamps: updatedTimestamps,
-      };
-    });
-
-    if (newAchievements.length > 0) {
-      setNewlyUnlockedAchievements(newAchievements);
-    }
-  }, [redeemedCoupons.length]);
+  // Achievements are persisted and loaded from the DB (single source of truth)
 
   const handleCouponClick = (coupon: Coupon) => {
     setSelectedCoupon(coupon);
     setIsModalOpen(true);
   };
 
-  const handleRedeem = (id: number) => {
-    if (!redeemedCoupons.includes(id)) {
-      setRedeemedCoupons([...redeemedCoupons, id]);
+  const handleRedeem = async (id: number): Promise<boolean> => {
+    if (!user) {
+      setRedeemError("The magic had a hiccup, try again!");
+      return false;
+    }
+    if (processingCouponId != null) return false;
+
+    setProcessingCouponId(id);
+    setRedeemError(null);
+    try {
+      // Always base the write on the latest DB state to avoid overwriting concurrent changes
+      const remote = await loadCouponAchievements();
+      const current = remote?.data ?? achievementData;
+
+      if (current.redeemedCouponIds.includes(id)) {
+        return true;
+      }
+
+      const nextRedeemed = [...current.redeemedCouponIds, id];
+      const now = Date.now();
+      const nextUnlocked = [...(current.achievementsUnlocked || [])];
+      const nextTimestamps = { ...(current.achievementTimestamps || {}) };
+
+      if (nextRedeemed.length >= 1 && !nextUnlocked.includes("adventure-seeker")) {
+        nextUnlocked.push("adventure-seeker");
+        nextTimestamps["adventure-seeker"] = now;
+      }
+      if (nextRedeemed.length >= 2 && !nextUnlocked.includes("romantic-explorer")) {
+        nextUnlocked.push("romantic-explorer");
+        nextTimestamps["romantic-explorer"] = now;
+      }
+      if (nextRedeemed.length >= coupons.length && !nextUnlocked.includes("coupon-master")) {
+        nextUnlocked.push("coupon-master");
+        nextTimestamps["coupon-master"] = now;
+      }
+
+      const nextData: AchievementDataType = {
+        redeemedCouponIds: nextRedeemed,
+        achievementsUnlocked: nextUnlocked,
+        achievementTimestamps: nextTimestamps,
+      };
+
+      const ok = await syncCouponAchievements(nextData);
+      if (!ok) {
+        setRedeemError("The magic had a hiccup, try again!");
+        return false;
+      }
+
+      // Re-validate from DB after a successful write (DB is source of truth)
+      const refreshed = await loadCouponAchievements();
+      const finalData = refreshed?.data ?? nextData;
+      setRedeemedCoupons(finalData.redeemedCouponIds);
+      setAchievementData(finalData);
+      prevUnlockedRef.current = finalData.achievementsUnlocked;
+
+      return true;
+    } catch (e) {
+      console.error("Error redeeming coupon:", e);
+      setRedeemError("The magic had a hiccup, try again!");
+      return false;
+    } finally {
+      setProcessingCouponId(null);
     }
   };
 
@@ -626,6 +489,16 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             Unlock and redeem special coupons as you complete your adventures. Each coupon is a promise for a wonderful experience together!
           </p>
         </motion.div>
+
+        {redeemError && (
+          <motion.div
+            className="max-w-md mx-auto mb-8 px-5 py-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-center"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            {redeemError}
+          </motion.div>
+        )}
 
         {/* Achievement Badges Section */}
         <motion.div
@@ -663,6 +536,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             const isRedeemed = redeemedCoupons.includes(coupon.id);
             const isUnlocked = isCouponUnlocked(coupon);
             const isLocked = !isUnlocked && !isRedeemed;
+            const isProcessing = processingCouponId === coupon.id;
             
             return (
               <motion.div
@@ -677,8 +551,9 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
                   coupon={coupon}
                   isRedeemed={isRedeemed}
                   isLocked={isLocked}
+                  isProcessing={isProcessing}
                   completedStamps={completedStamps}
-                  onCardClick={() => !isLocked && handleCouponClick(coupon)}
+                  onCardClick={() => !isLocked && !isProcessing && handleCouponClick(coupon)}
                 />
               </motion.div>
             );
@@ -692,6 +567,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
           onClose={handleCloseModal}
           onRedeem={handleRedeem}
           isRedeemed={selectedCoupon ? redeemedCoupons.includes(selectedCoupon.id) : false}
+          isProcessing={selectedCoupon ? processingCouponId === selectedCoupon.id : false}
         />
 
         <motion.p

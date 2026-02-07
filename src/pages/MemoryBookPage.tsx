@@ -7,6 +7,7 @@ import { generateMemoryBookPages, generateMemoryBookHTML, downloadMemoryBook } f
 import type { MemoryBookPage } from "@/utils/memoryBookGenerator";
 import type { Photo } from "@/components/TimelineSection";
 import { useLocation } from "react-router-dom";
+import { loadCouponAchievements } from "@/utils/supabaseSync";
 
 const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
 
@@ -87,15 +88,10 @@ const MemoryBookPage = () => {
       const stampsTotal = itineraryState.length;
       let couponsRedeemed = 0;
       let redeemedCouponIds: number[] = [];
-      try {
-        const saved = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved) as { redeemedCouponIds?: number[] };
-          redeemedCouponIds = Array.isArray(parsed?.redeemedCouponIds) ? parsed.redeemedCouponIds : [];
-          couponsRedeemed = redeemedCouponIds.length;
-        }
-      } catch {
-        redeemedCouponIds = [];
+      if (user) {
+        const remote = await loadCouponAchievements();
+        redeemedCouponIds = remote?.data?.redeemedCouponIds ?? [];
+        couponsRedeemed = redeemedCouponIds.length;
       }
       const redeemedCouponTitles = redeemedCouponIds.map((rid) => {
         const coupon = coupons.find((c) => convertCouponId(c.id) === rid);

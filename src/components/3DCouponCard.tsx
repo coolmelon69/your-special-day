@@ -34,6 +34,7 @@ interface ThreeDCouponCardProps {
   coupon: Coupon;
   isRedeemed: boolean;
   isLocked: boolean;
+  isProcessing?: boolean;
   completedStamps: number;
   onCardClick: () => void;
 }
@@ -42,6 +43,7 @@ const ThreeDCouponCard = ({
   coupon,
   isRedeemed,
   isLocked,
+  isProcessing = false,
   completedStamps,
   onCardClick,
 }: ThreeDCouponCardProps) => {
@@ -66,17 +68,17 @@ const ThreeDCouponCard = ({
 
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current || isRedeemed || isLocked) return;
+    if (!cardRef.current || isRedeemed || isLocked || isProcessing) return;
     
     const rect = cardRef.current.getBoundingClientRect();
     const { rotateX, rotateY } = calculateRotation(e.clientX, e.clientY, rect);
     
     setMousePosition({ x: rotateX, y: rotateY });
-  }, [isRedeemed, isLocked, calculateRotation]);
+  }, [isRedeemed, isLocked, isProcessing, calculateRotation]);
 
   // Handle card click with sparkle effect
   const handleCardClick = useCallback(() => {
-    if (isLocked || isRedeemed) return;
+    if (isLocked || isRedeemed || isProcessing) return;
     
     if (cardRef.current) {
       const rect = cardRef.current.getBoundingClientRect();
@@ -91,11 +93,11 @@ const ThreeDCouponCard = ({
     }
     
     onCardClick();
-  }, [isLocked, isRedeemed, onCardClick]);
+  }, [isLocked, isRedeemed, isProcessing, onCardClick]);
 
   // Handle touch move
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (!cardRef.current || isRedeemed || isLocked) return;
+    if (!cardRef.current || isRedeemed || isLocked || isProcessing) return;
     
     const touch = e.touches[0];
     if (!touch) return;
@@ -104,7 +106,7 @@ const ThreeDCouponCard = ({
     const { rotateX, rotateY } = calculateRotation(touch.clientX, touch.clientY, rect);
     
     setMousePosition({ x: rotateX, y: rotateY });
-  }, [isRedeemed, isLocked, calculateRotation]);
+  }, [isRedeemed, isLocked, isProcessing, calculateRotation]);
 
   // Reset rotation when mouse/touch leaves
   const handleMouseLeave = useCallback(() => {
@@ -116,7 +118,7 @@ const ThreeDCouponCard = ({
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);
     
-    if (!isLocked && !isRedeemed && cardRef.current) {
+    if (!isLocked && !isRedeemed && !isProcessing && cardRef.current) {
       const rect = cardRef.current.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
@@ -130,13 +132,13 @@ const ThreeDCouponCard = ({
         });
       }, 300);
     }
-  }, [isLocked, isRedeemed]);
+  }, [isLocked, isRedeemed, isProcessing]);
 
   // Floating animation
   const [floatingY, setFloatingY] = useState(0);
   
   useEffect(() => {
-    if (isHovered || isRedeemed || isLocked) {
+    if (isHovered || isRedeemed || isLocked || isProcessing) {
       setFloatingY(0);
       return;
     }
@@ -155,7 +157,7 @@ const ThreeDCouponCard = ({
     
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [isHovered, isRedeemed, isLocked]);
+  }, [isHovered, isRedeemed, isLocked, isProcessing]);
 
   return (
     <div
@@ -172,7 +174,7 @@ const ThreeDCouponCard = ({
         animate={{
           rotateX: mousePosition.x,
           rotateY: mousePosition.y,
-          scale: isHovered && !isRedeemed && !isLocked ? 1.05 : 1,
+          scale: isHovered && !isRedeemed && !isLocked && !isProcessing ? 1.05 : 1,
           y: floatingY,
         }}
         transition={{
@@ -199,8 +201,17 @@ const ThreeDCouponCard = ({
               exit={{ rotateX: 90 }}
               transition={{ duration: 0.3 }}
               onClick={handleCardClick}
-              whileTap={!isLocked ? { scale: 0.98 } : {}}
+              whileTap={!isLocked && !isProcessing ? { scale: 0.98 } : {}}
             >
+              {/* Processing overlay */}
+              {isProcessing && (
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-2xl sm:rounded-3xl flex items-center justify-center z-20">
+                  <div className="bg-white/90 text-[hsl(15_70%_40%)] rounded-full px-4 py-2 border-2 border-white/80 shadow-lg font-medium text-sm flex items-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-[hsl(15_70%_40%)] border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                    Processing...
+                  </div>
+                </div>
+              )}
               {/* Lock overlay for locked coupons */}
               {isLocked && (
                 <div className="absolute inset-0 bg-black/20 rounded-2xl sm:rounded-3xl flex items-center justify-center z-10">

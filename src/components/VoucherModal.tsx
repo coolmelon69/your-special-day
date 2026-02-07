@@ -8,8 +8,9 @@ interface VoucherModalProps {
   coupon: Coupon | null;
   isOpen: boolean;
   onClose: () => void;
-  onRedeem: (couponId: number) => void;
+  onRedeem: (couponId: number) => Promise<boolean>;
   isRedeemed: boolean;
+  isProcessing?: boolean;
 }
 
 const VoucherModal = ({
@@ -18,6 +19,7 @@ const VoucherModal = ({
   onClose,
   onRedeem,
   isRedeemed,
+  isProcessing = false,
 }: VoucherModalProps) => {
   const [copied, setCopied] = useState(false);
 
@@ -37,9 +39,12 @@ const VoucherModal = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleRedeem = () => {
-    onRedeem(coupon.id);
-    onClose();
+  const handleRedeem = async () => {
+    if (isProcessing) return;
+    const ok = await onRedeem(coupon.id);
+    if (ok) {
+      onClose();
+    }
   };
 
   return (
@@ -172,18 +177,20 @@ const VoucherModal = ({
                   <div className="flex flex-col sm:flex-row gap-4">
                     <motion.button
                       onClick={handleRedeem}
-                      className={`flex-1 flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r ${coupon.color} text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      disabled={isProcessing}
+                      className={`flex-1 flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r ${coupon.color} text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed`}
+                      whileHover={!isProcessing ? { scale: 1.02 } : {}}
+                      whileTap={!isProcessing ? { scale: 0.98 } : {}}
                     >
                       <Gift className="w-5 h-5" />
-                      Redeem Voucher
+                      {isProcessing ? "Processing..." : "Redeem Voucher"}
                     </motion.button>
                     <motion.button
                       onClick={onClose}
-                      className="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      disabled={isProcessing}
+                      className="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                      whileHover={!isProcessing ? { scale: 1.02 } : {}}
+                      whileTap={!isProcessing ? { scale: 0.98 } : {}}
                     >
                       Close
                     </motion.button>
