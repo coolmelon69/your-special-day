@@ -11,7 +11,7 @@ import {
   updateAdminSettings,
   saveCustomCouponsToIndexedDB,
 } from "@/utils/adminStorage";
-import { loadCustomCoupons, loadAdminSettings, loadGlobalAdminSettings } from "@/utils/supabaseSync";
+import { loadCustomCouponsResult, loadGlobalAdminSettings } from "@/utils/supabaseSync";
 import { getCurrentUser } from "@/utils/auth";
 
 const DEFAULT_COUPONS = [
@@ -98,11 +98,11 @@ const CouponsManager = () => {
       const user = await getCurrentUser();
       if (user) {
         try {
-          const supabaseCoupons = await loadCustomCoupons();
-          if (supabaseCoupons.length > 0) {
-            // Only update if we got data from Supabase
-            await saveCustomCouponsToIndexedDB(supabaseCoupons);
-            setCoupons(supabaseCoupons);
+          const couponsResult = await loadCustomCouponsResult();
+          if (couponsResult.ok) {
+            // Supabase is authoritative (even if empty) -> clear stale cache
+            await saveCustomCouponsToIndexedDB(couponsResult.data);
+            setCoupons(couponsResult.data);
           }
           
           // Also refresh global visibility settings in background

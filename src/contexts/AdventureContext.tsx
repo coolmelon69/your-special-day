@@ -3,7 +3,7 @@ import { initialItinerary, type ItineraryItem, type Photo } from "@/components/T
 import * as photoStorage from "@/utils/photoStorage";
 import { getAllCustomStamps, getAllCustomCoupons, getAdminSettings, saveCustomStampsToIndexedDB, saveCustomCouponsToIndexedDB } from "@/utils/adminStorage";
 import type { CustomStamp, CustomCoupon } from "@/types/admin";
-import { syncStampsProgress, loadStampsProgress, loadCustomStamps as loadCustomStampsFromSupabase, loadCustomCoupons as loadCustomCouponsFromSupabase, subscribeToStampsProgress, loadCheckpointPhotos, deleteCheckpointPhoto } from "@/utils/supabaseSync";
+import { syncStampsProgress, loadStampsProgress, loadCustomStampsResult, loadCustomCouponsResult, loadCheckpointPhotosResult, subscribeToStampsProgress, deleteCheckpointPhoto } from "@/utils/supabaseSync";
 import { getCurrentUser, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { deletePhotoFromStorage } from "@/utils/photoUpload";
@@ -154,8 +154,32 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     // Subscribe to auth changes
     const unsubscribe = onAuthStateChange((authUser) => {
       setUser((previousUser) => {
+        const previousUserId = previousUser?.id ?? null;
+        const nextUserId = authUser?.id ?? null;
+        const userChanged = previousUserId !== nextUserId;
+
         // Reset the load flag when user changes
         hasLoadedFromSupabase.current = false;
+
+        // Safety reset: ensure no per-user data bleeds across accounts
+        if (userChanged) {
+          // Clear per-user caches (fire-and-forget)
+          saveCustomStampsToIndexedDB([]).catch((err) =>
+            console.warn("Failed to clear custom stamps cache on user change:", err)
+          );
+          saveCustomCouponsToIndexedDB([]).catch((err) =>
+            console.warn("Failed to clear custom coupons cache on user change:", err)
+          );
+          photoStorage.clearAllPhotos().catch((err) =>
+            console.warn("Failed to clear photos cache on user change:", err)
+          );
+
+          // Reset in-memory state immediately (prevents old user UI flash)
+          setPhotos([]);
+          setCoupons([]);
+          setItineraryState(initialItinerary);
+          initialItineraryStateRef.current = [...initialItinerary];
+        }
         
         // If user logged out, reset to defaults (fresh initial itinerary)
         if (previousUser && !authUser) {
@@ -215,14 +239,13 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         if (user) {
           try {
             if (!hasLoadedFromSupabase.current) {
-              // Load from Supabase and sync to IndexedDB
-              const supabaseStamps = await loadCustomStampsFromSupabase();
-              if (supabaseStamps.length > 0) {
-                // Save to IndexedDB for offline access
-                await saveCustomStampsToIndexedDB(supabaseStamps);
-                customStamps = supabaseStamps;
+              // Load from Supabase and sync to IndexedDB (even if empty to clear stale cache)
+              const stampsResult = await loadCustomStampsResult();
+              if (stampsResult.ok) {
+                await saveCustomStampsToIndexedDB(stampsResult.data);
+                customStamps = stampsResult.data;
               } else {
-                // No Supabase stamps, fallback to IndexedDB
+                // Supabase error/unavailable -> fallback to IndexedDB
                 customStamps = await getAllCustomStamps();
               }
             } else {
@@ -380,10 +403,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         // Load custom stamps
         let customStamps: any[] = [];
         try {
-          const supabaseStamps = await loadCustomStampsFromSupabase();
-          if (supabaseStamps.length > 0) {
-            await saveCustomStampsToIndexedDB(supabaseStamps);
-            customStamps = supabaseStamps;
+          const stampsResult = await loadCustomStampsResult();
+          if (stampsResult.ok) {
+            await saveCustomStampsToIndexedDB(stampsResult.data);
+            customStamps = stampsResult.data;
           } else {
             customStamps = await getAllCustomStamps();
           }
@@ -621,9 +644,11 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   const reloadPhotosFromCloud = useCallback(async () => {
     if (!user) return;
     try {
-      const cloudPhotos = await loadCheckpointPhotos();
-      if (cloudPhotos.length > 0) {
-        await photoStorage.upsertPhotos(cloudPhotos);
+      const photosResult = await loadCheckpointPhotosResult();
+      if (photosResult.ok) {
+        // Supabase is authoritative (even empty) -> clear old cache
+        await photoStorage.clearAllPhotos();
+        await photoStorage.upsertPhotos(photosResult.data);
       }
       await refreshPhotos();
     } catch (error) {
@@ -688,18 +713,16 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       if (user) {
         console.log("Loading custom coupons for user:", user.email);
         try {
-          // Try to load from Supabase first, then fallback to IndexedDB
-          const supabaseCoupons = await loadCustomCouponsFromSupabase();
-          console.log("Loaded custom coupons from Supabase:", supabaseCoupons.length);
-          if (supabaseCoupons.length > 0) {
-            // Save to IndexedDB for offline access
-            await saveCustomCouponsToIndexedDB(supabaseCoupons);
-            customCoupons = supabaseCoupons;
+          // Try Supabase first; if it succeeds (even empty), treat as authoritative and clear stale cache
+          const couponsResult = await loadCustomCouponsResult();
+          if (couponsResult.ok) {
+            await saveCustomCouponsToIndexedDB(couponsResult.data);
+            customCoupons = couponsResult.data;
             console.log("Using Supabase coupons:", customCoupons.length);
           } else {
-            // No Supabase coupons, fallback to IndexedDB
+            // Supabase error/unavailable -> fallback to IndexedDB
             customCoupons = await getAllCustomCoupons();
-            console.log("No Supabase coupons, using IndexedDB:", customCoupons.length);
+            console.log("Supabase unavailable, using IndexedDB coupons:", customCoupons.length);
           }
         } catch (customError) {
           console.warn("Could not load custom coupons from Supabase:", customError);
@@ -886,13 +909,13 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       // Load custom stamps from Supabase (overwrite local when user logs in)
       let customStamps: any[] = [];
       try {
-        const supabaseStamps = await loadCustomStampsFromSupabase();
-        if (supabaseStamps.length > 0) {
-          // Save to IndexedDB for offline access
-          await saveCustomStampsToIndexedDB(supabaseStamps);
-          customStamps = supabaseStamps;
+        const stampsResult = await loadCustomStampsResult();
+        if (stampsResult.ok) {
+          // Supabase is authoritative (even empty) -> clear stale cache
+          await saveCustomStampsToIndexedDB(stampsResult.data);
+          customStamps = stampsResult.data;
         } else {
-          // No Supabase stamps, fallback to IndexedDB
+          // Supabase error/unavailable -> fallback to IndexedDB
           customStamps = await getAllCustomStamps();
         }
       } catch (customError) {

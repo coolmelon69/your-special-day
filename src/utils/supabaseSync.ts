@@ -10,6 +10,8 @@ export interface AchievementData {
   achievementTimestamps: Record<string, number>;
 }
 
+export type LoadResult<T> = { ok: true; data: T } | { ok: false };
+
 // Checkpoint Photos Sync Functions (Memory Book cross-device sync)
 
 /**
@@ -117,6 +119,60 @@ export const loadCheckpointPhotos = async (): Promise<Photo[]> => {
   } catch (err) {
     console.error("Error in loadCheckpointPhotos:", err);
     return [];
+  }
+};
+
+/**
+ * Load all checkpoint photos for the current user from Supabase.
+ * Distinguishes \"empty\" (ok: true, data: []) vs \"error\" (ok: false).
+ */
+export const loadCheckpointPhotosResult = async (): Promise<LoadResult<Photo[]>> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return { ok: false };
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return { ok: false };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("checkpoint_photos")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+
+    if (error) {
+      console.error("Error loading checkpoint photos:", error);
+      return { ok: false };
+    }
+
+    const photos =
+      !data || data.length === 0
+        ? []
+        : data.map((row: any) => {
+            const storageUrl = row.storage_url as string;
+            const createdAt = row.created_at ? new Date(row.created_at).getTime() : Date.now();
+
+            return {
+              id: row.photo_id as string,
+              checkpointId: row.checkpoint_id as string,
+              src: storageUrl,
+              storageUrl,
+              timestamp: createdAt,
+              caption: row.caption || undefined,
+              filter: row.filter || undefined,
+              frame: row.frame || undefined,
+              stickers: row.stickers || undefined,
+            } satisfies Photo;
+          });
+
+    return { ok: true, data: photos };
+  } catch (err) {
+    console.error("Error in loadCheckpointPhotosResult:", err);
+    return { ok: false };
   }
 };
 
@@ -652,6 +708,55 @@ export const loadCustomStamps = async (): Promise<CustomStamp[]> => {
 };
 
 /**
+ * Load custom stamps from Supabase.
+ * Distinguishes \"empty\" (ok: true, data: []) vs \"error\" (ok: false).
+ */
+export const loadCustomStampsResult = async (): Promise<LoadResult<CustomStamp[]>> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return { ok: false };
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return { ok: false };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("custom_stamps")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error loading custom stamps:", error);
+      return { ok: false };
+    }
+
+    const stamps: CustomStamp[] =
+      !data || data.length === 0
+        ? []
+        : data.map((record) => ({
+            id: record.id,
+            time: record.time,
+            title: record.title,
+            description: record.description,
+            sprite: record.sprite,
+            isActive: record.is_active,
+            isPast: record.is_past,
+            location: record.location || undefined,
+            createdAt: new Date(record.created_at).getTime(),
+            updatedAt: new Date(record.updated_at).getTime(),
+          }));
+
+    return { ok: true, data: stamps };
+  } catch (error) {
+    console.error("Error in loadCustomStampsResult:", error);
+    return { ok: false };
+  }
+};
+
+/**
  * Delete a custom stamp from Supabase
  * @param stampId - The ID of the stamp to delete
  */
@@ -798,6 +903,54 @@ export const loadCustomCoupons = async (): Promise<CustomCoupon[]> => {
   } catch (error) {
     console.error("Error in loadCustomCoupons:", error);
     return [];
+  }
+};
+
+/**
+ * Load custom coupons from Supabase.
+ * Distinguishes \"empty\" (ok: true, data: []) vs \"error\" (ok: false).
+ */
+export const loadCustomCouponsResult = async (): Promise<LoadResult<CustomCoupon[]>> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return { ok: false };
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return { ok: false };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("custom_coupons")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error loading custom coupons:", error);
+      return { ok: false };
+    }
+
+    const coupons: CustomCoupon[] =
+      !data || data.length === 0
+        ? []
+        : data.map((record) => ({
+            id: record.id,
+            title: record.title,
+            description: record.description,
+            emoji: record.emoji,
+            color: record.color,
+            requiredStamps: record.required_stamps,
+            category: record.category || undefined,
+            createdAt: new Date(record.created_at).getTime(),
+            updatedAt: new Date(record.updated_at).getTime(),
+          }));
+
+    return { ok: true, data: coupons };
+  } catch (error) {
+    console.error("Error in loadCustomCouponsResult:", error);
+    return { ok: false };
   }
 };
 

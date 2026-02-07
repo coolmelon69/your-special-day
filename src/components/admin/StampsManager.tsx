@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, MapPin, EyeOff } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, MapPin } from "lucide-react";
 import type { CustomStamp } from "@/types/admin";
 import {
   getAllCustomStamps,
@@ -12,7 +12,7 @@ import {
 } from "@/utils/adminStorage";
 import { sprites, initialItinerary } from "@/components/TimelineSection";
 import type { ItineraryItem } from "@/components/TimelineSection";
-import { loadCustomStamps, loadAdminSettings, loadGlobalAdminSettings } from "@/utils/supabaseSync";
+import { loadCustomStampsResult, loadGlobalAdminSettings } from "@/utils/supabaseSync";
 import { saveCustomStampsToIndexedDB } from "@/utils/adminStorage";
 import { getCurrentUser } from "@/utils/auth";
 
@@ -61,11 +61,11 @@ const StampsManager = () => {
       const user = await getCurrentUser();
       if (user) {
         try {
-          const supabaseStamps = await loadCustomStamps();
-          if (supabaseStamps.length > 0) {
-            // Only update if we got data from Supabase
-            await saveCustomStampsToIndexedDB(supabaseStamps);
-            setStamps(supabaseStamps);
+          const stampsResult = await loadCustomStampsResult();
+          if (stampsResult.ok) {
+            // Supabase is authoritative (even if empty) -> clear stale cache
+            await saveCustomStampsToIndexedDB(stampsResult.data);
+            setStamps(stampsResult.data);
           }
           
           // Also refresh global visibility settings in background
@@ -97,44 +97,29 @@ const StampsManager = () => {
     }
   };
 
-  const handleToggleDefaultStamp = async (e: React.MouseEvent, title: string) => {
+  const handleDeleteDefaultStamp = async (e: React.MouseEvent, title: string) => {
     e.preventDefault();
     e.stopPropagation();
     try {
       const settings = await getAdminSettings();
       const currentDisabled = settings.disabledDefaultStamps || [];
-      const isCurrentlyDisabled = currentDisabled.includes(title);
-      const newDisabled = isCurrentlyDisabled
-        ? currentDisabled.filter((t) => t !== title)
-        : [...currentDisabled, title];
-      
-      console.log("Toggling stamp:", title, "Current disabled:", currentDisabled, "New disabled:", newDisabled);
-      
-      // Update local state immediately for responsive UI
+      if (currentDisabled.includes(title)) return;
+      const newDisabled = [...currentDisabled, title];
+
       setDisabledDefaultStamps(newDisabled);
-      
-      // Save to IndexedDB and sync to Supabase global table
       await updateAdminSettings({ disabledDefaultStamps: newDisabled });
-      
-      // Reload global settings from Supabase to get the authoritative state
-      // This ensures we have the latest from the database, not just local cache
+
       try {
         const globalSettings = await loadGlobalAdminSettings();
         if (globalSettings) {
           setDisabledDefaultStamps(globalSettings.disabledDefaultStamps || []);
-          console.log("Updated settings from global:", globalSettings);
-        } else {
-          // If global settings don't exist yet, use what we just set
-          console.log("Global settings not found, using local update");
         }
       } catch (verifyError) {
         console.warn("Could not reload global settings after update:", verifyError);
-        // Keep the local state we set
       }
     } catch (error) {
-      console.error("Error toggling default stamp:", error);
-      alert("Failed to update stamp visibility. Please try again.");
-      // Reload settings on error to restore correct state
+      console.error("Error deleting default stamp:", error);
+      alert("Failed to delete stamp. Please try again.");
       try {
         const globalSettings = await loadGlobalAdminSettings();
         if (globalSettings) {
@@ -253,6 +238,9 @@ const StampsManager = () => {
     );
   }
 
+  const visibleDefaults = initialItinerary.filter((s) => !disabledDefaultStamps.includes(s.title));
+  const totalStampsCount = visibleDefaults.length + stamps.length;
+
   return (
     <div>
       {/* Header */}
@@ -267,7 +255,7 @@ const StampsManager = () => {
             letterSpacing: "0.05em",
           }}
         >
-          Custom Stamps ({stamps.length})
+          Stamps ({totalStampsCount})
         </h2>
         <motion.button
           onClick={handleAddNew}
@@ -283,192 +271,155 @@ const StampsManager = () => {
         className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-4 opacity-75"
         style={{ textRendering: "optimizeSpeed" }}
       >
-        Custom stamps are shown together with default stamps. You can hide default stamps below.
+        Add custom stamps with the button above. Default stamps can be deleted to remove them from the list.
       </p>
 
-      {/* Default Stamps Section */}
+      {/* Single combined Stamps list */}
       <div className="mb-6">
-        <h3
-          className="font-pixel text-base text-[hsl(15_70%_40%)] mb-3"
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Default Stamps ({initialItinerary.length})
-        </h3>
-        <div className="space-y-2">
-          {initialItinerary.map((stamp) => {
-            const SpriteComponent = sprites[stamp.sprite];
-            const isDisabled = disabledDefaultStamps.includes(stamp.title);
-            return (
-              <motion.div
-                key={stamp.title}
-                className={`bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3 ${
-                  isDisabled ? "opacity-50" : ""
-                }`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <div className="w-10 h-10 flex-shrink-0">
-                  {SpriteComponent ? (
-                    <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
-                  ) : (
-                    <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
-                      <span className="font-pixel text-xs">?</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span
-                      className="font-pixel text-[10px] bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      {stamp.time}
-                    </span>
-                    <h4
-                      className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      {stamp.title}
-                    </h4>
-                    <span
-                      className="font-pixel text-[8px] bg-[hsl(200_60%_55%)] px-1.5 py-0.5 text-white rounded"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      DEFAULT
-                    </span>
-                  </div>
-                  <p
-                    className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
-                    style={{ textRendering: "optimizeSpeed" }}
-                  >
-                    {stamp.description}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => handleToggleDefaultStamp(e, stamp.title)}
-                  className={`w-8 h-8 flex items-center justify-center border-2 transition-colors rounded flex-shrink-0 ${
-                    isDisabled
-                      ? "bg-[hsl(0_60%_50%)] border-[hsl(0_50%_40%)] text-white hover:bg-[hsl(0_60%_60%)]"
-                      : "bg-[hsl(200_60%_55%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)]"
-                  }`}
-                  title={isDisabled ? "Show stamp" : "Hide stamp"}
-                >
-                  <EyeOff className="w-3 h-3" />
-                </button>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Custom Stamps Section */}
-      <div className="mb-6">
-        <h3
-          className="font-pixel text-base text-[hsl(15_70%_40%)] mb-3"
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Custom Stamps ({stamps.length})
-        </h3>
-        {stamps.length === 0 && !showForm ? (
+        {totalStampsCount === 0 && !showForm ? (
           <div className="text-center py-4 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] rounded-lg">
             <p
               className="font-pixel text-xs text-[hsl(15_60%_35%)]"
               style={{ textRendering: "optimizeSpeed" }}
             >
-              No custom stamps yet. Click "Add New" to create one.
+              No stamps. Add a custom stamp or restore defaults (if you add a restore feature later).
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {stamps.map((stamp) => {
-            const SpriteComponent = sprites[stamp.sprite];
-            return (
-              <motion.div
-                key={stamp.id}
-                className="bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <div className="w-10 h-10 flex-shrink-0">
-                  {SpriteComponent ? (
-                    <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
-                  ) : (
-                    <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
-                      <span className="font-pixel text-xs">?</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className="font-pixel text-xs bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))]"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      {stamp.time}
-                    </span>
-                    <h4
-                      className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      {stamp.title}
-                    </h4>
-                    <span
-                      className="font-pixel text-[8px] bg-[hsl(142_60%_55%)] px-1.5 py-0.5 text-white"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      CUSTOM
-                    </span>
+            {visibleDefaults.map((stamp) => {
+              const SpriteComponent = sprites[stamp.sprite];
+              return (
+                <motion.div
+                  key={`default-${stamp.title}`}
+                  className="bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <div className="w-10 h-10 flex-shrink-0">
+                    {SpriteComponent ? (
+                      <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
+                    ) : (
+                      <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
+                        <span className="font-pixel text-xs">?</span>
+                      </div>
+                    )}
                   </div>
-                  <p
-                    className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
-                    style={{ textRendering: "optimizeSpeed" }}
-                  >
-                    {stamp.description}
-                  </p>
-                  {stamp.location && (
-                    <div className="flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3 text-[hsl(15_60%_35%)]" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span
-                        className="font-pixel text-[8px] text-[hsl(15_60%_35%)]"
+                        className="font-pixel text-[10px] bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded"
                         style={{ textRendering: "optimizeSpeed" }}
                       >
-                        {stamp.location.latitude.toFixed(4)}, {stamp.location.longitude.toFixed(4)}
+                        {stamp.time}
+                      </span>
+                      <h4
+                        className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
+                        style={{ textRendering: "optimizeSpeed" }}
+                      >
+                        {stamp.title}
+                      </h4>
+                      <span
+                        className="font-pixel text-[8px] bg-[hsl(200_60%_55%)] px-1.5 py-0.5 text-white rounded"
+                        style={{ textRendering: "optimizeSpeed" }}
+                      >
+                        DEFAULT
                       </span>
                     </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
+                    <p
+                      className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
+                      style={{ textRendering: "optimizeSpeed" }}
+                    >
+                      {stamp.description}
+                    </p>
+                  </div>
                   <button
-                    onClick={() => handleEdit(stamp)}
-                    className="w-8 h-8 flex items-center justify-center bg-[hsl(200_60%_55%)] border-2 border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-colors"
-                    title="Edit"
-                  >
-                    <Edit className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(stamp.id)}
-                    className="w-8 h-8 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-colors"
-                    title="Delete"
+                    type="button"
+                    onClick={(e) => handleDeleteDefaultStamp(e, stamp.title)}
+                    className="w-8 h-8 flex items-center justify-center border-2 transition-colors rounded flex-shrink-0 bg-[hsl(0_70%_50%)] border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)]"
+                    title="Delete stamp"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
-                </div>
-              </motion.div>
-            );
-          })}
+                </motion.div>
+              );
+            })}
+            {stamps.map((stamp) => {
+              const SpriteComponent = sprites[stamp.sprite];
+              return (
+                <motion.div
+                  key={stamp.id}
+                  className="bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <div className="w-10 h-10 flex-shrink-0">
+                    {SpriteComponent ? (
+                      <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
+                    ) : (
+                      <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
+                        <span className="font-pixel text-xs">?</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className="font-pixel text-xs bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))]"
+                        style={{ textRendering: "optimizeSpeed" }}
+                      >
+                        {stamp.time}
+                      </span>
+                      <h4
+                        className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
+                        style={{ textRendering: "optimizeSpeed" }}
+                      >
+                        {stamp.title}
+                      </h4>
+                      <span
+                        className="font-pixel text-[8px] bg-[hsl(142_60%_55%)] px-1.5 py-0.5 text-white"
+                        style={{ textRendering: "optimizeSpeed" }}
+                      >
+                        CUSTOM
+                      </span>
+                    </div>
+                    <p
+                      className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
+                      style={{ textRendering: "optimizeSpeed" }}
+                    >
+                      {stamp.description}
+                    </p>
+                    {stamp.location && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="w-3 h-3 text-[hsl(15_60%_35%)]" />
+                        <span
+                          className="font-pixel text-[8px] text-[hsl(15_60%_35%)]"
+                          style={{ textRendering: "optimizeSpeed" }}
+                        >
+                          {stamp.location.latitude.toFixed(4)}, {stamp.location.longitude.toFixed(4)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEdit(stamp)}
+                      className="w-8 h-8 flex items-center justify-center bg-[hsl(200_60%_55%)] border-2 border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-colors"
+                      title="Edit"
+                    >
+                      <Edit className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(stamp.id)}
+                      className="w-8 h-8 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
