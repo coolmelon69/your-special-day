@@ -28,7 +28,7 @@ const NextYearPromiseSlide = () => {
           transition={{ duration: 0.4, delay: 0.2 }}
         >
           <h2 className="font-mono text-lg sm:text-xl md:text-2xl font-bold text-gray-800 uppercase tracking-wider">
-            NEXT YEAR'S PROMISE
+            My Promises
           </h2>
         </motion.div>
 

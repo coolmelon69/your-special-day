@@ -39,7 +39,7 @@ export const MOCK_DATA = {
     'acah2 software engineer',
     'ayammm',
   ],
-  mostQuoted: "Idk, what do you want to eat?",
+  mostQuoted: "Wa wa wa, nyenyenye, kucukucu",
   persona: {
     title: 'Chaos & Cuddles Inc.',
     traits: [

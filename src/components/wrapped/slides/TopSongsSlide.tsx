@@ -15,7 +15,7 @@ const TopSongsSlide = () => {
         transition={{ duration: 0.6 }}
       >
         <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-bold mb-8 text-foreground">
-          The Soundtrack of Us
+          The Soundtrack
         </h2>
 
         {/* Music Player UI */}

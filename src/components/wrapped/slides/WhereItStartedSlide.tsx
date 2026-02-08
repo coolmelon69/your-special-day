@@ -110,7 +110,7 @@ const WhereItStartedSlide = () => {
             animate={{ scale: 1 }}
             transition={{ duration: 0.6, delay: 0.6 }}
           >
-            May 20, 2020
+            Nov 15, 2025
           </motion.p>
           <motion.p
             className="font-serif text-lg sm:text-xl md:text-2xl text-white/90 italic"
@@ -118,7 +118,7 @@ const WhereItStartedSlide = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.8 }}
           >
-            Little did we know...
+            The most random date
           </motion.p>
         </motion.div>
       </div>

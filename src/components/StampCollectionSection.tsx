@@ -59,6 +59,9 @@ interface StampCollectionSectionProps {
   sprites: Record<string, React.FC<{ isActive: boolean; isPast: boolean }>>;
 }
 
+// Random rotation between -5 and 5 degrees for hand-pressed stamp look
+const randomSlamRotation = () => (Math.random() * 10 - 5);
+
 const StampCollectionSection = ({ 
   itineraryState, 
   onStampClick,
@@ -66,9 +69,13 @@ const StampCollectionSection = ({
   sprites 
 }: StampCollectionSectionProps) => {
   const previousStateRef = useRef<ItineraryItem[]>([]);
+  const [justCompletedIndex, setJustCompletedIndex] = useState<number | null>(null);
+  const slamRotationRef = useRef<Record<number, number>>({});
 
-  // Detect when stamps are collected and trigger particle effects
+  // Detect when stamps are collected: trigger particle effects and slam animation only on unlock (not on refresh)
   useEffect(() => {
+    let slamClearTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
     if (previousStateRef.current.length === 0) {
       previousStateRef.current = [...itineraryState];
       return;
@@ -77,42 +84,37 @@ const StampCollectionSection = ({
     itineraryState.forEach((item, index) => {
       const previousItem = previousStateRef.current[index];
       
-      // Check if a stamp was just completed (wasn't past before, is past now)
+      // Only trigger when a stamp transitions from locked to completed (active unlock event)
       if (previousItem && !previousItem.isPast && item.isPast) {
-        // Trigger celebration effect for newly collected stamp
+        slamRotationRef.current[index] = randomSlamRotation();
+        setJustCompletedIndex(index);
+        slamClearTimeoutId = setTimeout(() => setJustCompletedIndex(null), 2500);
+
         setTimeout(() => {
-          // Calculate position based on grid layout
           const gridCols = window.innerWidth >= 1024 ? 6 : window.innerWidth >= 640 ? 3 : 2;
           const row = Math.floor(index / gridCols);
           const col = index % gridCols;
-          
-          // Approximate center of stamp card
           const cardWidth = window.innerWidth >= 1024 ? window.innerWidth / 6 : 
                            window.innerWidth >= 640 ? window.innerWidth / 3 : 
                            window.innerWidth / 2;
-          const cardHeight = 200; // Approximate card height
+          const cardHeight = 200;
           const x = (col + 0.5) * cardWidth;
-          const y = 200 + (row * (cardHeight + 24)) + (cardHeight / 2); // 24px gap
-          
-          // Sparkle burst at stamp location
-          sparkleBurst({
-            x,
-            y,
-            particleCount: 25,
-          });
-          
-          // Confetti burst for celebration
+          const y = 200 + (row * (cardHeight + 24)) + (cardHeight / 2);
+          sparkleBurst({ x, y, particleCount: 25 });
           setTimeout(() => {
             burstConfetti({
               particleCount: 50,
               origin: { x: x / window.innerWidth, y: y / window.innerHeight },
             });
           }, 200);
-        }, index * 100); // Stagger effects for multiple stamps
+        }, index * 100);
       }
     });
 
     previousStateRef.current = [...itineraryState];
+    return () => {
+      if (slamClearTimeoutId) clearTimeout(slamClearTimeoutId);
+    };
   }, [itineraryState]);
 
   return (
@@ -137,7 +139,9 @@ const StampCollectionSection = ({
           {itineraryState.map((item, index) => {
             const SpriteComponent = sprites[item.sprite];
             const isCompleted = item.isPast;
-            
+            const isJustCompleted = justCompletedIndex === index;
+            const slamRotation = slamRotationRef.current[index] ?? 0;
+
             return (
               <motion.div
                 key={index}
@@ -173,12 +177,22 @@ const StampCollectionSection = ({
                   whileHover={{ scale: 1.05, y: -5 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  {/* Stamp Card */}
-                  <div className={`relative h-full min-h-[200px] p-4 md:p-6 rounded-lg border-4 transition-all flex flex-col ${
-                    isCompleted
-                      ? "bg-[hsl(35_45%_90%)] border-[hsl(15_70%_55%)] shadow-lg"
-                      : "bg-[hsl(35_40%_88%)] border-[hsl(30_30%_60%)] opacity-70"
-                  }`}>
+                  {/* Stamp Card - jiggle on slam impact when just completed */}
+                  <motion.div
+                    className={`relative h-full min-h-[200px] p-4 md:p-6 rounded-lg border-4 transition-all flex flex-col ${
+                      isCompleted
+                        ? "bg-[hsl(35_45%_90%)] border-[hsl(15_70%_55%)] shadow-lg"
+                        : "bg-[hsl(35_40%_88%)] border-[hsl(30_30%_60%)] opacity-70"
+                    }`}
+                    animate={isJustCompleted ? {
+                      x: [0, -4, 4, -3, 3, -1, 1, 0],
+                      transition: {
+                        delay: 0.12,
+                        duration: 0.35,
+                        ease: "easeOut",
+                      },
+                    } : undefined}
+                  >
                     {/* Decorative border pattern */}
                     <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
                       {/* Corner decorations */}
@@ -254,21 +268,68 @@ const StampCollectionSection = ({
                       {item.title}
                     </h3>
 
-                    {/* Completion Indicator */}
-                    <div className="flex flex-col items-center justify-center gap-1 mt-auto flex-shrink-0">
+                    {/* Completion Indicator - postmark slam when just completed */}
+                    <div className="flex flex-col items-center justify-center gap-1 mt-auto flex-shrink-0 relative">
                       {isCompleted ? (
                         <>
-                          <div className="flex items-center gap-1">
-                            <Check className="w-4 h-4 text-[hsl(120_60%_50%)]" />
-                            <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(120_60%_50%)] whitespace-nowrap">
-                              STAMPED
-                            </span>
-                          </div>
-                          {item.checkedAt && (
-                            <span className="font-pixel text-[7px] md:text-[9px] text-[hsl(15_60%_40%)] text-center mt-0.5">
-                              Checked on: {formatCheckedDate(item.checkedAt)}
-                            </span>
+                          {/* Slam shadow: large blur → shrinks and darkens as stamp lands */}
+                          {isJustCompleted && (
+                            <motion.div
+                              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                              initial={{ opacity: 0 }}
+                              animate={{
+                                opacity: [0.8, 0.4, 0],
+                                scale: [3, 1.2, 1],
+                              }}
+                              transition={{
+                                duration: 0.25,
+                                ease: "easeOut",
+                              }}
+                              style={{
+                                filter: "blur(12px)",
+                                background: "radial-gradient(circle, hsl(15_70%_30%) 0%, transparent 70%)",
+                                width: "120%",
+                                height: "140%",
+                              }}
+                            />
                           )}
+                          <motion.div
+                            className={`flex flex-col items-center justify-center gap-1 relative z-10 ${isJustCompleted ? "stamp-ink-texture" : ""}`}
+                            initial={isJustCompleted ? {
+                              scale: 4,
+                              opacity: 0,
+                              rotate: slamRotation,
+                            } : false}
+                            animate={isJustCompleted ? {
+                              scale: [4, 1, 1, 1],
+                              opacity: [0, 1, 1, 1],
+                              rotate: slamRotation,
+                              y: [0, 0, -3, 0],
+                              boxShadow: [
+                                "0 4px 12px rgba(0,0,0,0.15)",
+                                "0 4px 12px rgba(0,0,0,0.15)",
+                                "0 8px 20px rgba(0,0,0,0.12)",
+                                "0 2px 8px rgba(0,0,0,0.08)",
+                              ],
+                              transition: {
+                                duration: 1.35,
+                                times: [0, 0.148, 0.26, 1],
+                                ease: "easeOut",
+                              },
+                            } : undefined}
+                          >
+                            <div className="flex items-center gap-1">
+                              <Check className="w-4 h-4 text-[hsl(120_60%_50%)]" />
+                              <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(120_60%_50%)] whitespace-nowrap">
+                                STAMPED
+                              </span>
+                            </div>
+                            {item.checkedAt && (
+                              <span className="font-pixel text-[7px] md:text-[9px] text-[hsl(15_60%_40%)] text-center mt-0.5">
+                                Checked on: {formatCheckedDate(item.checkedAt)}
+                              </span>
+                            )}
+                          </motion.div>
                         </>
                       ) : (
                         <>
@@ -293,7 +354,7 @@ const StampCollectionSection = ({
                         }}
                       />
                     )}
-                  </div>
+                  </motion.div>
                 </motion.button>
               </motion.div>
             );

@@ -1,7 +1,13 @@
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Trash2, Loader2, Navigation } from "lucide-react";
+import { X, Camera, Trash2, Loader2, Navigation, MapPin } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useLocation } from "react-router-dom";
 import StampCollectionSection from "@/components/StampCollectionSection";
 import Footer from "@/components/Footer";
@@ -289,11 +295,14 @@ const StampsPage = () => {
     }
   };
 
-  const handleWazeNavigation = () => {
+  const handleOpenNavigate = (app: "google" | "waze") => {
     if (!selectedEvent?.location) return;
     const { latitude, longitude } = selectedEvent.location;
-    const wazeUrl = `https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`;
-    window.open(wazeUrl, '_blank');
+    const url =
+      app === "google"
+        ? `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+        : `https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`;
+    window.open(url, "_blank");
   };
 
   return (
@@ -505,19 +514,41 @@ const StampsPage = () => {
                         </div>
                       )}
 
-                      {/* Add Photo and Waze Navigation buttons - side by side */}
+                      {/* Add Photo and Navigate buttons - side by side */}
                       <div className="flex gap-2 mb-4">
-                        {/* Waze Navigation button - only show if location exists */}
+                        {/* Navigate dropdown - only show if location exists */}
                         {selectedEvent.location && (
-                          <motion.button
-                            onClick={handleWazeNavigation}
-                            className="flex-1 px-4 py-3 md:py-4 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(280_60%_55%)] border-[hsl(280_50%_45%)] text-white hover:bg-[hsl(280_60%_60%)] transition-all flex items-center justify-center gap-2"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <Navigation className="w-4 h-4" />
-                            Navigate
-                          </motion.button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <motion.button
+                                className="flex-1 px-4 py-3 md:py-4 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(280_60%_55%)] border-[hsl(280_50%_45%)] text-white hover:bg-[hsl(280_60%_60%)] transition-all flex items-center justify-center gap-2"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                <Navigation className="w-4 h-4" />
+                                Navigate
+                              </motion.button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="start"
+                              className="min-w-[11rem] border-2 border-[hsl(30_50%_60%)] bg-[hsl(35_45%_92%)]"
+                            >
+                              <DropdownMenuItem
+                                onClick={() => handleOpenNavigate("google")}
+                                className="font-pixel text-xs cursor-pointer focus:bg-[hsl(280_40%_90%)]"
+                              >
+                                <MapPin className="w-4 h-4 mr-2" />
+                                Open in Google Maps
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleOpenNavigate("waze")}
+                                className="font-pixel text-xs cursor-pointer focus:bg-[hsl(280_40%_90%)]"
+                              >
+                                <Navigation className="w-4 h-4 mr-2" />
+                                Open in Waze
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
 
                         <motion.button
