@@ -75,7 +75,8 @@ const HeroSection = () => {
         >
           Happy Birthday,
           <br />
-          <span className="font-script text-6xl md:text-8xl lg:text-9xl">My Love</span>
+          <span className="font-script text-6xl md:text-8xl lg:text-9xl block">Dina</span>
+          <span className="block text-[10px] md:text-xs text-black/90 mt-1 font-sans">(nyucing)</span>
         </motion.h1>
 
         <motion.p
@@ -84,7 +85,7 @@ const HeroSection = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
         >
-          A special dashboard for your special day ✨
+          A special birthday gift for you special day
         </motion.p>
 
         <motion.button
