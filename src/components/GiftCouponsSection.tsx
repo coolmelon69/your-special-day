@@ -79,7 +79,7 @@ const ACHIEVEMENTS: Achievement[] = [
   {
     id: "romantic-explorer",
     name: "Romantic Explorer",
-    description: "Redeemed 2+ coupons",
+    description: "Redeemed at least 5 coupons",
     icon: <Heart className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />,
   },
   {
@@ -424,7 +424,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
         nextUnlocked.push("adventure-seeker");
         nextTimestamps["adventure-seeker"] = now;
       }
-      if (nextRedeemed.length >= 2 && !nextUnlocked.includes("romantic-explorer")) {
+      if (nextRedeemed.length >= 5 && !nextUnlocked.includes("romantic-explorer")) {
         nextUnlocked.push("romantic-explorer");
         nextTimestamps["romantic-explorer"] = now;
       }
@@ -486,7 +486,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             Your <span className="text-gradient-romantic">Gift Coupons</span>
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Unlock and redeem special coupons as you complete your adventures. Each coupon is a promise for a wonderful experience together!
+            Unlock and redeem special coupons as you complete your adventures. Each coupon is a promise that I will give to you! Please jangan malu2 nk guna I made this especially for you.
           </p>
         </motion.div>
 

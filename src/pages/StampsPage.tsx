@@ -326,7 +326,7 @@ const StampsPage = () => {
                 <span className="text-gradient-romantic">Stamp Collection</span>
               </h1>
               <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto">
-                Collect stamps as you complete each adventure! Each stamp represents a special moment from your special day.
+                Collect stamps as you complete each adventure to unlock coupons as rewards!
               </p>
             </motion.div>
           </div>
@@ -351,7 +351,6 @@ const StampsPage = () => {
           <StampCollectionSection 
             itineraryState={itineraryState}
             onStampClick={handleStampClick}
-            onResetProgress={resetProgress}
             sprites={sprites}
           />
         )}

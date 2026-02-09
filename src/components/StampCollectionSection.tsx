@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { Check, Clock, RotateCcw } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 import type { ItineraryItem } from "./TimelineSection";
 import { burstConfetti, sparkleBurst } from "../utils/particles";
 
@@ -55,7 +55,6 @@ const EvidenceImage = ({
 interface StampCollectionSectionProps {
   itineraryState: ItineraryItem[];
   onStampClick: (item: ItineraryItem) => void;
-  onResetProgress: () => void;
   sprites: Record<string, React.FC<{ isActive: boolean; isPast: boolean }>>;
 }
 
@@ -65,7 +64,6 @@ const randomSlamRotation = () => (Math.random() * 10 - 5);
 const StampCollectionSection = ({ 
   itineraryState, 
   onStampClick,
-  onResetProgress,
   sprites 
 }: StampCollectionSectionProps) => {
   const previousStateRef = useRef<ItineraryItem[]>([]);
@@ -360,31 +358,6 @@ const StampCollectionSection = ({
             );
           })}
         </div>
-
-        {/* Reset Progress Button */}
-        <motion.div
-          className="flex justify-center mt-12"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.5 }}
-        >
-          <motion.button
-            onClick={onResetProgress}
-            className="flex items-center gap-2 px-6 py-3 font-pixel text-xs md:text-sm rounded-lg border-2 transition-all bg-[hsl(0_60%_50%)] border-[hsl(0_50%_40%)] text-white hover:bg-[hsl(0_60%_60%)] hover:scale-105 active:scale-95"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            style={{ 
-              textRendering: "optimizeSpeed",
-              WebkitFontSmoothing: "none",
-              MozOsxFontSmoothing: "unset",
-              fontSmooth: "never",
-            }}
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Reset Progress</span>
-          </motion.button>
-        </motion.div>
       </div>
     </section>
   );

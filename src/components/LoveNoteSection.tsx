@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Heart, Quote, Sparkles, CheckSquare, Gift, ArrowRight, QrCode, Calendar } from "lucide-react";
+import { Heart, Quote, Sparkles, CheckSquare, Gift, ArrowRight, QrCode, Calendar, Lock } from "lucide-react";
 import { NavLink } from "./NavLink";
 
 const friendWishes = [
@@ -34,21 +34,41 @@ const LoveNoteSection = () => {
           </h2>
         </motion.div>
 
-        {/* Love Letter */}
+        {/* Blurred Secret Letter */}
         <motion.div
           className="max-w-3xl mx-auto mb-20"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <div className="relative bg-card rounded-3xl p-8 md:p-12 shadow-xl"
+          <motion.div
+            className="relative bg-card rounded-3xl p-8 md:p-12 shadow-xl overflow-hidden"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23f4a5b8' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E")`,
             }}
+            whileHover={{
+              scale: 1.01,
+            }}
+            transition={{ duration: 0.3 }}
           >
-            <Quote className="text-primary/30 mb-4" size={48} />
-            
-            <div className="font-serif text-lg md:text-xl leading-relaxed text-foreground/90 space-y-4">
+            {/* Blurred Letter Content */}
+            <motion.div
+              className="font-serif text-lg md:text-xl leading-relaxed text-foreground/90 space-y-4"
+              style={{
+                filter: 'blur(15px)',
+                userSelect: 'none',
+                pointerEvents: 'none',
+              }}
+              animate={{
+                x: [0, 2, -2, 0],
+                opacity: [0.3, 0.35, 0.3],
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+            >
               <p>My Dearest Love,</p>
               
               <p>
@@ -74,8 +94,53 @@ const LoveNoteSection = () => {
                 <br />
                 Your Partner 💕
               </p>
-            </div>
-          </div>
+            </motion.div>
+
+            {/* Glassmorphism Overlay */}
+            <motion.div
+              className="absolute inset-0 flex flex-col items-center justify-center p-8 md:p-12 z-10"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <div
+                className="bg-white/20 backdrop-blur-sm rounded-2xl px-12 py-14 md:p-12 border border-white/30 shadow-xl max-w-[80%] text-center min-h-[280px] md:min-h-auto"
+                style={{
+                  fontFamily: "'Playfair Display', 'Lora', serif",
+                }}
+              >
+                <motion.p
+                  className="text-lg md:text-xl lg:text-2xl leading-relaxed mb-6"
+                  style={{
+                    color: '#8B7355',
+                  }}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: 0.5 }}
+                >
+                  Some words are meant to be felt on paper. They're waiting for you at the end of our journey.
+                </motion.p>
+
+                {/* Lock Icon and Timestamp */}
+                <motion.div
+                  className="flex items-center justify-center gap-2 text-sm md:text-base"
+                  style={{
+                    color: '#8B7355',
+                    opacity: 0.7,
+                  }}
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 0.7 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: 0.7 }}
+                >
+                  <Lock className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="font-serif">19.11.2025</span>
+                </motion.div>
+              </div>
+            </motion.div>
+          </motion.div>
         </motion.div>
 
         {/* Friend Wishes */}
