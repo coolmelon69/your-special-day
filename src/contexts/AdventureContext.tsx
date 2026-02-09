@@ -210,11 +210,13 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
 
     const loadCustomStamps = async () => {
       try {
-        // Load settings to get disabled default stamps
+        // Load settings to get disabled default stamps and optional stamp order
         let disabledTitles: string[] = [];
+        let stampOrder: string[] = [];
         try {
           const settings = await getAdminSettings();
           disabledTitles = settings.disabledDefaultStamps || [];
+          stampOrder = settings.stampOrder ?? [];
         } catch (settingsError) {
           console.warn("Could not load admin settings, using defaults:", settingsError);
           // Continue with empty disabled list
@@ -267,37 +269,59 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
         
         let mergedItinerary: ItineraryItem[];
-        if (customStamps.length > 0) {
-          // Convert CustomStamp to ItineraryItem
-          const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
-            time: stamp.time,
-            title: stamp.title,
-            description: stamp.description,
-            sprite: stamp.sprite,
-            isActive: false, // Will be set based on base itinerary state
-            isPast: stamp.isPast,
-            location: stamp.location,
-          }));
-          
-          // Create a map to track existing stamps by time+title to prevent duplicates
-          const existingStampsMap = new Map<string, ItineraryItem>();
-          baseItinerary.forEach(stamp => {
-            const key = `${stamp.time}-${stamp.title}`;
-            existingStampsMap.set(key, stamp);
-          });
-          
-          // Add custom stamps, skipping any that already exist
-          convertedCustomStamps.forEach(stamp => {
-            const key = `${stamp.time}-${stamp.title}`;
-            if (!existingStampsMap.has(key)) {
-              existingStampsMap.set(key, stamp);
+        const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
+          time: stamp.time,
+          title: stamp.title,
+          description: stamp.description,
+          sprite: stamp.sprite,
+          isActive: false,
+          isPast: stamp.isPast,
+          location: stamp.location,
+        }));
+
+        if (stampOrder.length > 0) {
+          // Build itinerary in admin-defined order (stampOrder: "default:Title" | "custom:id")
+          const baseByTitle = new Map(baseItinerary.map((s) => [s.title, s]));
+          const convertedById = new Map(customStamps.map((s, i) => [s.id, convertedCustomStamps[i]]));
+          const seen = new Set<string>();
+          mergedItinerary = [];
+          for (const key of stampOrder) {
+            if (key.startsWith("default:")) {
+              const title = key.slice(8);
+              const stamp = baseByTitle.get(title);
+              if (stamp) {
+                mergedItinerary.push(stamp);
+                seen.add(key);
+              }
+            } else if (key.startsWith("custom:")) {
+              const id = key.slice(7);
+              const stamp = convertedById.get(id);
+              if (stamp) {
+                mergedItinerary.push(stamp);
+                seen.add(key);
+              }
             }
+          }
+          // Append any stamps not in stampOrder (defaults first, then custom)
+          for (const s of baseItinerary) {
+            if (!seen.has(`default:${s.title}`)) mergedItinerary.push(s);
+          }
+          for (let i = 0; i < convertedCustomStamps.length; i++) {
+            const id = customStamps[i]?.id;
+            if (id != null && !seen.has(`custom:${id}`)) mergedItinerary.push(convertedCustomStamps[i]);
+          }
+        } else if (convertedCustomStamps.length > 0) {
+          // Legacy: defaults first, then custom (no stampOrder)
+          const existingStampsMap = new Map<string, ItineraryItem>();
+          baseItinerary.forEach((stamp) => {
+            existingStampsMap.set(`${stamp.time}-${stamp.title}`, stamp);
           });
-          
-          // Convert map back to array, preserving order (defaults first, then custom)
+          convertedCustomStamps.forEach((stamp) => {
+            const key = `${stamp.time}-${stamp.title}`;
+            if (!existingStampsMap.has(key)) existingStampsMap.set(key, stamp);
+          });
           mergedItinerary = Array.from(existingStampsMap.values());
         } else {
-          // No custom stamps, use filtered defaults
           mergedItinerary = baseItinerary;
         }
 
@@ -666,17 +690,16 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   // Only load custom coupons if user is authenticated
   const refreshCoupons = useCallback(async () => {
     try {
-      // Load settings to get disabled default coupons
       let disabledIds: number[] = [];
+      let couponOrder: string[] = [];
       try {
         const settings = await getAdminSettings();
         disabledIds = settings.disabledDefaultCoupons || [];
+        couponOrder = settings.couponOrder ?? [];
       } catch (settingsError) {
         console.warn("Could not load admin settings for coupons, using defaults:", settingsError);
-        // Continue with empty disabled list
       }
-      
-      // Default coupons (filter out disabled ones)
+
       const defaultCoupons: CouponType[] = [
         {
           id: 1,
@@ -707,26 +730,21 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         },
       ].filter((coupon) => !disabledIds.includes(coupon.id as number));
 
-      // Load custom coupons ONLY if user is authenticated
-      // When logged out, show only default coupons
       let customCoupons: any[] = [];
       if (user) {
         console.log("Loading custom coupons for user:", user.email);
         try {
-          // Try Supabase first; if it succeeds (even empty), treat as authoritative and clear stale cache
           const couponsResult = await loadCustomCouponsResult();
           if (couponsResult.ok) {
             await saveCustomCouponsToIndexedDB(couponsResult.data);
             customCoupons = couponsResult.data;
             console.log("Using Supabase coupons:", customCoupons.length);
           } else {
-            // Supabase error/unavailable -> fallback to IndexedDB
             customCoupons = await getAllCustomCoupons();
             console.log("Supabase unavailable, using IndexedDB coupons:", customCoupons.length);
           }
         } catch (customError) {
           console.warn("Could not load custom coupons from Supabase:", customError);
-          // Try to load from IndexedDB as fallback
           try {
             customCoupons = await getAllCustomCoupons();
             console.log("Fallback to IndexedDB coupons:", customCoupons.length);
@@ -737,7 +755,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       } else {
         console.log("User not logged in - showing default coupons only");
       }
-      
+
       const convertedCustomCoupons: CouponType[] = customCoupons.map((coupon) => ({
         id: coupon.id,
         title: coupon.title,
@@ -748,8 +766,39 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         category: coupon.category,
       }));
 
-      // Merge: defaults first, then custom coupons
-      const mergedCoupons = [...defaultCoupons, ...convertedCustomCoupons];
+      let mergedCoupons: CouponType[];
+      if (couponOrder.length > 0) {
+        const defaultById = new Map(defaultCoupons.map((c) => [String(c.id), c]));
+        const customById = new Map(convertedCustomCoupons.map((c) => [c.id as string, c]));
+        const seen = new Set<string>();
+        mergedCoupons = [];
+        for (const key of couponOrder) {
+          if (key.startsWith("default:")) {
+            const idStr = key.slice(8);
+            const c = defaultById.get(idStr);
+            if (c) {
+              mergedCoupons.push(c);
+              seen.add(key);
+            }
+          } else if (key.startsWith("custom:")) {
+            const id = key.slice(7);
+            const c = customById.get(id);
+            if (c) {
+              mergedCoupons.push(c);
+              seen.add(key);
+            }
+          }
+        }
+        for (const c of defaultCoupons) {
+          if (!seen.has(`default:${c.id}`)) mergedCoupons.push(c);
+        }
+        for (let i = 0; i < convertedCustomCoupons.length; i++) {
+          const id = customCoupons[i]?.id;
+          if (id != null && !seen.has(`custom:${id}`)) mergedCoupons.push(convertedCustomCoupons[i]);
+        }
+      } else {
+        mergedCoupons = [...defaultCoupons, ...convertedCustomCoupons];
+      }
       setCoupons(mergedCoupons);
     } catch (error) {
       console.error("Error refreshing coupons:", error);
@@ -891,36 +940,33 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      // Load settings to get disabled default stamps
+      // Load settings to get disabled default stamps and stamp order
       let disabledTitles: string[] = [];
+      let stampOrder: string[] = [];
       try {
         const settings = await getAdminSettings();
         disabledTitles = settings.disabledDefaultStamps || [];
+        stampOrder = settings.stampOrder ?? [];
       } catch (settingsError) {
         console.warn("Could not load admin settings, using defaults:", settingsError);
       }
 
-      // Filter out disabled default stamps
-        // Use initialItinerary (fresh defaults) as base - Supabase will override state
-        const baseItinerary = initialItinerary.filter(
-          (stamp) => !disabledTitles.includes(stamp.title)
-        );
+      const baseItinerary = initialItinerary.filter(
+        (stamp) => !disabledTitles.includes(stamp.title)
+      );
 
       // Load custom stamps from Supabase (overwrite local when user logs in)
       let customStamps: any[] = [];
       try {
         const stampsResult = await loadCustomStampsResult();
         if (stampsResult.ok) {
-          // Supabase is authoritative (even empty) -> clear stale cache
           await saveCustomStampsToIndexedDB(stampsResult.data);
           customStamps = stampsResult.data;
         } else {
-          // Supabase error/unavailable -> fallback to IndexedDB
           customStamps = await getAllCustomStamps();
         }
       } catch (customError) {
         console.warn("Could not load custom stamps from Supabase:", customError);
-        // Try IndexedDB as fallback
         try {
           customStamps = await getAllCustomStamps();
         } catch (fallbackError) {
@@ -928,17 +974,47 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
+      const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
+        time: stamp.time,
+        title: stamp.title,
+        description: stamp.description,
+        sprite: stamp.sprite,
+        isActive: false,
+        isPast: stamp.isPast,
+        location: stamp.location,
+      }));
+
       let mergedItinerary: ItineraryItem[];
-      if (customStamps.length > 0) {
-        const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
-          time: stamp.time,
-          title: stamp.title,
-          description: stamp.description,
-          sprite: stamp.sprite,
-          isActive: false,
-          isPast: stamp.isPast,
-          location: stamp.location,
-        }));
+      if (stampOrder.length > 0) {
+        const baseByTitle = new Map(baseItinerary.map((s) => [s.title, s]));
+        const convertedById = new Map(customStamps.map((s, i) => [s.id, convertedCustomStamps[i]]));
+        const seen = new Set<string>();
+        mergedItinerary = [];
+        for (const key of stampOrder) {
+          if (key.startsWith("default:")) {
+            const title = key.slice(8);
+            const stamp = baseByTitle.get(title);
+            if (stamp) {
+              mergedItinerary.push(stamp);
+              seen.add(key);
+            }
+          } else if (key.startsWith("custom:")) {
+            const id = key.slice(7);
+            const stamp = convertedById.get(id);
+            if (stamp) {
+              mergedItinerary.push(stamp);
+              seen.add(key);
+            }
+          }
+        }
+        for (const s of baseItinerary) {
+          if (!seen.has(`default:${s.title}`)) mergedItinerary.push(s);
+        }
+        for (let i = 0; i < convertedCustomStamps.length; i++) {
+          const id = customStamps[i]?.id;
+          if (id != null && !seen.has(`custom:${id}`)) mergedItinerary.push(convertedCustomStamps[i]);
+        }
+      } else if (convertedCustomStamps.length > 0) {
         mergedItinerary = [...baseItinerary, ...convertedCustomStamps];
       } else {
         mergedItinerary = baseItinerary;

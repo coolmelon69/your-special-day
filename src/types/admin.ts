@@ -35,6 +35,10 @@ export type AdminSettings = {
   lastModified: number;
   disabledDefaultStamps: string[]; // Array of default stamp titles to hide
   disabledDefaultCoupons: number[]; // Array of default coupon IDs to hide
+  /** Order of stamps: "default:Title" or "custom:uuid". Defines journey order. */
+  stampOrder?: string[];
+  /** Order of coupons: "default:1" (numeric id) or "custom:uuid". Defines display order. */
+  couponOrder?: string[];
 };
 
 

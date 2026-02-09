@@ -1,6 +1,25 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, MapPin } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, MapPin, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { CustomStamp } from "@/types/admin";
 import {
   getAllCustomStamps,
@@ -18,9 +37,181 @@ import { getCurrentUser } from "@/utils/auth";
 
 const AVAILABLE_SPRITES = Object.keys(sprites);
 
+type StampListItem =
+  | { type: "default"; stamp: ItineraryItem; id: string }
+  | { type: "custom"; stamp: CustomStamp; id: string };
+
+function buildOrderedStampList(
+  visibleDefaults: ItineraryItem[],
+  stamps: CustomStamp[],
+  stampOrder: string[]
+): StampListItem[] {
+  const defaultByTitle = new Map(visibleDefaults.map((s) => [s.title, s]));
+  const customById = new Map(stamps.map((s) => [s.id, s]));
+  const result: StampListItem[] = [];
+  const seen = new Set<string>();
+  if (stampOrder.length > 0) {
+    for (const key of stampOrder) {
+      if (key.startsWith("default:")) {
+        const title = key.slice(8);
+        const stamp = defaultByTitle.get(title);
+        if (stamp) {
+          result.push({ type: "default", stamp, id: key });
+          seen.add(key);
+        }
+      } else if (key.startsWith("custom:")) {
+        const id = key.slice(7);
+        const stamp = customById.get(id);
+        if (stamp) {
+          result.push({ type: "custom", stamp, id: key });
+          seen.add(key);
+        }
+      }
+    }
+  }
+  for (const s of visibleDefaults) {
+    const key = `default:${s.title}`;
+    if (!seen.has(key)) {
+      result.push({ type: "default", stamp: s, id: key });
+      seen.add(key);
+    }
+  }
+  for (const s of stamps) {
+    const key = `custom:${s.id}`;
+    if (!seen.has(key)) {
+      result.push({ type: "custom", stamp: s, id: key });
+      seen.add(key);
+    }
+  }
+  return result;
+}
+
+function SortableStampRow({
+  item,
+  onDeleteDefault,
+  onEdit,
+  onDelete,
+}: {
+  item: StampListItem;
+  onDeleteDefault: (e: React.MouseEvent, title: string) => void;
+  onEdit: (stamp: CustomStamp) => void;
+  onDelete: (stampId: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  const stamp = item.stamp;
+  const SpriteComponent = sprites[stamp.sprite];
+  const isDefault = item.type === "default";
+  const itineraryStamp = isDefault ? (stamp as ItineraryItem) : null;
+  const customStamp = !isDefault ? (stamp as CustomStamp) : null;
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3 ${isDragging ? "opacity-80 z-50 shadow-lg" : ""}`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <button
+        type="button"
+        className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 p-1 text-[hsl(15_60%_35%)] hover:text-[hsl(15_70%_45%)]"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <div className="w-10 h-10 flex-shrink-0">
+        {SpriteComponent ? (
+          <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
+        ) : (
+          <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
+            <span className="font-pixel text-xs">?</span>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span
+            className="font-pixel text-[10px] md:text-xs bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded"
+            style={{ textRendering: "optimizeSpeed" }}
+          >
+            {stamp.time}
+          </span>
+          <h4
+            className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
+            style={{ textRendering: "optimizeSpeed" }}
+          >
+            {stamp.title}
+          </h4>
+          <span
+            className={`font-pixel text-[8px] px-1.5 py-0.5 text-white rounded ${isDefault ? "bg-[hsl(200_60%_55%)]" : "bg-[hsl(142_60%_55%)]"}`}
+            style={{ textRendering: "optimizeSpeed" }}
+          >
+            {isDefault ? "DEFAULT" : "CUSTOM"}
+          </span>
+        </div>
+        <p
+          className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
+          style={{ textRendering: "optimizeSpeed" }}
+        >
+          {stamp.description}
+        </p>
+        {customStamp?.location && (
+          <div className="flex items-center gap-1 mt-1">
+            <MapPin className="w-3 h-3 text-[hsl(15_60%_35%)]" />
+            <span
+              className="font-pixel text-[8px] text-[hsl(15_60%_35%)]"
+              style={{ textRendering: "optimizeSpeed" }}
+            >
+              {customStamp.location.latitude.toFixed(4)}, {customStamp.location.longitude.toFixed(4)}
+            </span>
+          </div>
+        )}
+      </div>
+      {isDefault && itineraryStamp && (
+        <button
+          type="button"
+          onClick={(e) => onDeleteDefault(e, itineraryStamp.title)}
+          className="w-8 h-8 flex items-center justify-center border-2 transition-colors rounded flex-shrink-0 bg-[hsl(0_70%_50%)] border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)]"
+          title="Delete stamp"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      )}
+      {!isDefault && customStamp && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onEdit(customStamp)}
+            className="w-8 h-8 flex items-center justify-center bg-[hsl(200_60%_55%)] border-2 border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-colors"
+            title="Edit"
+          >
+            <Edit className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => onDelete(customStamp.id)}
+            className="w-8 h-8 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 const StampsManager = () => {
   const [stamps, setStamps] = useState<CustomStamp[]>([]);
   const [disabledDefaultStamps, setDisabledDefaultStamps] = useState<string[]>([]);
+  const [stampOrder, setStampOrder] = useState<string[]>([]);
+  const [activeStampId, setActiveStampId] = useState<string | null>(null);
   const [editingStamp, setEditingStamp] = useState<CustomStamp | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -54,6 +245,7 @@ const StampsManager = () => {
       // Update UI immediately with local data
       setStamps(loadedStamps);
       setDisabledDefaultStamps(settings.disabledDefaultStamps || []);
+      setStampOrder(settings.stampOrder ?? []);
       setIsLoading(false);
       
       // Background sync from Supabase (non-blocking)
@@ -179,6 +371,30 @@ const StampsManager = () => {
     }
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveStampId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveStampId(null);
+    if (!over || active.id === over.id) return;
+    const visible = initialItinerary.filter((s) => !disabledDefaultStamps.includes(s.title));
+    const ordered = buildOrderedStampList(visible, stamps, stampOrder);
+    const oldIndex = ordered.findIndex((i) => i.id === active.id);
+    const newIndex = ordered.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(ordered, oldIndex, newIndex);
+    const newStampOrder = reordered.map((i) => i.id);
+    setStampOrder(newStampOrder);
+    await updateAdminSettings({ stampOrder: newStampOrder });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -240,6 +456,7 @@ const StampsManager = () => {
 
   const visibleDefaults = initialItinerary.filter((s) => !disabledDefaultStamps.includes(s.title));
   const totalStampsCount = visibleDefaults.length + stamps.length;
+  const orderedItems = buildOrderedStampList(visibleDefaults, stamps, stampOrder);
 
   return (
     <div>
@@ -286,141 +503,51 @@ const StampsManager = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {visibleDefaults.map((stamp) => {
-              const SpriteComponent = sprites[stamp.sprite];
-              return (
-                <motion.div
-                  key={`default-${stamp.title}`}
-                  className="bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="w-10 h-10 flex-shrink-0">
-                    {SpriteComponent ? (
-                      <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
-                    ) : (
-                      <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
-                        <span className="font-pixel text-xs">?</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span
-                        className="font-pixel text-[10px] bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        {stamp.time}
-                      </span>
-                      <h4
-                        className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        {stamp.title}
-                      </h4>
-                      <span
-                        className="font-pixel text-[8px] bg-[hsl(200_60%_55%)] px-1.5 py-0.5 text-white rounded"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        DEFAULT
-                      </span>
-                    </div>
-                    <p
-                      className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      {stamp.description}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteDefaultStamp(e, stamp.title)}
-                    className="w-8 h-8 flex items-center justify-center border-2 transition-colors rounded flex-shrink-0 bg-[hsl(0_70%_50%)] border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)]"
-                    title="Delete stamp"
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <SortableContext items={orderedItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {orderedItems.map((item) => (
+                  <SortableStampRow
+                    key={item.id}
+                    item={item}
+                    onDeleteDefault={handleDeleteDefaultStamp}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+            <DragOverlay dropAnimation={null}>
+              {activeStampId ? (() => {
+                const item = orderedItems.find((i) => i.id === activeStampId);
+                if (!item) return null;
+                const SpriteComponent = sprites[item.stamp.sprite];
+                return (
+                  <div
+                    className="bg-[hsl(35_30%_80%)] border-2 border-dashed border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3 opacity-90 shadow-xl cursor-grabbing"
+                    style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.15)" }}
                   >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </motion.div>
-              );
-            })}
-            {stamps.map((stamp) => {
-              const SpriteComponent = sprites[stamp.sprite];
-              return (
-                <motion.div
-                  key={stamp.id}
-                  className="bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="w-10 h-10 flex-shrink-0">
-                    {SpriteComponent ? (
-                      <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
-                    ) : (
-                      <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
-                        <span className="font-pixel text-xs">?</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="font-pixel text-xs bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))]"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        {stamp.time}
-                      </span>
-                      <h4
-                        className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        {stamp.title}
-                      </h4>
-                      <span
-                        className="font-pixel text-[8px] bg-[hsl(142_60%_55%)] px-1.5 py-0.5 text-white"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        CUSTOM
-                      </span>
+                    <GripVertical className="w-4 h-4 flex-shrink-0 text-[hsl(15_60%_35%)]" />
+                    <div className="w-10 h-10 flex-shrink-0">
+                      {SpriteComponent ? (
+                        <SpriteComponent isActive={item.stamp.isActive} isPast={item.stamp.isPast} />
+                      ) : (
+                        <div className="w-full h-full bg-[hsl(30_40%_60%)] rounded flex items-center justify-center">
+                          <span className="font-pixel text-xs">?</span>
+                        </div>
+                      )}
                     </div>
-                    <p
-                      className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      {stamp.description}
-                    </p>
-                    {stamp.location && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <MapPin className="w-3 h-3 text-[hsl(15_60%_35%)]" />
-                        <span
-                          className="font-pixel text-[8px] text-[hsl(15_60%_35%)]"
-                          style={{ textRendering: "optimizeSpeed" }}
-                        >
-                          {stamp.location.latitude.toFixed(4)}, {stamp.location.longitude.toFixed(4)}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <span className="font-pixel text-[10px] md:text-xs bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded">
+                        {item.stamp.time}
+                      </span>
+                      <span className="font-pixel text-xs text-[hsl(15_70%_40%)] ml-2 truncate">{item.stamp.title}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleEdit(stamp)}
-                      className="w-8 h-8 flex items-center justify-center bg-[hsl(200_60%_55%)] border-2 border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-colors"
-                      title="Edit"
-                    >
-                      <Edit className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(stamp.id)}
-                      className="w-8 h-8 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                );
+              })() : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 

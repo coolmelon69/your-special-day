@@ -391,6 +391,8 @@ const DEFAULT_SETTINGS: AdminSettings = {
   lastModified: Date.now(),
   disabledDefaultStamps: [],
   disabledDefaultCoupons: [],
+  stampOrder: [],
+  couponOrder: [],
 };
 
 export const getAdminSettings = async (): Promise<AdminSettings> => {
@@ -411,6 +413,8 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
             ...settings,
             disabledDefaultStamps: settings.disabledDefaultStamps || [],
             disabledDefaultCoupons: settings.disabledDefaultCoupons || [],
+            stampOrder: settings.stampOrder ?? [],
+            couponOrder: settings.couponOrder ?? [],
           };
           resolve(mergedSettings);
         } else {
@@ -519,6 +523,8 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
           ...baseSettings,
           disabledDefaultStamps: baseSettings.disabledDefaultStamps || [],
           disabledDefaultCoupons: baseSettings.disabledDefaultCoupons || [],
+          stampOrder: baseSettings.stampOrder ?? [],
+          couponOrder: baseSettings.couponOrder ?? [],
         };
         
         const updatedSettings: AdminSettings = {
@@ -549,6 +555,8 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
                 lastModified: updatedSettings.lastModified,
                 disabledDefaultStamps: [], // Not synced to user table
                 disabledDefaultCoupons: [], // Not synced to user table
+                stampOrder: updatedSettings.stampOrder ?? [],
+                couponOrder: updatedSettings.couponOrder ?? [],
               });
             } catch (syncError) {
               console.error("Error syncing admin settings to Supabase:", syncError);

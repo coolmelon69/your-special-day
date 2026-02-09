@@ -1,6 +1,25 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { CustomCoupon } from "@/types/admin";
 import {
   getAllCustomCoupons,
@@ -44,6 +63,167 @@ const DEFAULT_COUPONS = [
   },
 ];
 
+type DefaultCoupon = (typeof DEFAULT_COUPONS)[number];
+
+type CouponListItem =
+  | { type: "default"; coupon: DefaultCoupon; id: string }
+  | { type: "custom"; coupon: CustomCoupon; id: string };
+
+function buildOrderedCouponList(
+  visibleDefaults: DefaultCoupon[],
+  coupons: CustomCoupon[],
+  couponOrder: string[]
+): CouponListItem[] {
+  const defaultById = new Map(visibleDefaults.map((c) => [String(c.id), c]));
+  const customById = new Map(coupons.map((c) => [c.id, c]));
+  const result: CouponListItem[] = [];
+  const seen = new Set<string>();
+  if (couponOrder.length > 0) {
+    for (const key of couponOrder) {
+      if (key.startsWith("default:")) {
+        const idStr = key.slice(8);
+        const coupon = defaultById.get(idStr);
+        if (coupon) {
+          result.push({ type: "default", coupon, id: key });
+          seen.add(key);
+        }
+      } else if (key.startsWith("custom:")) {
+        const id = key.slice(7);
+        const coupon = customById.get(id);
+        if (coupon) {
+          result.push({ type: "custom", coupon, id: key });
+          seen.add(key);
+        }
+      }
+    }
+  }
+  for (const c of visibleDefaults) {
+    const key = `default:${c.id}`;
+    if (!seen.has(key)) {
+      result.push({ type: "default", coupon: c, id: key });
+      seen.add(key);
+    }
+  }
+  for (const c of coupons) {
+    const key = `custom:${c.id}`;
+    if (!seen.has(key)) {
+      result.push({ type: "custom", coupon: c, id: key });
+      seen.add(key);
+    }
+  }
+  return result;
+}
+
+function SortableCouponRow({
+  item,
+  onToggleDefault,
+  onEdit,
+  onDelete,
+}: {
+  item: CouponListItem;
+  onToggleDefault: (e: React.MouseEvent, id: number) => void;
+  onEdit: (coupon: CustomCoupon) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const isDefault = item.type === "default";
+  const coupon = item.coupon;
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative flex items-start gap-2 ${isDragging ? "opacity-90 z-50 shadow-lg" : ""}`}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+    >
+      <button
+        type="button"
+        className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 p-1 mt-0.5 text-white/80 hover:text-white"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
+            <div className="min-w-0 flex-1">
+              <h4
+                className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
+                style={{ textRendering: "optimizeSpeed" }}
+              >
+                {coupon.title}
+              </h4>
+              {coupon.category && (
+                <span
+                  className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
+                  style={{ textRendering: "optimizeSpeed" }}
+                >
+                  {coupon.category}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span
+              className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
+              style={{ textRendering: "optimizeSpeed" }}
+            >
+              {isDefault ? "DEFAULT" : "CUSTOM"}
+            </span>
+            {isDefault && (
+              <button
+                type="button"
+                onClick={(e) => onToggleDefault(e, (coupon as DefaultCoupon).id)}
+                className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
+                title="Hide coupon"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+            {!isDefault && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onEdit(coupon as CustomCoupon)}
+                  className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
+                  title="Edit"
+                >
+                  <Edit className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => onDelete((coupon as CustomCoupon).id)}
+                  className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <p
+          className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
+          style={{ textRendering: "optimizeSpeed" }}
+        >
+          {coupon.description}
+        </p>
+        <div
+          className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
+          style={{ textRendering: "optimizeSpeed" }}
+        >
+          Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 const COLOR_PRESETS = [
   { label: "Pink to Rose", value: "from-pink-400 to-rose-500" },
   { label: "Amber to Orange", value: "from-amber-400 to-orange-500" },
@@ -60,6 +240,8 @@ const CATEGORIES = ["adventure", "romantic", "fun", "special"];
 const CouponsManager = () => {
   const [coupons, setCoupons] = useState<CustomCoupon[]>([]);
   const [disabledDefaultCoupons, setDisabledDefaultCoupons] = useState<number[]>([]);
+  const [couponOrder, setCouponOrder] = useState<string[]>([]);
+  const [activeCouponId, setActiveCouponId] = useState<string | null>(null);
   const [editingCoupon, setEditingCoupon] = useState<CustomCoupon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -91,6 +273,7 @@ const CouponsManager = () => {
       // Update UI immediately with local data
       setCoupons(loadedCoupons);
       setDisabledDefaultCoupons(settings.disabledDefaultCoupons || []);
+      setCouponOrder(settings.couponOrder ?? []);
       setIsLoading(false);
       
       // Background sync from Supabase (non-blocking)
@@ -226,6 +409,30 @@ const CouponsManager = () => {
     }
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveCouponId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveCouponId(null);
+    if (!over || active.id === over.id) return;
+    const visible = DEFAULT_COUPONS.filter((c) => !disabledDefaultCoupons.includes(c.id));
+    const ordered = buildOrderedCouponList(visible, coupons, couponOrder);
+    const oldIndex = ordered.findIndex((i) => i.id === active.id);
+    const newIndex = ordered.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(ordered, oldIndex, newIndex);
+    const newCouponOrder = reordered.map((i) => i.id);
+    setCouponOrder(newCouponOrder);
+    await updateAdminSettings({ couponOrder: newCouponOrder });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -291,6 +498,9 @@ const CouponsManager = () => {
     );
   }
 
+  const visibleDefaults = DEFAULT_COUPONS.filter((c) => !disabledDefaultCoupons.includes(c.id));
+  const orderedItems = buildOrderedCouponList(visibleDefaults, coupons, couponOrder);
+
   return (
     <div>
       {/* Header */}
@@ -336,140 +546,41 @@ const CouponsManager = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* Default Coupons */}
-            {DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).map((coupon) => {
-              const isDisabled = disabledDefaultCoupons.includes(coupon.id);
-              return (
-                <motion.div
-                  key={coupon.id}
-                  className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative ${
-                    isDisabled ? "opacity-50" : ""
-                  }`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                >
-                  <div className="flex items-center justify-between mb-3 gap-2">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
-                      <div className="min-w-0 flex-1">
-                        <h4
-                          className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
-                          style={{ textRendering: "optimizeSpeed" }}
-                        >
-                          {coupon.title}
-                        </h4>
-                        {coupon.category && (
-                          <span
-                            className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
-                            style={{ textRendering: "optimizeSpeed" }}
-                          >
-                            {coupon.category}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span
-                        className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        DEFAULT
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleDefaultCoupon(e, coupon.id)}
-                        className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
-                        title="Hide coupon"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                  <p
-                    className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
-                    style={{ textRendering: "optimizeSpeed" }}
-                  >
-                    {coupon.description}
-                  </p>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <SortableContext items={orderedItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {orderedItems.map((item) => (
+                  <SortableCouponRow
+                    key={item.id}
+                    item={item}
+                    onToggleDefault={handleToggleDefaultCoupon}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+            <DragOverlay dropAnimation={null}>
+              {activeCouponId ? (() => {
+                const item = orderedItems.find((i) => i.id === activeCouponId);
+                if (!item) return null;
+                const coupon = item.coupon;
+                return (
                   <div
-                    className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
-                    style={{ textRendering: "optimizeSpeed" }}
+                    className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white border-2 border-dashed border-white/50 opacity-90 shadow-xl cursor-grabbing pointer-events-none`}
+                    style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}
                   >
-                    Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
-                  </div>
-                </motion.div>
-              );
-            })}
-            
-            {/* Custom Coupons */}
-            {coupons.map((coupon) => (
-              <motion.div
-                key={coupon.id}
-                className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative`}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-              >
-                <div className="flex items-center justify-between mb-3 gap-2">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
-                    <div className="min-w-0 flex-1">
-                      <h4
-                        className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        {coupon.title}
-                      </h4>
-                      {coupon.category && (
-                        <span
-                          className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
-                          style={{ textRendering: "optimizeSpeed" }}
-                        >
-                          {coupon.category}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-2 mb-2">
+                      <GripVertical className="w-4 h-4 flex-shrink-0 opacity-80" />
+                      <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
+                      <span className="font-pixel text-sm font-bold truncate">{coupon.title}</span>
                     </div>
+                    <p className="font-pixel text-[10px] opacity-95 line-clamp-2">{coupon.description}</p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span
-                      className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      CUSTOM
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleEdit(coupon)}
-                        className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
-                        title="Edit"
-                      >
-                        <Edit className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(coupon.id)}
-                        className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <p
-                  className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
-                  style={{ textRendering: "optimizeSpeed" }}
-                >
-                  {coupon.description}
-                </p>
-                <div
-                  className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
-                  style={{ textRendering: "optimizeSpeed" }}
-                >
-                  Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                );
+              })() : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 

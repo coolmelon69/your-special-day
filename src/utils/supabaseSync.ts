@@ -1022,6 +1022,8 @@ export const syncAdminSettings = async (
           use_custom_coupons: settings.useCustomCoupons,
           disabled_default_stamps: settings.disabledDefaultStamps,
           disabled_default_coupons: settings.disabledDefaultCoupons,
+          stamp_order: settings.stampOrder ?? [],
+          coupon_order: settings.couponOrder ?? [],
           last_modified: new Date(settings.lastModified).toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -1100,6 +1102,8 @@ export const loadAdminSettings = async (): Promise<AdminSettings | null> => {
       useCustomCoupons: data.use_custom_coupons ?? true,
       disabledDefaultStamps: data.disabled_default_stamps || [],
       disabledDefaultCoupons: data.disabled_default_coupons || [],
+      stampOrder: (data as { stamp_order?: string[] }).stamp_order ?? [],
+      couponOrder: (data as { coupon_order?: string[] }).coupon_order ?? [],
       lastModified: new Date(data.last_modified).getTime(),
     };
   } catch (error) {
