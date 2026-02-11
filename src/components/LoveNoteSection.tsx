@@ -5,11 +5,11 @@ import { NavLink } from "./NavLink";
 
 const friendWishes = [
   { name: "popi", message: "Happy 22 my dearest dinzy!!!!!! i'm so grateful to have known you throughout this whole crazy uni shit. wouldn't trade you with anything in the world!! thank you for always include saya di mana mana yang berkaitan hehe. i hope this year will be a very great year for you and i would lovee to see you strive in your own way. love uou lots!!! dont worry, we will be friends for a verrryy long time. love, popi." },
-  { name: "Mike", message: "Wishing you the happiest of birthdays! 🎉" },
-  { name: "Emma", message: "You deserve all the happiness in the world! 💕" },
-  { name: "David", message: "Have an amazing day, birthday star! ⭐" },
-  { name: "Lisa", message: "Cheers to another year of being awesome! 🥳" },
-  { name: "Tom", message: "May your special day be as wonderful as you! 🌟" },
+  { name: "Iyisyah", message: "happy birthday dinzyyyy!! May allah always ease everything u did. thank you jadi kawan yang bank mulut so tak senyap jee group ni tpi yapping koo cam kurang la lagi ekcelii hehehe. nnti share' laa recipii koo soo ako bole pandai masak camm koo jugakk. hope you sokaaa being 22 bcs ini last bfr you enter age yang lagi sis tau !! btw nnti kaweennn bgitau jngan lari thailand polakk. lob youuuu sm !!!" },
+  { name: "Isz", message: "Happyyy birthdayyy dinzuyyy, semogaaa kuatt membuat fyp dann bertahann hiduppp, nikmati umur sebaya dengan kiteorang untukk beberapa bulannn niii heheheh, nak claiimmm duriannn." },
+  { name: "Koles", message: "Happy birthday dinzuy ku ❤ semoga sentiasa jadi dina , bcs you are more than enough. Thank you for existing and be part of my degree life, hopefully my whole life aamiin. I wish u nothing else but happiness that u always deserve. Thank you for being that kind friend in the group yang always take care of kitorang semua. I appreciate you more than you know, I LOVE UUUUU !! Have a good one " },
+  { name: "Naufal", message: "Happiest birthday to u dinaa, moga sentiasa hidup dalam jagaan Allah SWT, moga terus cemerlang dalam apa juga yang diusahakan dan dapat semua bende baik yang diimpikan, enjoy your 22rd year on this planet!!" },
+  { name: "kimi", message: "happy birthday dinzuuyyyy !!! semoga kekal kuat dan tabah mengahdapi dunia yang kadang kiding. life doesn't end when you feel a little lost. it's only a moment, not forever. you're going to be okay. i hope you always look forward to the good things, good love and good days. they exist and you deserve them. enjoy and cherish every moment dinzyyyy and happy 22." },
 ];
 
 const LoveNoteSection = () => {
