@@ -10,6 +10,7 @@ const friendWishes = [
   { name: "Koles", message: "Happy birthday dinzuy ku ❤ semoga sentiasa jadi dina , bcs you are more than enough. Thank you for existing and be part of my degree life, hopefully my whole life aamiin. I wish u nothing else but happiness that u always deserve. Thank you for being that kind friend in the group yang always take care of kitorang semua. I appreciate you more than you know, I LOVE UUUUU !! Have a good one " },
   { name: "Naufal", message: "Happiest birthday to u dinaa, moga sentiasa hidup dalam jagaan Allah SWT, moga terus cemerlang dalam apa juga yang diusahakan dan dapat semua bende baik yang diimpikan, enjoy your 22rd year on this planet!!" },
   { name: "kimi", message: "happy birthday dinzuuyyyy !!! semoga kekal kuat dan tabah mengahdapi dunia yang kadang kiding. life doesn't end when you feel a little lost. it's only a moment, not forever. you're going to be okay. i hope you always look forward to the good things, good love and good days. they exist and you deserve them. enjoy and cherish every moment dinzyyyy and happy 22." },
+  { name: "neesya", message: "happiest birthday irdina! i never thought we would be this close after stf HAHAHAH pls know that u mean a lot to my degree life and i can't imagine it without u. may Allah grant u with everything u ever asked for because u totally deserve it ❤ pls know that you're loved and cared. ilysm irdinzz ❤" },
 ];
 
 const LoveNoteSection = () => {
