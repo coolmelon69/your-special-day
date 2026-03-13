@@ -2,6 +2,8 @@
 
 A personalized birthday celebration web app with location-based stamp collecting, gift coupons, a photo memory book, and a Spotify Wrapped-style year-in-review — all synced in real time across devices.
 
+Live Demo : https://special-day-alpha.vercel.app/admin
+
 ## Features
 
 - **Stamps** — Collect stamps by visiting real-world locations. GPS verification confirms you're at each checkpoint, and you can capture photo evidence with a built-in editor.
