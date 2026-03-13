@@ -1,73 +1,122 @@
-# Welcome to your Lovable project
+# Your Special Day
 
-## Project info
+A personalized birthday celebration web app with location-based stamp collecting, gift coupons, a photo memory book, and a Spotify Wrapped-style year-in-review — all synced in real time across devices.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+- **Stamps** — Collect stamps by visiting real-world locations. GPS verification confirms you're at each checkpoint, and you can capture photo evidence with a built-in editor.
+- **Coupons** — Redeem gift coupons unlocked by completing stamps. 3D animated coupon cards with QR code scanning support.
+- **Memory Book** — All checkpoint photos gathered into a downloadable PDF album, synchronized across devices via Supabase Storage.
+- **Wrapped** — A Spotify Wrapped-style slideshow recapping the day with stats, animations, and background music.
+- **Fortune Teller** — An interactive fortune-telling experience.
+- **Admin Panel** — Password-protected dashboard to create/edit stamps and coupons, reorder them via drag and drop, and configure app behavior.
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+| Layer | Technology |
+|---|---|
+| Framework | React 18 + Vite |
+| Language | TypeScript |
+| Styling | Tailwind CSS + shadcn/ui |
+| Animation | Framer Motion + React Spring |
+| Backend | Supabase (Postgres + Storage + Auth) |
+| State | React Query + React Context |
+| Routing | React Router DOM v6 |
+| Deployment | Vercel |
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 18+
+- A [Supabase](https://supabase.com) project
+- A Google Cloud project with the Places API enabled (optional, for map links)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Environment Variables
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Create a `.env` file in the project root:
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```env
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_GOOGLE_PLACES_API_KEY=your-google-places-api-key
 ```
 
-**Edit a file directly in GitHub**
+### Database Setup
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Run the SQL migration files in your Supabase SQL editor in order. They are located in the project root and set up the following tables:
 
-**Use GitHub Codespaces**
+- `stamps_progress` — tracks which stamps a user has collected
+- `coupon_achievements` — tracks redeemed coupons
+- `checkpoint_photos` — stores photo metadata and references
+- `custom_stamps` / `custom_coupons` — admin-created items
+- `admin_settings` — global app configuration
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Row Level Security (RLS) is enabled on all tables, with anonymous authentication for user isolation.
 
-## What technologies are used for this project?
+### Install & Run
 
-This project is built with:
+```bash
+# Install dependencies
+npm install
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Start development server (http://localhost:8080)
+npm run dev
 
-## How can I deploy this project?
+# Build for production
+npm run build
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+# Preview production build
+npm run preview
+```
 
-## Can I connect a custom domain to my Lovable project?
+## Project Structure
 
-Yes, you can!
+```
+src/
+├── App.tsx               # Root component with route definitions
+├── main.tsx              # React entry point
+├── components/           # Reusable UI components
+├── pages/                # Page-level components
+│   ├── Index.tsx         # Home page
+│   ├── Stamps.tsx        # Stamp collection
+│   ├── Coupons.tsx       # Gift coupons
+│   ├── MemoryBook.tsx    # Photo album
+│   ├── Wrapped.tsx       # Year-in-review slideshow
+│   ├── ScanQR.tsx        # QR code scanner
+│   └── admin/            # Admin panel pages
+├── contexts/             # AdventureContext (global state)
+├── utils/                # Services and helpers
+│   ├── supabaseClient.ts # Supabase initialization
+│   ├── supabaseSync.ts   # Cross-device sync logic
+│   ├── photoStorage.ts   # Photo upload/retrieval
+│   ├── memoryBookGenerator.ts # PDF generation
+│   ├── adminStorage.ts   # IndexedDB for admin data
+│   └── ...
+├── hooks/                # Custom React hooks
+└── types/                # TypeScript type definitions
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Deployment
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+The project is configured for [Vercel](https://vercel.com). `vercel.json` rewrites all routes to `index.html` for SPA support.
+
+1. Push the repository to GitHub.
+2. Import the project in Vercel.
+3. Set the environment variables in the Vercel dashboard.
+4. Deploy — Vercel handles builds automatically on every push.
+
+## Admin Access
+
+Navigate to `/admin/login` to access the admin panel. From there you can:
+
+- Create and edit custom stamps (with GPS coordinates, radius, and icons)
+- Create and edit custom coupons
+- Reorder items via drag and drop
+- Toggle default items on/off
+
+## Design
+
+- **Fonts:** Poppins (body), Playfair Display (headings), Dancing Script (decorative)
+- **Palette:** Rose/pink primary, sage green secondary, cream/gold accent
+- **Mobile-first** responsive layout
