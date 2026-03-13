@@ -162,9 +162,6 @@ const HeroSection = () => {
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           Happy Birthday,
-          <br />
-          <span className="font-script text-6xl md:text-8xl lg:text-9xl block">Dina</span>
-          <span className="block text-[10px] md:text-xs text-black/90 mt-1 font-sans">(nyucing)</span>
         </motion.h1>
 
         <motion.p
