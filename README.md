@@ -2,7 +2,7 @@
 
 A personalized birthday celebration web app with location-based stamp collecting, gift coupons, a photo memory book, and a Spotify Wrapped-style year-in-review — all synced in real time across devices.
 
-Live Demo : https://special-day-alpha.vercel.app/admin
+Live Demo : https://special-day-alpha.vercel.app / https://special-day-alpha.vercel.app/admin
 
 ## Features
 
