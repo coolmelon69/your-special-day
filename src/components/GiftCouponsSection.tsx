@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gift, Sparkles, Check, Lock, Trophy, Heart, Compass } from "lucide-react";
+import { Sparkles, Lock, Trophy, Heart, Compass } from "lucide-react";
 import {
   spiralConfetti,
   sparkleBurst,
@@ -10,8 +10,10 @@ import {
   pixelBurst,
 } from "../utils/particles";
 import type { ItineraryItem } from "./TimelineSection";
-import ThreeDCouponCard from "./3DCouponCard";
+import EditorialCouponCard from "./EditorialCouponCard";
 import VoucherModal from "./VoucherModal";
+import { Eyebrow, DisplayHeading, EditorialFigure } from "@/components/editorial";
+import { cn } from "@/lib/utils";
 import { useAdventure } from "@/contexts/AdventureContext";
 import {
   syncCouponAchievements,
@@ -98,32 +100,6 @@ interface AchievementData {
   achievementTimestamps: Record<string, number>;
 }
 
-interface ProgressBarProps {
-  completed: number;
-  required: number;
-  color: string;
-}
-
-const ProgressBar = ({ completed, required, color }: ProgressBarProps) => {
-  const percentage = Math.min((completed / required) * 100, 100);
-  
-  return (
-    <div className="mt-4 space-y-2">
-      <div className="relative h-4 bg-white/20 rounded-full overflow-hidden border-2 border-white/30" style={{ imageRendering: "pixelated" }}>
-        <motion.div
-          className={`h-full bg-gradient-to-r ${color}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${percentage}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        />
-      </div>
-      <p className="text-xs text-white/90 font-pixel text-center">
-        {completed}/{required} stamps collected
-      </p>
-    </div>
-  );
-};
-
 interface AchievementBadgeProps {
   achievement: Achievement;
   isUnlocked: boolean;
@@ -133,65 +109,42 @@ interface AchievementBadgeProps {
 const AchievementBadge = ({ achievement, isUnlocked, isNewlyUnlocked }: AchievementBadgeProps) => {
   return (
     <motion.div
-      className={`relative p-2 sm:p-3 md:p-4 rounded-lg border-2 ${
-        isUnlocked
-          ? "bg-[hsl(35_45%_90%)] border-[hsl(15_70%_55%)] shadow-lg"
-          : "bg-[hsl(35_40%_88%)] border-[hsl(30_30%_60%)] opacity-60"
-      }`}
+      className={cn(
+        "feature relative rounded-2xl border bg-card p-6 transition-all",
+        isUnlocked ? "border-rose/40 shadow-romantic" : "border-border opacity-60"
+      )}
       initial={{ scale: isNewlyUnlocked ? 0.8 : 1, opacity: isNewlyUnlocked ? 0 : 1 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Pixel-art border decorations */}
-      <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
-        <div className={`absolute top-1 left-1 w-2 h-2 border-2 ${
-          isUnlocked ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-        }`} />
-        <div className={`absolute top-1 right-1 w-2 h-2 border-2 ${
-          isUnlocked ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-        }`} />
-        <div className={`absolute bottom-1 left-1 w-2 h-2 border-2 ${
-          isUnlocked ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-        }`} />
-        <div className={`absolute bottom-1 right-1 w-2 h-2 border-2 ${
-          isUnlocked ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-        }`} />
-      </div>
-
-      <div className="flex flex-col items-center text-center relative z-10">
-        <div className={`mb-1 sm:mb-2 ${isUnlocked ? "text-[hsl(15_70%_55%)]" : "text-[hsl(30_30%_50%)] grayscale"}`}>
-          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
-            {achievement.icon}
-          </div>
-        </div>
-        <h4 className={`font-pixel text-xs sm:text-sm font-bold mb-0.5 sm:mb-1 ${
-          isUnlocked ? "text-[hsl(15_70%_40%)]" : "text-[hsl(30_20%_40%)]"
-        }`}>
-          {achievement.name}
-        </h4>
-        <p className={`font-pixel text-[9px] sm:text-[10px] ${
-          isUnlocked ? "text-[hsl(15_60%_35%)]" : "text-[hsl(30_20%_40%)]"
-        }`}>
-          {achievement.description}
-        </p>
-        {isUnlocked && achievement.unlockedAt && (
-          <p className="font-pixel text-[8px] text-[hsl(15_60%_35%)] mt-1">
-            {new Date(achievement.unlockedAt).toLocaleDateString()}
-          </p>
+      <div
+        className={cn(
+          "feature-mark",
+          isUnlocked ? "text-rose border-rose/40" : "text-muted-foreground"
         )}
+      >
+        {achievement.icon}
       </div>
+      <h3 className="font-serif text-xl font-bold text-foreground mb-1.5">{achievement.name}</h3>
+      <p className="text-[15px] text-muted-foreground">{achievement.description}</p>
+
+      {isUnlocked ? (
+        <p className="font-mono text-[11px] uppercase tracking-wide text-rose mt-3">
+          ✓ Unlocked
+          {achievement.unlockedAt && ` · ${new Date(achievement.unlockedAt).toLocaleDateString()}`}
+        </p>
+      ) : (
+        <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground mt-3 flex items-center gap-1.5">
+          <Lock className="w-3 h-3" /> Locked
+        </p>
+      )}
 
       {/* Glow effect for newly unlocked */}
       {isNewlyUnlocked && (
         <motion.div
-          className="absolute inset-0 rounded-lg bg-[hsl(15_70%_55%)] opacity-30 blur-md -z-10"
-          animate={{
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            repeat: Infinity,
-            duration: 2,
-          }}
+          className="absolute inset-0 rounded-2xl bg-rose opacity-30 blur-md -z-10"
+          animate={{ opacity: [0.3, 0.5, 0.3] }}
+          transition={{ repeat: Infinity, duration: 2 }}
         />
       )}
     </motion.div>
@@ -473,22 +426,50 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
   };
 
   return (
-    <section className="py-20 md:py-32 bg-gradient-romantic">
+    <section className="py-16 md:py-24 bg-background">
       <div className="container px-6">
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
-          <Gift className="mx-auto mb-4 text-primary" size={36} />
-          <h2 className="font-serif text-4xl md:text-5xl font-bold mb-4">
-            Your <span className="text-gradient-romantic">Gift Coupons</span>
-          </h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Unlock and redeem special coupons as you complete your adventures. Each coupon is a promise that I will give to you! Please jangan malu2 nk guna I made this especially for you.
-          </p>
-        </motion.div>
+        {/* Editorial hero */}
+        <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-20 items-center mb-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <Eyebrow no="Nº 02">The Rewards</Eyebrow>
+            <DisplayHeading className="mt-4">
+              Little <em>promises</em>, <strong>wrapped</strong> as coupons
+              <span className="dot-accent">.</span>
+            </DisplayHeading>
+            <p className="text-lg text-muted-foreground max-w-[52ch] mt-6">
+              Every stamp you collect unlocks one. Each coupon is a promise I'll keep —
+              so jangan malu-malu, redeem them whenever you like.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <EditorialFigure
+              src="/images/gallery/pic2.JPG"
+              alt="A little promise, wrapped"
+              dotGrid="br"
+              aspectClassName="aspect-square"
+              annotate={
+                <>
+                  One stamp,
+                  <br />
+                  one promise —
+                  <br />
+                  no expiry, ever.
+                </>
+              }
+              caption="Made especially for you"
+            />
+          </motion.div>
+        </div>
 
         {redeemError && (
           <motion.div
@@ -502,15 +483,18 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
 
         {/* Achievement Badges Section */}
         <motion.div
-          className="mb-16"
+          className="mb-20"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h3 className="font-serif text-2xl md:text-3xl font-bold text-center mb-6">
-            <span className="text-gradient-romantic">Achievements</span>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-4xl mx-auto">
+          <div className="max-w-[38ch] mb-10">
+            <Eyebrow>Milestones</Eyebrow>
+            <DisplayHeading as="h2" className="mt-4">
+              Badges you earn <em>along the way</em>.
+            </DisplayHeading>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {ACHIEVEMENTS.map((achievement) => {
               const isUnlocked = achievementData.achievementsUnlocked.includes(achievement.id);
               const isNewlyUnlocked = newlyUnlockedAchievements.includes(achievement.id);
@@ -531,23 +515,29 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-5xl mx-auto">
+        <div className="max-w-[42ch] mb-10">
+          <Eyebrow>The Coupons</Eyebrow>
+          <DisplayHeading as="h2" className="mt-4">
+            Promises <em>yours to spend</em>.
+          </DisplayHeading>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
           {coupons.map((coupon, index) => {
             const isRedeemed = redeemedCoupons.includes(coupon.id);
             const isUnlocked = isCouponUnlocked(coupon);
             const isLocked = !isUnlocked && !isRedeemed;
             const isProcessing = processingCouponId === coupon.id;
-            
+
             return (
               <motion.div
                 key={coupon.id}
-                className="h-[280px] sm:h-[320px] md:h-[400px]"
+                className="h-full"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.15 }}
               >
-                <ThreeDCouponCard
+                <EditorialCouponCard
                   coupon={coupon}
                   isRedeemed={isRedeemed}
                   isLocked={isLocked}
@@ -570,14 +560,30 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
           isProcessing={selectedCoupon ? processingCouponId === selectedCoupon.id : false}
         />
 
-        <motion.p
-          className="text-center text-muted-foreground mt-10"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
+        <p className="font-mono text-[13px] text-center text-muted-foreground mt-10">
+          ✿ Coupons never expire — use them whenever you like. 💕
+        </p>
+
+        {/* Closing CTA strip */}
+        <motion.div
+          className="text-center max-w-[620px] mx-auto mt-24 pt-16 border-t border-border"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          * Coupons have no expiration date and can be used anytime! 💕
-        </motion.p>
+          <DisplayHeading as="h2">
+            The day's <em>yours</em>. Go collect it<span className="dot-accent">.</span>
+          </DisplayHeading>
+          <p className="text-lg text-muted-foreground mt-4 mb-8">
+            Every stamp you press unlocks one more little promise.
+          </p>
+          <a
+            href="/stamps"
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-primary bg-primary px-5 py-3 font-medium text-primary-foreground transition-all hover:brightness-95"
+          >
+            <Sparkles className="w-4 h-4" /> Back to your stamps
+          </a>
+        </motion.div>
       </div>
     </section>
   );
