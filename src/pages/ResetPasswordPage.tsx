@@ -120,13 +120,23 @@ const ResetPasswordPage = () => {
           navigate("/");
         }, 2000);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating password:", err);
       setError("Failed to update password. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Shared editorial styles
+  const pageWrap = "flex min-h-screen items-center justify-center bg-background px-4";
+  const cardClass = "max-w-md w-full bg-card border border-border rounded-2xl p-7 shadow-romantic";
+  const labelClass = "text-xs font-medium text-muted-foreground mb-1.5 block";
+  const inputClass =
+    "w-full pl-10 pr-10 py-3 text-sm rounded-[10px] border border-border bg-card text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition";
+  const inputIconClass = "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground";
+  const submitClass =
+    "w-full py-3 px-4 text-sm font-medium rounded-[10px] bg-primary text-primary-foreground transition-all hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
 
   // Show loading state while checking token
   if (isValidToken === null) {
@@ -135,19 +145,16 @@ const ResetPasswordPage = () => {
         <Helmet>
           <title>Reset Password - Your Special Day</title>
         </Helmet>
-        <div className="flex min-h-screen items-center justify-center bg-[hsl(35_40%_90%)] px-4">
+        <div className={pageWrap}>
           <div className="text-center">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <KeyRound className="w-12 h-12 mx-auto mb-4 text-[hsl(15_70%_55%)] animate-pulse" />
-              <p
-                className="font-pixel text-sm text-[hsl(15_60%_35%)]"
-                style={{ textRendering: "optimizeSpeed" }}
-              >
-                Verifying reset link...
+              <KeyRound className="w-10 h-10 mx-auto mb-4 text-primary animate-pulse" />
+              <p className="font-mono text-sm uppercase tracking-wide text-muted-foreground">
+                Verifying reset link…
               </p>
             </motion.div>
           </div>
@@ -163,35 +170,24 @@ const ResetPasswordPage = () => {
         <Helmet>
           <title>Invalid Reset Link - Your Special Day</title>
         </Helmet>
-        <div className="flex min-h-screen items-center justify-center bg-[hsl(35_40%_90%)] px-4">
+        <div className={pageWrap}>
           <motion.div
-            className="max-w-md w-full bg-[hsl(35_40%_90%)] border-4 border-[hsl(15_60%_50%)] rounded-lg p-6 text-center"
+            className={`${cardClass} text-center`}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            style={{ imageRendering: "pixelated" }}
           >
-            <KeyRound className="w-12 h-12 mx-auto mb-4 text-[hsl(0_70%_50%)]" />
-            <h1
-              className="font-pixel text-xl md:text-2xl text-[hsl(15_70%_40%)] mb-2"
-              style={{
-                textRendering: "optimizeSpeed",
-                WebkitFontSmoothing: "none",
-                MozOsxFontSmoothing: "unset",
-                fontSmooth: "never",
-              }}
-            >
-              Invalid Reset Link
+            <div className="w-10 h-10 grid place-items-center rounded-xl border border-destructive/30 text-destructive mx-auto mb-4">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground mb-2">
+              Invalid reset link
             </h1>
-            <p
-              className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-4"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
+            <p className="text-sm text-muted-foreground mb-5">
               This password reset link is invalid or has expired. Please request a new one.
             </p>
             <button
               onClick={() => navigate("/")}
-              className="font-pixel text-sm bg-[hsl(15_70%_55%)] border-2 border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all px-4 py-2 rounded"
-              style={{ textRendering: "optimizeSpeed" }}
+              className="inline-flex items-center justify-center rounded-[10px] bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:brightness-95"
             >
               Go to Home
             </button>
@@ -208,30 +204,20 @@ const ResetPasswordPage = () => {
         <Helmet>
           <title>Password Reset Success - Your Special Day</title>
         </Helmet>
-        <div className="flex min-h-screen items-center justify-center bg-[hsl(35_40%_90%)] px-4">
+        <div className={pageWrap}>
           <motion.div
-            className="max-w-md w-full bg-[hsl(35_40%_90%)] border-4 border-[hsl(15_60%_50%)] rounded-lg p-6 text-center"
+            className={`${cardClass} text-center`}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            style={{ imageRendering: "pixelated" }}
           >
-            <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-[hsl(120_70%_50%)]" />
-            <h1
-              className="font-pixel text-xl md:text-2xl text-[hsl(15_70%_40%)] mb-2"
-              style={{
-                textRendering: "optimizeSpeed",
-                WebkitFontSmoothing: "none",
-                MozOsxFontSmoothing: "unset",
-                fontSmooth: "never",
-              }}
-            >
-              Password Reset Successful!
+            <div className="w-10 h-10 grid place-items-center rounded-xl border border-green-500/30 text-green-600 mx-auto mb-4">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground mb-2">
+              Password reset
             </h1>
-            <p
-              className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-4"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
-              Your password has been updated. Redirecting to home...
+            <p className="text-sm text-muted-foreground mb-4">
+              Your password has been updated. Redirecting to home…
             </p>
           </motion.div>
         </div>
@@ -245,33 +231,21 @@ const ResetPasswordPage = () => {
       <Helmet>
         <title>Reset Password - Your Special Day</title>
       </Helmet>
-      <div className="flex min-h-screen items-center justify-center bg-[hsl(35_40%_90%)] px-4 py-12">
+      <div className={`${pageWrap} py-12`}>
         <motion.div
-          className="max-w-md w-full bg-[hsl(35_40%_90%)] border-4 border-[hsl(15_60%_50%)] rounded-lg p-6"
+          className={cardClass}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          style={{ imageRendering: "pixelated" }}
         >
           {/* Header */}
-          <div className="text-center mb-6">
-            <KeyRound className="w-8 h-8 mx-auto mb-2 text-[hsl(15_70%_55%)]" />
-            <h1
-              className="font-pixel text-xl md:text-2xl text-[hsl(15_70%_40%)] mb-2"
-              style={{
-                textRendering: "optimizeSpeed",
-                WebkitFontSmoothing: "none",
-                MozOsxFontSmoothing: "unset",
-                fontSmooth: "never",
-              }}
-            >
-              Reset Password
+          <div className="mb-6">
+            <div className="w-10 h-10 grid place-items-center rounded-xl border border-border text-primary mb-4">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground mb-1.5">
+              Reset password
             </h1>
-            <p
-              className="font-pixel text-xs text-[hsl(15_60%_35%)]"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
-              Enter your new password below
-            </p>
+            <p className="text-sm text-muted-foreground">Enter your new password below.</p>
           </div>
 
           {/* Error message */}
@@ -279,28 +253,18 @@ const ResetPasswordPage = () => {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 p-3 bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] rounded"
+              className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30"
             >
-              <p
-                className="font-pixel text-xs text-white text-center"
-                style={{ textRendering: "optimizeSpeed" }}
-              >
-                {error}
-              </p>
+              <p className="text-sm text-destructive text-center">{error}</p>
             </motion.div>
           )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label
-                className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-2 block"
-                style={{ textRendering: "optimizeSpeed" }}
-              >
-                New Password
-              </label>
+              <label className={labelClass}>New Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(15_60%_35%)]" />
+                <Lock className={inputIconClass} />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={newPassword}
@@ -309,17 +273,13 @@ const ResetPasswordPage = () => {
                     setError(null);
                   }}
                   placeholder="At least 6 characters"
-                  className="w-full pl-10 pr-10 py-3 font-pixel text-sm border-4 border-[hsl(30_40%_60%)] bg-white text-[hsl(15_70%_40%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                  style={{
-                    textRendering: "optimizeSpeed",
-                    imageRendering: "pixelated",
-                  }}
+                  className={inputClass}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(15_60%_35%)] hover:text-[hsl(15_70%_50%)] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -331,14 +291,9 @@ const ResetPasswordPage = () => {
             </div>
 
             <div>
-              <label
-                className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-2 block"
-                style={{ textRendering: "optimizeSpeed" }}
-              >
-                Confirm Password
-              </label>
+              <label className={labelClass}>Confirm Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(15_60%_35%)]" />
+                <Lock className={inputIconClass} />
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
@@ -347,17 +302,13 @@ const ResetPasswordPage = () => {
                     setError(null);
                   }}
                   placeholder="Confirm your password"
-                  className="w-full pl-10 pr-10 py-3 font-pixel text-sm border-4 border-[hsl(30_40%_60%)] bg-white text-[hsl(15_70%_40%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                  style={{
-                    textRendering: "optimizeSpeed",
-                    imageRendering: "pixelated",
-                  }}
+                  className={inputClass}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(15_60%_35%)] hover:text-[hsl(15_70%_50%)] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -368,14 +319,9 @@ const ResetPasswordPage = () => {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 font-pixel text-sm bg-[hsl(15_70%_55%)] border-2 border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
+            <button type="submit" disabled={isLoading} className={submitClass}>
               <KeyRound className="w-4 h-4" />
-              {isLoading ? "Updating..." : "Update Password"}
+              {isLoading ? "Updating…" : "Update Password"}
             </button>
           </form>
         </motion.div>
