@@ -53,7 +53,7 @@ const NavigationBar = () => {
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-romantic/95 backdrop-blur-md border-b border-primary/15 shadow-lavender">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="flex items-center justify-center h-16 md:h-20">
 
