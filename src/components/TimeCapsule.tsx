@@ -1,25 +1,23 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock } from "lucide-react";
+import { Lock, Unlock } from "lucide-react";
 import { differenceInDays, differenceInHours, differenceInMinutes, differenceInSeconds } from "date-fns";
 
 const STORAGE_KEY_MESSAGE = "time-capsule-message";
 const STORAGE_KEY_LOCKED = "time-capsule-locked";
 const STORAGE_KEY_UNLOCK_DATE = "time-capsule-unlock-date";
 
-// Default placeholder message
 const DEFAULT_MESSAGE = `My Dearest Love,
 
-This is a time capsule letter that will unlock on our special date. 
+This is a time capsule letter that will unlock on our special date.
 
 When you read this, I hope it brings back all the beautiful memories we've shared together. Every moment with you has been a gift, and I wanted to capture these feelings in a letter that would wait for the perfect moment to be revealed.
 
 Write your heartfelt message here, then lock it to unlock on February 12th next year.
 
 With all my love,
-Your Partner 💕`;
+Your Partner ♡`;
 
-// Helper function to get February 12th of next year
 const getNextFeb12 = (): Date => {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -35,7 +33,6 @@ interface CountdownValues {
 }
 
 const TimeCapsule = () => {
-  // Load state from localStorage
   const [message, setMessage] = useState<string>(() => {
     if (typeof window !== "undefined" && window.localStorage) {
       const saved = localStorage.getItem(STORAGE_KEY_MESSAGE);
@@ -55,29 +52,20 @@ const TimeCapsule = () => {
   const [unlockDate, setUnlockDate] = useState<Date>(() => {
     if (typeof window !== "undefined" && window.localStorage) {
       const saved = localStorage.getItem(STORAGE_KEY_UNLOCK_DATE);
-      if (saved) {
-        return new Date(saved);
-      }
+      if (saved) return new Date(saved);
     }
     return getNextFeb12();
   });
 
   const [now, setNow] = useState(new Date());
-  const [countdown, setCountdown] = useState<CountdownValues>({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
+  const [countdown, setCountdown] = useState<CountdownValues>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
-  // Save message to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== "undefined" && window.localStorage) {
       localStorage.setItem(STORAGE_KEY_MESSAGE, message);
     }
   }, [message]);
 
-  // Handle locking the capsule
   const handleLock = () => {
     const nextFeb12 = getNextFeb12();
     setIsLocked(true);
@@ -88,7 +76,6 @@ const TimeCapsule = () => {
     }
   };
 
-  // Check if currently locked based on date
   const isCurrentlyLocked = isLocked && now < unlockDate;
 
   useEffect(() => {
@@ -101,7 +88,6 @@ const TimeCapsule = () => {
         const totalHours = differenceInHours(unlockDate, currentTime);
         const totalMinutes = differenceInMinutes(unlockDate, currentTime);
         const totalSeconds = differenceInSeconds(unlockDate, currentTime);
-
         setCountdown({
           days,
           hours: totalHours % 24,
@@ -110,7 +96,6 @@ const TimeCapsule = () => {
         });
       } else {
         setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        // Auto-unlock when date is reached
         if (isLocked && currentTime >= unlockDate) {
           setIsLocked(false);
           if (typeof window !== "undefined" && window.localStorage) {
@@ -120,10 +105,7 @@ const TimeCapsule = () => {
       }
     };
 
-    // Update immediately
     updateCountdown();
-
-    // Update every second (only if locked)
     if (isLocked) {
       const interval = setInterval(updateCountdown, 1000);
       return () => clearInterval(interval);
@@ -133,17 +115,19 @@ const TimeCapsule = () => {
   return (
     <section className="py-20 md:py-32 bg-background">
       <div className="container px-6">
+        {/* Section header */}
         <motion.div
-          className="text-center mb-16"
+          className="text-center mb-14"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="font-serif text-4xl md:text-5xl font-bold mb-4">
+          <p className="font-mono-caption text-primary/70 mb-4">sealed with love</p>
+          <h2 className="font-serif text-4xl md:text-5xl font-semibold text-foreground mb-4">
             Time <span className="text-gradient-romantic">Capsule</span>
           </h2>
-          <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto">
-            A special message waiting to be revealed
+          <p className="font-sans font-light text-muted-foreground text-lg max-w-md mx-auto">
+            A letter waiting for the perfect moment to be revealed
           </p>
         </motion.div>
 
@@ -152,140 +136,181 @@ const TimeCapsule = () => {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
+          transition={{ delay: 0.1 }}
         >
-          {/* Frosted glass card container */}
-          <div className="relative bg-card/80 backdrop-blur-lg rounded-3xl shadow-xl border-2 border-primary/20 overflow-hidden">
-            {/* Background pattern */}
+          {/* Envelope card */}
+          <div className="relative bg-card border border-border rounded-2xl shadow-lavender overflow-hidden">
+
+            {/* Envelope flap (decorative top) */}
             <div
-              className="absolute inset-0 opacity-5"
+              className="h-2 w-full"
               style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23f4a5b8' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                background: "linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--periwinkle)) 100%)",
               }}
             />
-            
-            {/* Content wrapper with padding */}
-            <div className="relative p-6 md:p-8 lg:p-12 min-h-[400px]">
 
-            {/* Letter content - show editor when not locked, show message when unlocked */}
-            {!isLocked ? (
-              <motion.div
-                className="relative z-10"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
+            {/* Letter header */}
+            <div className="flex items-center justify-between px-6 md:px-10 py-5 border-b border-border bg-accent/30">
+              <div className="flex items-center gap-3">
+                {/* Periwinkle wax seal */}
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm flex-shrink-0"
+                  style={{
+                    background: "linear-gradient(135deg, hsl(var(--periwinkle)) 0%, hsl(var(--primary)) 100%)",
+                  }}
+                >
+                  {isCurrentlyLocked ? (
+                    <Lock size={14} className="text-white" />
+                  ) : (
+                    <Unlock size={14} className="text-white" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-mono-caption text-primary/70">
+                    {isCurrentlyLocked ? "sealed · locked" : isLocked ? "unsealed · revealed" : "compose letter"}
+                  </p>
+                  <p className="font-serif text-base font-medium text-foreground">
+                    {isCurrentlyLocked
+                      ? `Unlocks February 12th`
+                      : isLocked
+                      ? "Your letter is revealed ♡"
+                      : "Write your message"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Periwinkle stamp mark */}
+              <div
+                className="w-12 h-12 rounded-full border-2 flex items-center justify-center opacity-30 select-none"
+                style={{ borderColor: "hsl(var(--periwinkle))", color: "hsl(var(--periwinkle))" }}
               >
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Write your message
-                  </label>
+                <span className="font-script text-xs leading-none text-center">♡</span>
+              </div>
+            </div>
+
+            {/* Letter body */}
+            <div className="relative px-6 md:px-10 py-8 md:py-12 min-h-[420px]">
+              {/* Paper texture lines */}
+              <div
+                className="absolute inset-0 pointer-events-none opacity-[0.03]"
+                style={{
+                  backgroundImage: "repeating-linear-gradient(transparent, transparent 27px, hsl(var(--primary)) 28px)",
+                  backgroundSize: "100% 28px",
+                }}
+              />
+
+              {/* Write mode */}
+              {!isLocked ? (
+                <motion.div
+                  className="relative z-10"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="w-full min-h-[300px] p-4 bg-background/50 border-2 border-primary/20 rounded-xl font-serif text-lg md:text-xl leading-relaxed text-foreground/90 resize-none focus:outline-none focus:border-primary/50 transition-colors"
+                    className="w-full min-h-[320px] bg-transparent border-none outline-none font-serif text-lg md:text-xl leading-[28px] text-foreground/90 resize-none placeholder:text-muted-foreground/50"
                     placeholder={DEFAULT_MESSAGE}
+                    style={{ lineHeight: "28px" }}
                   />
-                </div>
-                <motion.button
-                  onClick={handleLock}
-                  disabled={!message.trim()}
-                  className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-xl font-sans font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                  whileHover={{ scale: message.trim() ? 1.02 : 1 }}
-                  whileTap={{ scale: message.trim() ? 0.98 : 1 }}
-                >
-                  <Lock className="w-5 h-5" />
-                  Lock Time Capsule
-                </motion.button>
-                <p className="mt-4 text-sm text-muted-foreground text-center">
-                  Once locked, this message will unlock on February 12th next year
-                </p>
-              </motion.div>
-            ) : (
-              <motion.div
-                className="relative z-10"
-                animate={{
-                  filter: isCurrentlyLocked ? "blur(24px)" : "blur(0px)",
-                  opacity: isCurrentlyLocked ? 0.5 : 1,
-                }}
-                transition={{ duration: 1.5, ease: "easeOut" }}
-              >
-                <div className="font-serif text-lg md:text-xl leading-relaxed text-foreground/90 whitespace-pre-line">
-                  {message}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Lock overlay - only shown when locked and before unlock date */}
-            <AnimatePresence>
-              {isCurrentlyLocked && (
-                <motion.div
-                  className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-3xl"
-                  initial={{ opacity: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 1, ease: "easeInOut" }}
-                >
-                  <div className="w-full p-6 md:p-8 lg:p-12 flex flex-col items-center justify-center">
-                    {/* Lock icon */}
-                    <motion.div
-                      initial={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      transition={{ duration: 0.8, ease: "easeInOut" }}
+                  <div className="mt-6 pt-6 border-t border-border flex flex-col sm:flex-row items-center gap-4">
+                    <motion.button
+                      onClick={handleLock}
+                      disabled={!message.trim()}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-primary text-primary-foreground rounded-full font-sans font-medium text-sm shadow-romantic hover:shadow-glow transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      whileHover={message.trim() ? { y: -2 } : {}}
+                      whileTap={message.trim() ? { scale: 0.98 } : {}}
                     >
-                      <Lock className="w-16 h-16 md:w-20 md:h-20 text-primary mb-6" />
+                      <Lock size={14} />
+                      Seal the Letter
+                    </motion.button>
+                    <p className="font-sans font-light text-xs text-muted-foreground text-center sm:text-left">
+                      Locks until February 12th next year
+                    </p>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  className="relative z-10"
+                  animate={{
+                    filter: isCurrentlyLocked ? "blur(20px)" : "blur(0px)",
+                    opacity: isCurrentlyLocked ? 0.4 : 1,
+                  }}
+                  transition={{ duration: 1.5, ease: "easeOut" }}
+                >
+                  <p className="font-serif text-lg md:text-xl leading-[28px] text-foreground/90 whitespace-pre-line">
+                    {message}
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Lock overlay */}
+              <AnimatePresence>
+                {isCurrentlyLocked && (
+                  <motion.div
+                    className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-2xl"
+                    style={{ background: "hsl(var(--card) / 0.85)", backdropFilter: "blur(8px)" }}
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 1, ease: "easeInOut" }}
+                  >
+                    {/* Periwinkle seal */}
+                    <motion.div
+                      className="w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-glow"
+                      style={{
+                        background: "linear-gradient(135deg, hsl(var(--periwinkle)) 0%, hsl(var(--primary)) 100%)",
+                      }}
+                      initial={{ scale: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <Lock size={28} className="text-white" />
                     </motion.div>
 
-                    {/* Countdown timer */}
+                    {/* Countdown */}
                     <motion.div
                       className="text-center mb-6"
                       initial={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <div className="flex items-center justify-center gap-2 md:gap-4 font-sans font-bold text-2xl md:text-3xl lg:text-4xl text-foreground">
-                        <div className="flex flex-col items-center">
-                          <span className="text-primary">{countdown.days}</span>
-                          <span className="text-xs md:text-sm text-muted-foreground font-normal">
-                            Days
-                          </span>
-                        </div>
-                        <span className="text-muted-foreground">:</span>
-                        <div className="flex flex-col items-center">
-                          <span className="text-primary">{String(countdown.hours).padStart(2, "0")}</span>
-                          <span className="text-xs md:text-sm text-muted-foreground font-normal">
-                            Hours
-                          </span>
-                        </div>
-                        <span className="text-muted-foreground">:</span>
-                        <div className="flex flex-col items-center">
-                          <span className="text-primary">{String(countdown.minutes).padStart(2, "0")}</span>
-                          <span className="text-xs md:text-sm text-muted-foreground font-normal">
-                            Mins
-                          </span>
-                        </div>
-                        <span className="text-muted-foreground">:</span>
-                        <div className="flex flex-col items-center">
-                          <span className="text-primary">{String(countdown.seconds).padStart(2, "0")}</span>
-                          <span className="text-xs md:text-sm text-muted-foreground font-normal">
-                            Secs
-                          </span>
-                        </div>
+                      <div className="flex items-end justify-center gap-3 md:gap-5 mb-3">
+                        {[
+                          { val: countdown.days, label: "Days" },
+                          { val: String(countdown.hours).padStart(2, "0"), label: "Hours" },
+                          { val: String(countdown.minutes).padStart(2, "0"), label: "Mins" },
+                          { val: String(countdown.seconds).padStart(2, "0"), label: "Secs" },
+                        ].map((item, i) => (
+                          <div key={i} className="flex flex-col items-center">
+                            <span className="font-serif text-3xl md:text-4xl font-semibold text-gradient-romantic">
+                              {item.val}
+                            </span>
+                            <span className="font-mono-caption text-muted-foreground mt-1">
+                              {item.label}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </motion.div>
 
-                    {/* Badge */}
                     <motion.div
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary/20 backdrop-blur-sm rounded-full border border-primary/30"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border font-sans text-sm font-medium"
+                      style={{
+                        background: "hsl(var(--periwinkle-light))",
+                        borderColor: "hsl(var(--periwinkle) / 0.3)",
+                        color: "hsl(var(--periwinkle))",
+                      }}
                       initial={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <span className="font-sans text-sm md:text-base text-primary font-medium">
-                        Locked until February 12th next year
-                      </span>
+                      <Lock size={12} />
+                      Sealed until February 12th
                     </motion.div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </motion.div>
@@ -295,6 +320,3 @@ const TimeCapsule = () => {
 };
 
 export default TimeCapsule;
-
-
-

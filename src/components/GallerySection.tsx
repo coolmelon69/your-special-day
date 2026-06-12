@@ -106,7 +106,7 @@ const GallerySection = () => {
                 transition={{ delay: index * 0.1 }}
               >
                 <motion.div
-                  className="relative bg-[hsl(35_40%_88%)] p-2 pb-4 shadow-lg cursor-pointer"
+                  className="relative bg-white/90 backdrop-blur-sm p-2 pb-4 shadow-[0_4px_20px_-4px_rgba(138,43,226,0.15)] cursor-pointer border border-primary/10 rounded-lg"
                   style={{ 
                     rotate: photo.rotate,
                     imageRendering: "pixelated"
@@ -114,54 +114,54 @@ const GallerySection = () => {
                   whileHover={{ 
                     scale: 1.05, 
                     rotate: 0,
-                    boxShadow: "0 20px 40px -10px hsl(340 70% 65% / 0.3)"
+                    boxShadow: "0 20px 40px -10px hsl(267 83% 60% / 0.3)"
                   }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
-                  {/* Pixelated frame border - pinkish color theme */}
-                  <div className="relative border-4 border-[hsl(340_70%_65%)] p-1" style={{ imageRendering: "pixelated" }}>
+                  {/* Pixelated frame border - lavender theme */}
+                  <div className="relative border-4 border-primary/60 p-1 rounded-sm" style={{ imageRendering: "pixelated" }}>
                     {/* Inner border */}
-                    <div className="border-2 border-[hsl(340_60%_70%)] relative">
+                    <div className="border-2 border-accent/40 relative rounded-sm">
                       {/* Corner decorations - matching stamp style */}
-                      <div className="absolute -top-1 -left-1 w-3 h-3 border-2 border-[hsl(340_70%_65%)] bg-[hsl(340_70%_65%)]" />
-                      <div className="absolute -top-1 -right-1 w-3 h-3 border-2 border-[hsl(340_70%_65%)] bg-[hsl(340_70%_65%)]" />
-                      <div className="absolute -bottom-1 -left-1 w-3 h-3 border-2 border-[hsl(340_70%_65%)] bg-[hsl(340_70%_65%)]" />
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 border-2 border-[hsl(340_70%_65%)] bg-[hsl(340_70%_65%)]" />
+                      <div className="absolute -top-1 -left-1 w-3 h-3 border-2 border-primary/60 bg-primary/20 rounded-sm" />
+                      <div className="absolute -top-1 -right-1 w-3 h-3 border-2 border-primary/60 bg-primary/20 rounded-sm" />
+                      <div className="absolute -bottom-1 -left-1 w-3 h-3 border-2 border-primary/60 bg-primary/20 rounded-sm" />
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 border-2 border-primary/60 bg-primary/20 rounded-sm" />
                       
                       {/* Decorative border pattern - pixelated dots */}
-                      <div className="absolute inset-0 pointer-events-none">
+                      <div className="absolute inset-0 pointer-events-none opacity-40">
                         {/* Top border pattern */}
                         <div className="absolute top-0 left-0 right-0 h-2 flex gap-0.5 px-1">
                           {[...Array(12)].map((_, i) => (
-                            <div key={`top-${i}`} className="w-1 h-1 bg-[hsl(340_70%_65%)] mt-0.5" />
+                            <div key={`top-${i}`} className="w-1 h-1 bg-primary mt-0.5 rounded-sm" />
                           ))}
                         </div>
                         {/* Bottom border pattern */}
                         <div className="absolute bottom-0 left-0 right-0 h-2 flex gap-0.5 px-1">
                           {[...Array(12)].map((_, i) => (
-                            <div key={`bottom-${i}`} className="w-1 h-1 bg-[hsl(340_70%_65%)] mb-0.5" />
+                            <div key={`bottom-${i}`} className="w-1 h-1 bg-primary mb-0.5 rounded-sm" />
                           ))}
                         </div>
                         {/* Left border pattern */}
                         <div className="absolute left-0 top-0 bottom-0 w-2 flex flex-col gap-0.5 py-1">
                           {[...Array(8)].map((_, i) => (
-                            <div key={`left-${i}`} className="w-1 h-1 bg-[hsl(340_70%_65%)] ml-0.5" />
+                            <div key={`left-${i}`} className="w-1 h-1 bg-primary ml-0.5 rounded-sm" />
                           ))}
                         </div>
                         {/* Right border pattern */}
                         <div className="absolute right-0 top-0 bottom-0 w-2 flex flex-col gap-0.5 py-1">
                           {[...Array(8)].map((_, i) => (
-                            <div key={`right-${i}`} className="w-1 h-1 bg-[hsl(340_70%_65%)] mr-0.5" />
+                            <div key={`right-${i}`} className="w-1 h-1 bg-primary mr-0.5 rounded-sm" />
                           ))}
                         </div>
                       </div>
                       
                       {/* Image container */}
-                      <div className="overflow-hidden relative z-10">
+                      <div className="overflow-hidden relative z-10 rounded-sm">
                         <motion.img
                           src={photo.src}
                           alt={photo.caption}
-                          className="w-full h-auto object-cover"
+                          className="w-full h-auto object-cover aspect-[4/5]"
                           style={{ imageRendering: "pixelated" }}
                           whileHover={{ scale: 1.1 }}
                           transition={{ duration: 0.4 }}
@@ -172,7 +172,7 @@ const GallerySection = () => {
                   
                   {/* Caption with pixelated font */}
                   <p 
-                    className="font-pixel text-sm md:text-base text-center text-[hsl(340_60%_50%)] mt-3"
+                    className="font-pixel text-sm md:text-base text-center text-primary mt-3"
                     style={{ 
                       textRendering: "optimizeSpeed",
                       WebkitFontSmoothing: "none",

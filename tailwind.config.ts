@@ -21,7 +21,8 @@ export default {
   			foreground: 'hsl(var(--foreground))',
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				foreground: 'hsl(var(--primary-foreground))',
+  				light: 'hsl(var(--primary-light))'
   			},
   			secondary: {
   				DEFAULT: 'hsl(var(--secondary))',
@@ -47,6 +48,15 @@ export default {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
   			},
+  			lilac: {
+  				DEFAULT: 'hsl(var(--lilac))',
+  				light: 'hsl(var(--lilac-light))'
+  			},
+  			periwinkle: {
+  				DEFAULT: 'hsl(var(--periwinkle))',
+  				light: 'hsl(var(--periwinkle-light))'
+  			},
+  			lavender: 'hsl(var(--lavender))',
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
@@ -64,9 +74,10 @@ export default {
 			sm: 'calc(var(--radius) - 4px)'
 		},
 		fontFamily: {
-			sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-			serif: ['Playfair Display', 'ui-serif', 'Georgia', 'serif'],
+			sans: ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+			serif: ['Cormorant Garamond', 'Iowan Old Style', 'Georgia', 'serif'],
 			script: ['Dancing Script', 'cursive'],
+			mono: ['DM Mono', 'IBM Plex Mono', 'ui-monospace', 'monospace'],
 			pixel: ['"Press Start 2P"', 'cursive']
 		},
 		keyframes: {
@@ -93,6 +104,10 @@ export default {
 			'twinkle': {
 				'0%, 100%': { opacity: '0.3' },
 				'50%': { opacity: '1' }
+			},
+			'gentle-lift': {
+				'0%, 100%': { transform: 'translateY(0)', boxShadow: '0 4px 20px -4px hsl(270 35% 82% / 0.35)' },
+				'50%': { transform: 'translateY(-4px)', boxShadow: '0 12px 32px -8px hsl(272 50% 55% / 0.20)' }
 			}
 		},
 		animation: {
@@ -101,7 +116,8 @@ export default {
 			'float': 'float 3s ease-in-out infinite',
 			'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
 			'sparkle': 'sparkle 2s ease-in-out infinite',
-			'twinkle': 'twinkle 1.5s ease-in-out infinite'
+			'twinkle': 'twinkle 1.5s ease-in-out infinite',
+			'gentle-lift': 'gentle-lift 3s ease-in-out infinite'
 		}
 	}
   },

@@ -500,37 +500,33 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[hsl(0_0%_0%)] bg-opacity-70">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
       <motion.div
-        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] p-1"
+        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-2 rounded-xl"
         initial={{ scale: 0.8, y: 20 }}
         animate={{ scale: 1, y: 0 }}
       >
-        <div className="border-2 border-[hsl(30_50%_60%)] p-4">
+        <div className="p-4 bg-surface rounded-lg">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h3
-              className="font-pixel text-sm md:text-base text-[hsl(15_70%_40%)]"
+              className="font-serif text-xl md:text-2xl text-primary font-semibold"
               style={{
-                textRendering: "optimizeSpeed",
-                WebkitFontSmoothing: "none",
-                MozOsxFontSmoothing: "unset",
-                fontSmooth: "never",
-                letterSpacing: "0.05em",
+                letterSpacing: "0.02em",
               }}
             >
               Edit Photo
             </h3>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center bg-[hsl(0_60%_50%)] border-2 border-[hsl(0_50%_40%)] hover:bg-[hsl(0_60%_60%)] transition-colors"
+              className="w-8 h-8 flex items-center justify-center bg-muted/20 border border-border hover:bg-muted/50 rounded-full transition-colors"
             >
-              <X className="w-4 h-4 text-white" />
+              <X className="w-4 h-4 text-foreground/70" />
             </button>
           </div>
 
           {/* Preview */}
-          <div className="mb-4 relative bg-[hsl(0_0%_0%)] rounded-lg overflow-hidden" style={{ imageRendering: "pixelated" }}>
+          <div className="mb-4 relative bg-black rounded-lg overflow-hidden border border-border" style={{ imageRendering: "pixelated" }}>
             <canvas
               ref={canvasRef}
               className="w-full h-auto max-h-[400px] object-contain"
@@ -580,14 +576,14 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                               transform: "translate(-50%, -50%)",
                               left: "50%",
                               top: "50%",
-                              borderColor: "hsl(200, 80%, 60%)",
-                              boxShadow: "0 0 8px rgba(59, 130, 246, 0.5), inset 0 0 8px rgba(59, 130, 246, 0.2)",
+                              borderColor: "hsl(267, 83%, 60%)",
+                              boxShadow: "0 0 8px rgba(138, 43, 226, 0.5), inset 0 0 8px rgba(138, 43, 226, 0.2)",
                             }}
                             animate={{
                               boxShadow: [
-                                "0 0 8px rgba(59, 130, 246, 0.5), inset 0 0 8px rgba(59, 130, 246, 0.2)",
-                                "0 0 12px rgba(59, 130, 246, 0.7), inset 0 0 8px rgba(59, 130, 246, 0.3)",
-                                "0 0 8px rgba(59, 130, 246, 0.5), inset 0 0 8px rgba(59, 130, 246, 0.2)",
+                                "0 0 8px rgba(138, 43, 226, 0.5), inset 0 0 8px rgba(138, 43, 226, 0.2)",
+                                "0 0 12px rgba(138, 43, 226, 0.7), inset 0 0 8px rgba(138, 43, 226, 0.3)",
+                                "0 0 8px rgba(138, 43, 226, 0.5), inset 0 0 8px rgba(138, 43, 226, 0.2)",
                               ],
                             }}
                             transition={{
@@ -612,14 +608,14 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                                 transform: "translate(-50%, -50%)",
                                 width: "20px",
                                 height: "20px",
-                                background: "linear-gradient(135deg, hsl(200, 85%, 65%) 0%, hsl(200, 75%, 55%) 100%)",
+                                background: "linear-gradient(135deg, hsl(267, 83%, 65%) 0%, hsl(267, 83%, 55%) 100%)",
                                 border: "2px solid white",
-                                boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3), 0 0 8px rgba(59, 130, 246, 0.6)",
+                                boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3), 0 0 8px rgba(138, 43, 226, 0.6)",
                                 cursor: handle.cursor,
                               }}
                               whileHover={{
                                 scale: 1.2,
-                                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(59, 130, 246, 0.8)",
+                                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(138, 43, 226, 0.8)",
                               }}
                               whileTap={{ scale: 0.9 }}
                               onMouseDown={(e) => {
@@ -649,14 +645,14 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                               transform: "translate(-50%, -50%)",
                               width: "32px",
                               height: "32px",
-                              background: "linear-gradient(135deg, hsl(200, 85%, 65%) 0%, hsl(200, 75%, 55%) 100%)",
+                              background: "linear-gradient(135deg, hsl(267, 83%, 65%) 0%, hsl(267, 83%, 55%) 100%)",
                               border: "3px solid white",
-                              boxShadow: "0 3px 8px rgba(0, 0, 0, 0.3), 0 0 10px rgba(59, 130, 246, 0.6)",
+                              boxShadow: "0 3px 8px rgba(0, 0, 0, 0.3), 0 0 10px rgba(138, 43, 226, 0.6)",
                             }}
                             whileHover={{
                               scale: 1.15,
                               rotate: 15,
-                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4), 0 0 14px rgba(59, 130, 246, 0.8)",
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4), 0 0 14px rgba(138, 43, 226, 0.8)",
                             }}
                             whileTap={{ scale: 0.9 }}
                             animate={{
@@ -737,7 +733,7 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                               transform: "translateX(-50%)",
                               width: "2px",
                               height: "20px",
-                              background: "linear-gradient(to top, hsl(200, 80%, 60%) 0%, transparent 100%)",
+                              background: "linear-gradient(to top, hsl(267, 83%, 60%) 0%, transparent 100%)",
                               opacity: 0.6,
                             }}
                           />
@@ -749,18 +745,15 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
               })}
             </div>
             {isProcessing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[hsl(0_0%_0%)] bg-opacity-50 pointer-events-none">
-                <div className="text-white font-pixel text-xs">Processing...</div>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none">
+                <div className="text-white font-medium text-sm">Processing...</div>
               </div>
             )}
           </div>
 
           {/* Filters */}
           <div className="mb-4">
-            <label
-              className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-2"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
+            <label className="block font-medium text-sm text-foreground/80 mb-2">
               Filter
             </label>
             <div className="flex flex-wrap gap-2">
@@ -768,10 +761,10 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                 <button
                   key={filter}
                   onClick={() => setSelectedFilter(filter)}
-                  className={`px-3 py-1 font-pixel text-xs border-2 transition-all ${
+                  className={`px-3 py-1.5 font-medium text-xs md:text-sm rounded-md border transition-all ${
                     selectedFilter === filter
-                      ? "bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white"
-                      : "bg-[hsl(35_30%_75%)] border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)]"
+                      ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                      : "bg-surface border-border text-foreground hover:bg-muted/50"
                   }`}
                 >
                   {getFilterName(filter)}
@@ -782,13 +775,10 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
             {selectedFilter !== "none" && (
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label
-                    className="font-pixel text-xs text-[hsl(15_60%_35%)]"
-                    style={{ textRendering: "optimizeSpeed" }}
-                  >
+                  <label className="font-medium text-sm text-foreground/80">
                     Intensity
                   </label>
-                  <span className="font-pixel text-xs text-[hsl(15_60%_35%)]">
+                  <span className="font-medium text-sm text-foreground/80">
                     {filterIntensity}%
                   </span>
                 </div>
@@ -806,10 +796,7 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
 
           {/* Frames */}
           <div className="mb-4">
-            <label
-              className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-2"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
+            <label className="block font-medium text-sm text-foreground/80 mb-2">
               Frame
             </label>
             <div className="flex flex-wrap gap-2">
@@ -817,10 +804,10 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                 <button
                   key={frame}
                   onClick={() => setSelectedFrame(frame)}
-                  className={`px-3 py-1 font-pixel text-xs border-2 transition-all ${
+                  className={`px-3 py-1.5 font-medium text-xs md:text-sm rounded-md border transition-all ${
                     selectedFrame === frame
-                      ? "bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white"
-                      : "bg-[hsl(35_30%_75%)] border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)]"
+                      ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                      : "bg-surface border-border text-foreground hover:bg-muted/50"
                   }`}
                 >
                   {getFrameName(frame)}
@@ -832,17 +819,14 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
           {/* Stickers */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <label
-                className="block font-pixel text-xs text-[hsl(15_60%_35%)]"
-                style={{ textRendering: "optimizeSpeed" }}
-              >
+              <label className="block font-medium text-sm text-foreground/80">
                 Stickers ({stickers.length})
               </label>
               <button
                 onClick={() => setShowStickerPicker(!showStickerPicker)}
-                className="px-3 py-1 font-pixel text-xs bg-[hsl(15_70%_55%)] border-2 border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-colors flex items-center gap-1"
+                className="px-3 py-1.5 font-medium text-xs md:text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1 shadow-sm"
               >
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-4 h-4" />
                 Add
               </button>
             </div>
@@ -859,14 +843,14 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                 {stickers.map((sticker) => (
                   <div
                     key={sticker.id}
-                    className="relative p-2 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)]"
+                    className="relative px-3 py-1 bg-muted/30 border border-border rounded-md"
                   >
-                    <div className="text-xs font-pixel text-[hsl(15_60%_35%)]">
+                    <div className="text-xs font-medium text-foreground/80">
                       {sticker.type}
                     </div>
                     <button
                       onClick={() => handleDeleteSticker(sticker.id)}
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-[hsl(0_60%_50%)] text-white text-xs"
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-[10px] hover:bg-destructive/90"
                     >
                       ×
                     </button>
@@ -877,11 +861,8 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
           </div>
 
           {/* Caption */}
-          <div className="mb-4">
-            <label
-              className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-2"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
+          <div className="mb-6">
+            <label className="block font-medium text-sm text-foreground/80 mb-2">
               Caption
             </label>
             <input
@@ -889,8 +870,7 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Add a caption..."
-              className="w-full px-3 py-2 font-pixel text-xs bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-              style={{ textRendering: "optimizeSpeed" }}
+              className="w-full px-4 py-2 font-medium text-sm md:text-base bg-surface border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
             />
           </div>
 
@@ -898,9 +878,9 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
           <motion.button
             onClick={handleSave}
             disabled={isProcessing}
-            className="w-full px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center gap-2"
-            whileHover={!isProcessing ? { scale: 1.05 } : {}}
-            whileTap={!isProcessing ? { scale: 0.95 } : {}}
+            className="w-full px-6 py-3 font-medium text-sm md:text-base rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center gap-2"
+            whileHover={!isProcessing ? { scale: 1.02 } : {}}
+            whileTap={!isProcessing ? { scale: 0.98 } : {}}
           >
             <Save className="w-4 h-4" />
             {isProcessing ? "Saving..." : "Save Photo"}

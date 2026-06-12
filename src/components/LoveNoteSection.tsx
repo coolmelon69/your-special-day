@@ -3,16 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Heart, Quote, Sparkles, CheckSquare, Gift, ArrowRight, QrCode, Calendar, Lock } from "lucide-react";
 import { NavLink } from "./NavLink";
 
-const friendWishes = [
-  { name: "popi", message: "Happy 22 my dearest dinzy!!!!!! i'm so grateful to have known you throughout this whole crazy uni shit. wouldn't trade you with anything in the world!! thank you for always include saya di mana mana yang berkaitan hehe. i hope this year will be a very great year for you and i would lovee to see you strive in your own way. love uou lots!!! dont worry, we will be friends for a verrryy long time. love, popi." },
-  { name: "Iyisyah", message: "happy birthday dinzyyyy!! May allah always ease everything u did. thank you jadi kawan yang bank mulut so tak senyap jee group ni tpi yapping koo cam kurang la lagi ekcelii hehehe. nnti share' laa recipii koo soo ako bole pandai masak camm koo jugakk. hope you sokaaa being 22 bcs ini last bfr you enter age yang lagi sis tau !! btw nnti kaweennn bgitau jngan lari thailand polakk. lob youuuu sm !!!" },
-  { name: "Isz", message: "Happyyy birthdayyy dinzuyyy, semogaaa kuatt membuat fyp dann bertahann hiduppp, nikmati umur sebaya dengan kiteorang untukk beberapa bulannn niii heheheh, nak claiimmm duriannn." },
-  { name: "Koles", message: "Happy birthday dinzuy ku ❤ semoga sentiasa jadi dina , bcs you are more than enough. Thank you for existing and be part of my degree life, hopefully my whole life aamiin. I wish u nothing else but happiness that u always deserve. Thank you for being that kind friend in the group yang always take care of kitorang semua. I appreciate you more than you know, I LOVE UUUUU !! Have a good one " },
-  { name: "Naufal", message: "Happiest birthday to u dinaa, moga sentiasa hidup dalam jagaan Allah SWT, moga terus cemerlang dalam apa juga yang diusahakan dan dapat semua bende baik yang diimpikan, enjoy your 22rd year on this planet!!" },
-  { name: "kimi", message: "happy birthday dinzuuyyyy !!! semoga kekal kuat dan tabah mengahdapi dunia yang kadang kiding. life doesn't end when you feel a little lost. it's only a moment, not forever. you're going to be okay. i hope you always look forward to the good things, good love and good days. they exist and you deserve them. enjoy and cherish every moment dinzyyyy and happy 22." },
-  { name: "neesya", message: "happiest birthday irdina! i never thought we would be this close after stf HAHAHAH pls know that u mean a lot to my degree life and i can't imagine it without u. may Allah grant u with everything u ever asked for because u totally deserve it ❤ pls know that you're loved and cared. ilysm irdinzz ❤" },
-];
-
 const LoveNoteSection = () => {
   const navigate = useNavigate();
 
@@ -43,9 +33,9 @@ const LoveNoteSection = () => {
           viewport={{ once: true }}
         >
           <motion.div
-            className="relative bg-card rounded-3xl p-8 md:p-12 shadow-xl overflow-hidden"
+            className="relative bg-card rounded-3xl p-8 md:p-12 shadow-xl overflow-hidden shadow-primary/10"
             style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23f4a5b8' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23c4b5fd' fill-opacity='0.15' fill-rule='evenodd'/%3E%3C/svg%3E")`,
             }}
             whileHover={{
               scale: 1.01,
@@ -114,7 +104,7 @@ const LoveNoteSection = () => {
                 <motion.p
                   className="text-lg md:text-xl lg:text-2xl leading-relaxed mb-6"
                   style={{
-                    color: '#8B7355',
+                    color: 'hsl(var(--primary))',
                   }}
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -128,7 +118,7 @@ const LoveNoteSection = () => {
                 <motion.div
                   className="flex items-center justify-center gap-2 text-sm md:text-base"
                   style={{
-                    color: '#8B7355',
+                    color: 'hsl(var(--primary))',
                     opacity: 0.7,
                   }}
                   initial={{ opacity: 0 }}
@@ -143,39 +133,6 @@ const LoveNoteSection = () => {
             </motion.div>
           </motion.div>
         </motion.div>
-
-        {/* Friend Wishes */}
-        <motion.div
-          className="text-center mb-10"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
-          <Sparkles className="mx-auto mb-4 text-primary" size={28} />
-          <h3 className="font-serif text-2xl md:text-3xl font-bold">
-            Wishes from Friends
-          </h3>
-        </motion.div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto mb-20">
-          {friendWishes.map((wish, index) => (
-            <motion.div
-              key={index}
-              className="bg-card rounded-2xl p-6 shadow-lg border border-border"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ y: -4, boxShadow: "0 20px 40px -10px hsl(340 65% 65% / 0.2)" }}
-            >
-              <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center mb-4">
-                <span className="font-bold text-accent-foreground">{wish.name[0]}</span>
-              </div>
-              <p className="text-muted-foreground mb-3">{wish.message}</p>
-              <p className="font-medium text-foreground">— {wish.name}</p>
-            </motion.div>
-          ))}
-        </div>
 
         {/* Navigation Section */}
         <motion.div
@@ -193,7 +150,7 @@ const LoveNoteSection = () => {
           {/* Stamps Navigation Card */}
           <NavLink to="/stamps" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
+              className="bg-gradient-to-br from-purple-400 to-fuchsia-400 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -225,7 +182,7 @@ const LoveNoteSection = () => {
           {/* Coupons Navigation Card */}
           <NavLink to="/coupons" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-purple-400 to-indigo-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
+              className="bg-gradient-to-br from-indigo-400 to-purple-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -257,7 +214,7 @@ const LoveNoteSection = () => {
           {/* QR Scanner Navigation Card */}
           <NavLink to="/scan-qr" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
+              className="bg-gradient-to-br from-violet-400 to-purple-400 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -288,7 +245,7 @@ const LoveNoteSection = () => {
         </div>
 
         {/* Wrapped Page Indicator Section */}
-        <section className="py-12 md:py-20 bg-[hsl(35_40%_85%)] relative overflow-hidden mt-20">
+        <section className="py-12 md:py-20 bg-[hsl(270_20%_96%)] relative overflow-hidden mt-20 rounded-3xl">
           <div className="container px-6">
             <motion.div
               className="text-center mb-8"
@@ -329,7 +286,7 @@ const LoveNoteSection = () => {
               <motion.div
                 className="absolute inset-0 opacity-20"
                 style={{
-                  background: 'linear-gradient(135deg, hsl(340 65% 92%) 0%, hsl(30 50% 95%) 50%, hsl(143 30% 85%) 100%)',
+                  background: 'linear-gradient(135deg, hsl(270 60% 92%) 0%, hsl(280 50% 95%) 50%, hsl(260 40% 90%) 100%)',
                 }}
                 animate={{
                   x: [0, 50, -30, 0],

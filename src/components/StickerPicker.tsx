@@ -156,23 +156,14 @@ const StickerPicker = ({ onStickerSelect, onClose }: StickerPickerProps) => {
   };
 
   return (
-    <div className="bg-[hsl(35_40%_85%)] border-2 border-[hsl(15_60%_50%)] p-4 rounded-lg">
+    <div className="bg-surface border border-border shadow-[0_4px_20px_-4px_rgba(138,43,226,0.15)] p-4 rounded-lg">
       <div className="flex items-center justify-between mb-4">
-        <h4
-          className="font-pixel text-xs md:text-sm text-[hsl(15_70%_40%)]"
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-            letterSpacing: "0.05em",
-          }}
-        >
+        <h4 className="font-medium text-sm text-foreground/80">
           Add Sticker
         </h4>
         <button
           onClick={onClose}
-          className="text-[hsl(15_60%_35%)] hover:text-[hsl(15_70%_50%)] transition-colors"
+          className="text-foreground/50 hover:text-foreground/80 transition-colors"
         >
           ✕
         </button>
@@ -184,8 +175,8 @@ const StickerPicker = ({ onStickerSelect, onClose }: StickerPickerProps) => {
             <motion.button
               key={type}
               onClick={() => handleStickerClick(type)}
-              className="p-3 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] hover:bg-[hsl(35_30%_85%)] hover:border-[hsl(15_60%_50%)] transition-all flex items-center justify-center"
-              whileHover={{ scale: 1.1 }}
+              className="p-3 bg-muted/20 border border-border rounded-md hover:bg-muted/40 hover:border-primary/50 transition-all flex items-center justify-center"
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               <StickerComponent size={32} />

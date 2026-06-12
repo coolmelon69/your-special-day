@@ -344,7 +344,7 @@ const PixelFood = ({ isActive, isPast }: { isActive: boolean; isPast: boolean })
     <rect x="13" y="1" width="1" height="1" fill="hsl(var(--muted-foreground))" />
     {/* Food */}
     <rect x="5" y="6" width="6" height="4" fill="hsl(var(--primary))" />
-    <rect x="6" y="5" width="4" height="1" fill="hsl(15 70% 50%)" />
+    <rect x="6" y="5" width="4" height="1" fill="hsl(270 60% 65%)" />
   </svg>
 );
 
@@ -834,16 +834,16 @@ export const sprites: Record<string, React.FC<{ isActive: boolean; isPast: boole
 const PixelBorder = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
   <div className={`relative ${className}`}>
     {/* Outer border - warm wood tone */}
-    <div className="absolute inset-0 bg-[hsl(30_40%_60%)]" style={{ imageRendering: "pixelated" }} />
+    <div className="absolute inset-0 bg-[hsl(270_30%_60%)]" style={{ imageRendering: "pixelated" }} />
     {/* Inner border - decorative frame */}
-    <div className="absolute inset-1 bg-[hsl(15_60%_50%)]" />
+    <div className="absolute inset-1 bg-[hsl(280_40%_70%)]" />
     {/* Content area - warm background */}
-    <div className="absolute inset-2 bg-[hsl(35_35%_88%)]" />
+    <div className="absolute inset-2 bg-[hsl(270_20%_96%)]" />
     {/* Corner decorations - colorful accents */}
-    <div className="absolute top-0 left-0 w-3 h-3 bg-[hsl(0_70%_60%)]" />
-    <div className="absolute top-0 right-0 w-3 h-3 bg-[hsl(45_80%_65%)]" />
-    <div className="absolute bottom-0 left-0 w-3 h-3 bg-[hsl(200_60%_55%)]" />
-    <div className="absolute bottom-0 right-0 w-3 h-3 bg-[hsl(120_50%_50%)]" />
+    <div className="absolute top-0 left-0 w-3 h-3 bg-[hsl(260_60%_75%)]" />
+    <div className="absolute top-0 right-0 w-3 h-3 bg-[hsl(290_60%_75%)]" />
+    <div className="absolute bottom-0 left-0 w-3 h-3 bg-[hsl(310_50%_75%)]" />
+    <div className="absolute bottom-0 right-0 w-3 h-3 bg-[hsl(250_50%_75%)]" />
     {/* Content */}
     <div className="relative z-10 p-4">{children}</div>
   </div>
@@ -1070,7 +1070,7 @@ const TimelineSection = ({
   };
 
   return (
-    <section className="py-12 md:py-20 bg-[hsl(35_40%_85%)] relative overflow-hidden">
+    <section className="py-12 md:py-20 bg-[hsl(270_20%_96%)] relative overflow-hidden">
       {/* Pixel UI Border Frame */}
       <div className="container px-4 md:px-6">
         <PixelBorder className="min-h-[600px] md:min-h-[700px]">
@@ -1081,10 +1081,10 @@ const TimelineSection = ({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="font-pixel text-xs md:text-sm text-[hsl(15_70%_40%)] mb-2 tracking-wider">
+            <h2 className="font-pixel text-xs md:text-sm text-[hsl(270_60%_40%)] mb-2 tracking-wider">
               ~ ADVENTURE MAP ~
             </h2>
-            <p className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)]">
+            <p className="font-pixel text-[8px] md:text-[10px] text-[hsl(270_50%_35%)]">
               Click a checkpoint to view details
             </p>
           </motion.div>
@@ -1098,7 +1098,7 @@ const TimelineSection = ({
             <div 
               className="absolute inset-0"
               style={{
-                background: "linear-gradient(to bottom, hsl(45 50% 90%) 0%, hsl(35 45% 88%) 50%, hsl(30 40% 85%) 100%)",
+                background: "linear-gradient(to bottom, hsl(270 50% 90%) 0%, hsl(280 45% 88%) 50%, hsl(260 40% 85%) 100%)",
               }}
             />
             
@@ -1193,14 +1193,14 @@ const TimelineSection = ({
             <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ imageRendering: "pixelated" }}>
               <defs>
                 <pattern id="pathPattern" patternUnits="userSpaceOnUse" width="16" height="16">
-                  <rect width="16" height="16" fill="hsl(30 35% 75%)" />
-                  <rect x="0" y="7" width="16" height="2" fill="hsl(30 40% 70%)" />
-                  <circle cx="4" cy="8" r="1" fill="hsl(30 25% 60%)" />
-                  <circle cx="12" cy="8" r="1" fill="hsl(30 25% 60%)" />
+                  <rect width="16" height="16" fill="hsl(270 30% 85%)" />
+                  <rect x="0" y="7" width="16" height="2" fill="hsl(270 30% 80%)" />
+                  <circle cx="4" cy="8" r="1" fill="hsl(270 20% 75%)" />
+                  <circle cx="12" cy="8" r="1" fill="hsl(270 20% 75%)" />
                 </pattern>
                 <pattern id="groundPattern" patternUnits="userSpaceOnUse" width="12" height="12">
-                  <rect width="12" height="12" fill="hsl(35 30% 80%)" />
-                  <rect x="0" y="0" width="12" height="1" fill="hsl(35 25% 75%)" />
+                  <rect width="12" height="12" fill="hsl(270 30% 92%)" />
+                  <rect x="0" y="0" width="12" height="1" fill="hsl(270 25% 88%)" />
                 </pattern>
               </defs>
               
@@ -1212,7 +1212,7 @@ const TimelineSection = ({
                 <>
                   <path
                     d={`M ${pathPoints.filter(p => p && p.x !== undefined && p.y !== undefined).map(p => `${p.x},${p.y}`).join(" L ")}`}
-                    stroke="hsl(30 30% 70%)"
+                    stroke="hsl(270 30% 80%)"
                     strokeWidth="28"
                     fill="none"
                     strokeLinecap="round"
@@ -1233,7 +1233,7 @@ const TimelineSection = ({
                   {/* Path border/edge */}
                   <path
                     d={`M ${pathPoints.filter(p => p && p.x !== undefined && p.y !== undefined).map(p => `${p.x},${p.y}`).join(" L ")}`}
-                    stroke="hsl(30 25% 60%)"
+                    stroke="hsl(270 20% 75%)"
                     strokeWidth="26"
                     fill="none"
                     strokeLinecap="round"
@@ -1244,7 +1244,7 @@ const TimelineSection = ({
                   {/* Path center line - decorative */}
                   <path
                     d={`M ${pathPoints.filter(p => p && p.x !== undefined && p.y !== undefined).map(p => `${p.x},${p.y}`).join(" L ")}`}
-                    stroke="hsl(15 60% 50%)"
+                    stroke="hsl(280 50% 65%)"
                     strokeWidth="2"
                     strokeDasharray="8 4"
                     fill="none"
@@ -1260,7 +1260,7 @@ const TimelineSection = ({
             <div 
               className="absolute bottom-0 left-0 right-0 h-[35%]"
               style={{
-                background: "linear-gradient(to top, hsl(30 35% 75%) 0%, hsl(35 30% 80%) 100%)",
+                background: "linear-gradient(to top, hsl(270 30% 85%) 0%, hsl(270 30% 92%) 100%)",
                 backgroundImage: `
                   repeating-linear-gradient(90deg, 
                     transparent 0px, 
@@ -1306,7 +1306,7 @@ const TimelineSection = ({
                       y1={point.y}
                       x2={arrowX}
                       y2={arrowY}
-                      stroke="hsl(15 70% 50%)"
+                      stroke="hsl(270 60% 65%)"
                       strokeWidth="5"
                       strokeDasharray={isPast ? "0" : "10 5"}
                       opacity={isPast ? 0.4 : 0.85}
@@ -1319,8 +1319,8 @@ const TimelineSection = ({
                     >
                       <path
                         d="M -12 -6 L 0 0 L -12 6 Z"
-                        fill="hsl(15 70% 50%)"
-                        stroke="hsl(15 60% 40%)"
+                        fill="hsl(270 60% 65%)"
+                        stroke="hsl(270 50% 55%)"
                         strokeWidth="2"
                       />
                     </g>
@@ -1335,7 +1335,7 @@ const TimelineSection = ({
                           cx={dotX}
                           cy={dotY}
                           r="3"
-                          fill="hsl(15 70% 50%)"
+                          fill="hsl(270 60% 65%)"
                           opacity={isPast ? 0.3 : 0.6}
                         />
                       );
@@ -1377,7 +1377,7 @@ const TimelineSection = ({
                   {/* Warm glow effect for active item - pasar seni style */}
                   {item.isActive && (
                     <motion.div
-                      className="absolute inset-0 rounded-full bg-[hsl(15_70%_60%)]"
+                      className="absolute inset-0 rounded-full bg-[hsl(270_60%_70%)]"
                       animate={{ 
                         scale: [1, 1.5, 1],
                         opacity: [0.6, 0.2, 0.6],
@@ -1418,14 +1418,14 @@ const TimelineSection = ({
             )}
 
             {/* Legend with pasar seni styling */}
-            <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[hsl(35_40%_85%)] p-2 rounded border-2 border-[hsl(15_60%_50%)]">
+            <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[hsl(270_20%_96%)] p-2 rounded border-2 border-[hsl(280_40%_70%)]">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 bg-[hsl(15_70%_55%)] rounded-full animate-pulse" />
-                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(15_60%_35%)]">Current</span>
+                <div className="w-3 h-3 bg-[hsl(270_60%_65%)] rounded-full animate-pulse" />
+                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(270_50%_35%)]">Current</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-[hsl(var(--muted-foreground))] rounded-full opacity-50" />
-                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(15_60%_35%)]">Completed</span>
+                <span className="font-pixel text-[6px] md:text-[8px] text-[hsl(270_50%_35%)]">Completed</span>
               </div>
             </div>
           </div>
@@ -1458,7 +1458,7 @@ const TimelineSection = ({
               exit={{ scale: 0.8, y: 20 }}
             >
               {/* Pixel border frame - Pasar Seni theme */}
-              <div className="relative bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] p-1">
+              <div className="relative bg-[hsl(270_20%_96%)] border-4 border-[hsl(280_40%_70%)] p-1">
                 {/* Inner border */}
                 <div className="border-2 border-[hsl(30_50%_60%)] p-4">
                   {/* Close button */}
@@ -1496,7 +1496,7 @@ const TimelineSection = ({
 
                     {/* Title */}
                     <h3 
-                      className="font-pixel text-sm md:text-base text-[hsl(15_70%_40%)] mb-4"
+                      className="font-pixel text-sm md:text-base text-[hsl(270_60%_40%)] mb-4"
                       style={{ 
                         textRendering: "optimizeSpeed",
                         WebkitFontSmoothing: "none",
@@ -1510,7 +1510,7 @@ const TimelineSection = ({
 
                     {/* Description */}
                     <p 
-                      className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)] leading-relaxed mb-4"
+                      className="font-pixel text-[8px] md:text-[10px] text-[hsl(270_50%_35%)] leading-relaxed mb-4"
                       style={{ 
                         textRendering: "optimizeSpeed",
                         WebkitFontSmoothing: "none",
@@ -1526,7 +1526,7 @@ const TimelineSection = ({
                     {checkpointPhotos.length > 0 && (
                       <div className="mb-4">
                         <p
-                          className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)] mb-2"
+                          className="font-pixel text-[8px] md:text-[10px] text-[hsl(270_50%_35%)] mb-2"
                           style={{ textRendering: "optimizeSpeed" }}
                         >
                           Memories ({checkpointPhotos.length})
@@ -1535,7 +1535,7 @@ const TimelineSection = ({
                           {checkpointPhotos.slice(0, 6).map((photo) => (
                             <div
                               key={photo.id}
-                              className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden group"
+                              className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(270_30%_60%)] overflow-hidden group"
                             >
                               <img
                                 src={photo.src}
@@ -1550,7 +1550,7 @@ const TimelineSection = ({
                                   handleDeletePhoto(photo.id);
                                 }}
                                 disabled={deletingPhotoId === photo.id}
-                                className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-wait"
+                                className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(260_60%_75%)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-wait"
                                 title="Delete photo"
                               >
                                 {deletingPhotoId === photo.id ? (
@@ -1568,7 +1568,7 @@ const TimelineSection = ({
                     {/* Add Photo button */}
                     <motion.button
                       onClick={() => setShowPhotoCapture(true)}
-                      className="w-full mb-4 px-4 py-2 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(200_60%_55%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-all flex items-center justify-center gap-2"
+                      className="w-full mb-4 px-4 py-2 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(310_50%_75%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-all flex items-center justify-center gap-2"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
@@ -1617,10 +1617,10 @@ const TimelineSection = ({
                           }}
                           className={`w-full px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 transition-all ${
                             isAlreadyDone
-                              ? "bg-[hsl(120_50%_50%)] border-[hsl(120_40%_40%)] text-white cursor-default"
+                              ? "bg-[hsl(250_50%_75%)] border-[hsl(120_40%_40%)] text-white cursor-default"
                               : isCheckingLocation
                               ? "bg-[hsl(30_50%_60%)] border-[hsl(30_40%_50%)] text-white cursor-wait"
-                              : "bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] hover:scale-105 active:scale-95"
+                              : "bg-[hsl(270_60%_65%)] border-[hsl(270_50%_55%)] text-white hover:bg-[hsl(270_60%_70%)] hover:scale-105 active:scale-95"
                           }`}
                           whileHover={!isAlreadyDone && !isCheckingLocation ? { scale: 1.05 } : {}}
                           whileTap={!isAlreadyDone && !isCheckingLocation ? { scale: 0.95 } : {}}

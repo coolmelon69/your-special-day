@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "design-direction-proposal.html",
+  "entry": "design-direction-proposal.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-06-09T08:49:16.215Z",
+  "updatedAt": "2026-06-09T08:49:16.215Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}
