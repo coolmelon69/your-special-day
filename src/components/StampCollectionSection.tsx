@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Clock } from "lucide-react";
 import type { ItineraryItem } from "./TimelineSection";
 import { burstConfetti, sparkleBurst } from "../utils/particles";
+import { Eyebrow, DisplayHeading, Pill } from "@/components/editorial";
+import { cn } from "@/lib/utils";
 
 // Helper function to format the checked timestamp nicely
 const formatCheckedDate = (checkedAt: string | null | undefined): string => {
@@ -45,8 +47,7 @@ const EvidenceImage = ({
     <img
       src={imageUrl}
       alt={alt}
-      className="w-full h-full object-cover rounded border-2 border-[hsl(15_70%_55%)]"
-      style={{ imageRendering: "pixelated" }}
+      className="w-full h-full object-cover rounded-lg"
       onError={() => setImageError(true)}
     />
   );
@@ -116,20 +117,18 @@ const StampCollectionSection = ({
   }, [itineraryState]);
 
   return (
-    <section className="py-12 md:py-20 bg-[hsl(35_40%_85%)] relative overflow-hidden">
+    <section className="py-12 md:py-20 bg-background relative overflow-hidden">
       <div className="container px-4 md:px-6">
         <motion.div
-          className="text-center mb-12"
+          className="mb-12 max-w-[42ch]"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="font-pixel text-lg md:text-xl text-[hsl(15_70%_40%)] mb-2 tracking-wider">
-            ~ STAMP COLLECTION ~
-          </h2>
-          <p className="font-pixel text-[10px] md:text-[12px] text-[hsl(15_60%_35%)]">
-            Collect stamps as you complete each adventure!
-          </p>
+          <Eyebrow>The Collection</Eyebrow>
+          <DisplayHeading as="h2" className="mt-4">
+            Each stop, <em>a stamp</em> we keep<span className="dot-accent">.</span>
+          </DisplayHeading>
         </motion.div>
 
         {/* Stamp Grid */}
@@ -137,6 +136,7 @@ const StampCollectionSection = ({
           {itineraryState.map((item, index) => {
             const SpriteComponent = sprites[item.sprite];
             const isCompleted = item.isPast;
+            const isActive = item.isActive && !item.isPast;
             const isJustCompleted = justCompletedIndex === index;
             const slamRotation = slamRotationRef.current[index] ?? 0;
 
@@ -169,19 +169,20 @@ const StampCollectionSection = ({
                     }
                   }}
                   data-stamp-index={index}
-                  className={`w-full h-full relative cursor-pointer focus:outline-none ${
-                    isCompleted ? "cursor-pointer" : ""
-                  }`}
+                  className="w-full h-full relative cursor-pointer focus:outline-none"
                   whileHover={{ scale: 1.05, y: -5 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   {/* Stamp Card - jiggle on slam impact when just completed */}
                   <motion.div
-                    className={`relative h-full min-h-[200px] p-4 md:p-6 rounded-lg border-4 transition-all flex flex-col ${
+                    className={cn(
+                      "relative h-full min-h-[200px] p-4 md:p-5 rounded-2xl border transition-all flex flex-col text-center bg-card",
                       isCompleted
-                        ? "bg-[hsl(35_45%_90%)] border-[hsl(15_70%_55%)] shadow-lg"
-                        : "bg-[hsl(35_40%_88%)] border-[hsl(30_30%_60%)] opacity-70"
-                    }`}
+                        ? "border-rose/40 shadow-romantic"
+                        : isActive
+                        ? "border-primary/40"
+                        : "border-border opacity-60"
+                    )}
                     animate={isJustCompleted ? {
                       x: [0, -4, 4, -3, 3, -1, 1, 0],
                       transition: {
@@ -191,78 +192,36 @@ const StampCollectionSection = ({
                       },
                     } : undefined}
                   >
-                    {/* Decorative border pattern */}
-                    <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
-                      {/* Corner decorations */}
-                      <div className={`absolute top-1 left-1 w-3 h-3 border-2 ${
-                        isCompleted ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-                      }`} />
-                      <div className={`absolute top-1 right-1 w-3 h-3 border-2 ${
-                        isCompleted ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-                      }`} />
-                      <div className={`absolute bottom-1 left-1 w-3 h-3 border-2 ${
-                        isCompleted ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-                      }`} />
-                      <div className={`absolute bottom-1 right-1 w-3 h-3 border-2 ${
-                        isCompleted ? "border-[hsl(15_70%_55%)]" : "border-[hsl(30_30%_50%)]"
-                      }`} />
-                      
-                      {/* Decorative dots around border */}
-                      {[...Array(8)].map((_, i) => {
-                        const angle = (i * 45) * (Math.PI / 180);
-                        const radius = 8;
-                        const centerX = 50;
-                        const centerY = 50;
-                        const x = centerX + radius * Math.cos(angle);
-                        const y = centerY + radius * Math.sin(angle);
-                        return (
-                          <div
-                            key={i}
-                            className={`absolute w-1 h-1 rounded-full ${
-                              isCompleted ? "bg-[hsl(15_70%_55%)]" : "bg-[hsl(30_30%_50%)]"
-                            }`}
-                            style={{
-                              left: `${x}%`,
-                              top: `${y}%`,
-                              transform: "translate(-50%, -50%)",
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-
                     {/* Sprite Icon or Evidence Image */}
-                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-3 flex-shrink-0 relative">
+                    <div className={cn(
+                      "w-full aspect-square mb-3 flex-shrink-0 rounded-xl border grid place-items-center overflow-hidden p-3",
+                      isCompleted ? "bg-rose/10 border-rose/30" : "bg-foreground/5 border-border"
+                    )}>
                       {isCompleted && item.imageUrl ? (
                         // Show synced evidence image if available
-                        <EvidenceImage 
+                        <EvidenceImage
                           imageUrl={item.imageUrl}
-                          fallback={<SpriteComponent isActive={item.isActive} isPast={item.isPast} />}
+                          fallback={<div className="w-14 h-14"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>}
                           alt={item.title}
                         />
                       ) : (
                         // Show sprite icon if no image or not completed
-                        <SpriteComponent isActive={item.isActive} isPast={item.isPast} />
+                        <div className="w-14 h-14"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>
                       )}
                     </div>
 
                     {/* Time Badge */}
-                    <div className={`inline-block px-2 py-1 mb-2 rounded flex-shrink-0 ${
-                      isCompleted
-                        ? "bg-[hsl(15_70%_55%)] text-white"
-                        : "bg-[hsl(30_30%_60%)] text-[hsl(30_20%_40%)]"
-                    }`}>
-                      <span className="font-pixel text-[8px] md:text-[10px] whitespace-nowrap">
+                    <div className="mb-2 flex-shrink-0 flex justify-center">
+                      <Pill variant={isCompleted ? "rose" : isActive ? "accent" : "tag"}>
                         {item.time}
-                      </span>
+                      </Pill>
                     </div>
 
                     {/* Title */}
-                    <h3 className={`font-pixel text-xs md:text-sm mb-2 flex-grow flex items-center justify-center text-center break-words line-clamp-2 ${
-                      isCompleted
-                        ? "text-[hsl(15_70%_40%)]"
-                        : "text-[hsl(30_20%_40%)]"
-                    }`}>
+                    <h3 className={cn(
+                      "font-medium text-sm mb-2 flex-grow flex items-center justify-center text-center break-words line-clamp-2",
+                      isCompleted ? "text-foreground" : "text-muted-foreground"
+                    )}>
                       {item.title}
                     </h3>
 
@@ -285,7 +244,7 @@ const StampCollectionSection = ({
                               }}
                               style={{
                                 filter: "blur(12px)",
-                                background: "radial-gradient(circle, hsl(15_70%_30%) 0%, transparent 70%)",
+                                background: "radial-gradient(circle, hsl(330 60% 40%) 0%, transparent 70%)",
                                 width: "120%",
                                 height: "140%",
                               }}
@@ -316,24 +275,24 @@ const StampCollectionSection = ({
                               },
                             } : undefined}
                           >
-                            <div className="flex items-center gap-1">
-                              <Check className="w-4 h-4 text-[hsl(120_60%_50%)]" />
-                              <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(120_60%_50%)] whitespace-nowrap">
-                                STAMPED
+                            <div className="flex items-center gap-1.5">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span className="font-mono text-[10px] uppercase tracking-wide text-green-600 whitespace-nowrap">
+                                Stamped
                               </span>
                             </div>
                             {item.checkedAt && (
-                              <span className="font-pixel text-[7px] md:text-[9px] text-[hsl(15_60%_40%)] text-center mt-0.5">
-                                Checked on: {formatCheckedDate(item.checkedAt)}
+                              <span className="font-mono text-[9px] text-muted-foreground text-center mt-0.5">
+                                {formatCheckedDate(item.checkedAt)}
                               </span>
                             )}
                           </motion.div>
                         </>
                       ) : (
                         <>
-                          <Clock className="w-4 h-4 text-[hsl(30_20%_50%)]" />
-                          <span className="font-pixel text-[8px] md:text-[10px] text-[hsl(30_20%_50%)] whitespace-nowrap">
-                            PENDING
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                            {isActive ? "Up next" : "Pending"}
                           </span>
                         </>
                       )}
@@ -342,7 +301,7 @@ const StampCollectionSection = ({
                     {/* Glow effect for completed stamps */}
                     {isCompleted && (
                       <motion.div
-                        className="absolute inset-0 rounded-lg bg-[hsl(15_70%_55%)] opacity-20 blur-md -z-10"
+                        className="absolute inset-0 rounded-2xl bg-rose opacity-20 blur-md -z-10"
                         animate={{
                           opacity: [0.2, 0.3, 0.2],
                         }}

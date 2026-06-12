@@ -45,6 +45,10 @@
     /* ─── shape ─── */
     --radius: 0.875rem;
 
+    /* ─── editorial accent (rose) ─── */
+    --rose: 330 60% 62%;
+    --rose-light: 330 60% 92%;
+
     /* ─── extended palette ─── */
     --lilac: 270 35% 82%;
     --lilac-light: 270 35% 94%;
@@ -71,6 +75,95 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+  }
+}
+
+/* ─── editorial design system (Phase 0) ─────────────────────────────
+   Primitives for the editorial redesign. Consumed by src/components/editorial/.
+   See mockups/redesign-mockup.html + mockups/REDESIGN_ROADMAP.md. */
+@layer components {
+  /* eyebrow — em-dash rule + uppercase mono label + optional Nº suffix */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: hsl(var(--primary));
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin: 0;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.75rem;
+    height: 1px;
+    background: hsl(var(--primary));
+    display: inline-block;
+  }
+  .eyebrow .no { color: hsl(var(--muted-foreground)); }
+
+  /* mixed roman/italic serif display — italic spans go rose, strong bolds roman */
+  .display em { font-style: italic; font-weight: 500; color: hsl(var(--rose)); }
+  .display strong { font-weight: 700; }
+  .dot-accent { color: hsl(var(--rose)); }
+
+  /* mono caption under an editorial figure */
+  .figure-cap {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .figure-cap::before {
+    content: "";
+    width: 1.125rem;
+    height: 1px;
+    background: hsl(var(--muted-foreground));
+    display: inline-block;
+  }
+
+  /* floating annotation box over a figure */
+  .annotate {
+    position: absolute;
+    top: 1.125rem;
+    right: 1.125rem;
+    max-width: 10rem;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.55;
+    color: hsl(var(--foreground));
+    background: hsl(var(--card) / 0.78);
+    backdrop-filter: blur(6px);
+    padding: 0.5625rem 0.6875rem;
+    border-radius: 0.5625rem;
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* decorative dotted grid block */
+  .dotgrid {
+    position: absolute;
+    width: 4.375rem;
+    height: 3.5rem;
+    background-image: radial-gradient(hsl(var(--primary) / 0.18) 1.5px, transparent 1.5px);
+    background-size: 0.6875rem 0.6875rem;
+    pointer-events: none;
+  }
+
+  /* big serif stat number */
+  .stat-num {
+    font-family: var(--font-serif);
+    font-size: clamp(3.5rem, 8vw, 5.75rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    color: hsl(var(--primary));
+    font-weight: 600;
   }
 }
 

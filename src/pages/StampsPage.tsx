@@ -1,7 +1,8 @@
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Trash2, Loader2, Navigation, MapPin } from "lucide-react";
+import { X, Camera, Trash2, Loader2, Navigation, MapPin, Check } from "lucide-react";
+import { Eyebrow, DisplayHeading, EditorialFigure, Pill, StatBlock } from "@/components/editorial";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -305,45 +306,116 @@ const StampsPage = () => {
     window.open(url, "_blank");
   };
 
+  // Derived progress for the editorial hero
+  const completedStamps = itineraryState.filter((i) => i.isPast).length;
+  const totalStamps = itineraryState.length;
+  const nextStop = itineraryState.find((i) => !i.isPast);
+
   return (
     <>
       <Helmet>
         <title>Stamp Collection - Your Special Day</title>
         <meta name="description" content="View your collected adventure stamps" />
       </Helmet>
-      
+
       <main className="overflow-x-hidden pt-16 md:pt-20">
-        {/* Page Header */}
-        <section className="py-12 md:py-20 bg-gradient-romantic">
-          <div className="container px-6">
+        {/* Editorial hero */}
+        <section className="py-14 md:py-24">
+          <div className="container px-6 grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-20 items-center">
             <motion.div
-              className="text-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-                <span className="text-gradient-romantic">Stamp Collection</span>
-              </h1>
-              <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto">
-                Collect stamps as you complete each adventure to unlock coupons as rewards!
+              <Eyebrow no="Nº 01">The Itinerary</Eyebrow>
+              <DisplayHeading className="mt-4">
+                Every <em>stop</em> we make becomes <strong>a stamp</strong> we keep
+                <span className="dot-accent">.</span>
+              </DisplayHeading>
+              <p className="text-lg text-muted-foreground max-w-[52ch] mt-6">
+                Check in at each place along the way. Snap a memory, press the stamp, and
+                watch the day fill in — every checkpoint unlocks a little reward.
               </p>
             </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              <EditorialFigure
+                src="/images/gallery/pic1.JPG"
+                alt="A moment from your special day"
+                dotGrid="tl"
+                aspectClassName="aspect-square"
+                annotate={
+                  <>
+                    {totalStamps} stops,
+                    <br />
+                    one day worth
+                    <br />
+                    keeping.
+                  </>
+                }
+                caption="Your special day"
+              >
+                {/* floating keepsake card — live progress */}
+                <div className="absolute right-3 -bottom-6 w-[15rem] bg-card border border-border rounded-2xl p-[18px] shadow-romantic hidden lg:block">
+                  <Eyebrow className="mb-2.5">Today</Eyebrow>
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-serif font-bold text-rose text-[40px] leading-none">
+                      {completedStamps}
+                      <span className="text-muted-foreground text-xl">/{totalStamps}</span>
+                    </span>
+                    <Pill variant="rose" icon={<Check />}>
+                      Stamped
+                    </Pill>
+                  </div>
+                  {nextStop && (
+                    <p className="font-mono text-[11px] text-muted-foreground mt-2">
+                      Next: {nextStop.title}, {nextStop.time}
+                    </p>
+                  )}
+                </div>
+              </EditorialFigure>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Progress stats */}
+        <section className="py-12 md:py-16 border-t border-border">
+          <div className="container px-6">
+            <Eyebrow className="mb-10">By the day <span className="no">· so far</span></Eyebrow>
+            <div className="grid sm:grid-cols-3 gap-10">
+              <StatBlock
+                value={completedStamps}
+                unit={`/ ${totalStamps}`}
+                label="stamps collected — keep going, the day's just warming up."
+              />
+              <StatBlock
+                value={totalStamps - completedStamps}
+                label="checkpoints still ahead of you today."
+              />
+              <StatBlock
+                value={`${totalStamps ? Math.round((completedStamps / totalStamps) * 100) : 0}%`}
+                label="of the day complete and stamped in."
+              />
+            </div>
           </div>
         </section>
 
         {/* Loading State */}
         {isLoadingStamps ? (
-          <div className="min-h-[400px] flex items-center justify-center bg-[hsl(35_40%_85%)]">
+          <div className="min-h-[400px] flex items-center justify-center bg-background">
             <motion.div
               className="text-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <Loader2 className="mx-auto mb-4 text-[hsl(15_70%_40%)] w-8 h-8 animate-spin" />
-              <p className="font-pixel text-sm md:text-base text-[hsl(15_60%_35%)]">
-                Loading your stamps...
+              <Loader2 className="mx-auto mb-4 text-primary w-8 h-8 animate-spin" />
+              <p className="font-mono text-sm uppercase tracking-wide text-muted-foreground">
+                Loading your stamps…
               </p>
             </motion.div>
           </div>
@@ -380,248 +452,221 @@ const StampsPage = () => {
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.8, y: 20 }}
               >
-                {/* Pixel border frame - Pasar Seni theme */}
-                <div className="relative bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] p-1" style={{ imageRendering: "pixelated" }}>
-                  {/* Inner border */}
-                  <div className="border-2 border-[hsl(30_50%_60%)] p-4">
-                    {/* Close button */}
-                    <button
-                      onClick={() => {
-                        setSelectedEvent(null);
-                        setLocationError(null);
-                      }}
-                      className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-[hsl(0_60%_50%)] border-2 border-[hsl(0_50%_40%)] hover:bg-[hsl(0_60%_60%)] transition-colors"
-                    >
-                      <X className="w-4 h-4 text-[hsl(0_0%_100%)]" />
-                    </button>
+                {/* Editorial modal card */}
+                <div className="relative bg-card border border-border rounded-2xl p-6 md:p-7 shadow-romantic">
+                  {/* Close button */}
+                  <button
+                    onClick={() => {
+                      setSelectedEvent(null);
+                      setLocationError(null);
+                    }}
+                    className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
 
-                    {/* Content */}
-                    <div className="text-center">
-                      {/* Sprite preview or Evidence Image */}
-                      <div className="w-16 h-16 mx-auto mb-4">
-                        {(() => {
-                          const eventIndex = itineraryState.findIndex(item => 
-                            item.time === selectedEvent.time && 
-                            item.title === selectedEvent.title
-                          );
-                          const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
-                          const SpriteComponent = sprites[selectedEvent.sprite];
-                          
-                          // Show evidence image if available and stamp is completed
-                          if (currentItem.isPast && currentItem.imageUrl) {
-                            return (
-                              <img
-                                src={currentItem.imageUrl}
-                                alt={currentItem.title}
-                                className="w-full h-full object-cover rounded border-2 border-[hsl(15_70%_55%)]"
-                                style={{ imageRendering: "pixelated" }}
-                                onError={(e) => {
-                                  // Fallback to sprite if image fails to load
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = "none";
-                                }}
-                              />
-                            );
-                          }
-                          
-                          return <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />;
-                        })()}
-                      </div>
-
-                      {/* Time badge */}
-                      <div className="inline-block bg-[hsl(var(--primary))] px-3 py-1 mb-3">
-                        <span className="font-pixel text-[10px] text-[hsl(var(--primary-foreground))]">
-                          {selectedEvent.time}
-                        </span>
-                      </div>
-
-                      {/* Title */}
-                      <h3 
-                        className="font-pixel text-sm md:text-base text-[hsl(15_70%_40%)] mb-4"
-                        style={{ 
-                          textRendering: "optimizeSpeed",
-                          WebkitFontSmoothing: "none",
-                          MozOsxFontSmoothing: "unset",
-                          fontSmooth: "never",
-                          letterSpacing: "0.05em"
-                        }}
-                      >
-                        {selectedEvent.title}
-                      </h3>
-
-                      {/* Description */}
-                      <p 
-                        className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)] leading-relaxed mb-4"
-                        style={{ 
-                          textRendering: "optimizeSpeed",
-                          WebkitFontSmoothing: "none",
-                          MozOsxFontSmoothing: "unset",
-                          fontSmooth: "never",
-                          letterSpacing: "0.05em"
-                        }}
-                      >
-                        {selectedEvent.description}
-                      </p>
-
-                      {/* Photos section */}
-                      {checkpointPhotos.length > 0 && (
-                        <div className="mb-4">
-                          <p
-                            className="font-pixel text-[8px] md:text-[10px] text-[hsl(15_60%_35%)] mb-2"
-                            style={{ textRendering: "optimizeSpeed" }}
-                          >
-                            Memories ({checkpointPhotos.length})
-                          </p>
-                          <div className="grid grid-cols-3 gap-2">
-                            {checkpointPhotos.slice(0, 6).map((photo) => (
-                              <div
-                                key={photo.id}
-                                className="relative aspect-square bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] overflow-hidden group"
-                              >
-                                <img
-                                  src={photo.storageUrl || photo.src}
-                                  alt={photo.caption || "Memory"}
-                                  className="w-full h-full object-cover"
-                                  style={{ imageRendering: "pixelated" }}
-                                  onError={(e) => {
-                                    // Fallback to local src if storage URL fails
-                                    const target = e.target as HTMLImageElement;
-                                    if (photo.storageUrl && target.src !== photo.src) {
-                                      target.src = photo.src;
-                                    }
-                                  }}
-                                />
-                                {/* Delete button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeletePhoto(photo.id);
-                                  }}
-                                  disabled={deletingPhotoId === photo.id}
-                                  className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-wait"
-                                  title="Delete photo"
-                                >
-                                  {deletingPhotoId === photo.id ? (
-                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <Trash2 className="w-3 h-3" />
-                                  )}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Add Photo and Navigate buttons - side by side */}
-                      <div className="flex gap-2 mb-4">
-                        {/* Navigate dropdown - only show if location exists */}
-                        {selectedEvent.location && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <motion.button
-                                className="flex-1 px-4 py-3 md:py-4 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(280_60%_55%)] border-[hsl(280_50%_45%)] text-white hover:bg-[hsl(280_60%_60%)] transition-all flex items-center justify-center gap-2"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                <Navigation className="w-4 h-4" />
-                                Navigate
-                              </motion.button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="start"
-                              className="min-w-[11rem] border-2 border-[hsl(30_50%_60%)] bg-[hsl(35_45%_92%)]"
-                            >
-                              <DropdownMenuItem
-                                onClick={() => handleOpenNavigate("google")}
-                                className="font-pixel text-xs cursor-pointer focus:bg-[hsl(280_40%_90%)]"
-                              >
-                                <MapPin className="w-4 h-4 mr-2" />
-                                Open in Google Maps
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleOpenNavigate("waze")}
-                                className="font-pixel text-xs cursor-pointer focus:bg-[hsl(280_40%_90%)]"
-                              >
-                                <Navigation className="w-4 h-4 mr-2" />
-                                Open in Waze
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-
-                        <motion.button
-                          onClick={() => setShowPhotoCapture(true)}
-                          className="flex-1 px-4 py-3 md:py-4 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(200_60%_55%)] border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-all flex items-center justify-center gap-2"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <Camera className="w-4 h-4" />
-                          Add Photo
-                        </motion.button>
-                      </div>
-
-                      {/* Location error message */}
-                      {locationError && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="mb-4 p-3 bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] rounded-lg"
-                        >
-                          <p 
-                            className="font-pixel text-[8px] md:text-[10px] text-white text-center"
-                            style={{ 
-                              textRendering: "optimizeSpeed",
-                              WebkitFontSmoothing: "none",
-                              MozOsxFontSmoothing: "unset",
-                              fontSmooth: "never",
-                            }}
-                          >
-                            {locationError}
-                          </p>
-                        </motion.div>
-                      )}
-
-                      {/* Done button */}
+                  {/* Content */}
+                  <div>
+                    {/* Sprite preview or Evidence Image */}
+                    <div className="w-20 h-20 mb-4 rounded-xl border border-border bg-foreground/5 grid place-items-center overflow-hidden">
                       {(() => {
-                        const eventIndex = itineraryState.findIndex(item => 
-                          item.time === selectedEvent.time && 
+                        const eventIndex = itineraryState.findIndex(item =>
+                          item.time === selectedEvent.time &&
                           item.title === selectedEvent.title
                         );
-                        const isAlreadyDone = eventIndex >= 0 && itineraryState[eventIndex].isPast;
-                        const hasLocation = eventIndex >= 0 && itineraryState[eventIndex].location;
-                        
+                        const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
+                        const SpriteComponent = sprites[selectedEvent.sprite];
+
+                        // Show evidence image if available and stamp is completed
+                        if (currentItem.isPast && currentItem.imageUrl) {
+                          return (
+                            <img
+                              src={currentItem.imageUrl}
+                              alt={currentItem.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to sprite if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = "none";
+                              }}
+                            />
+                          );
+                        }
+
                         return (
-                          <motion.button
-                            onClick={() => {
-                              if (eventIndex >= 0 && !isAlreadyDone) {
-                                handleMarkAsDone(eventIndex);
-                              } else {
-                                setSelectedEvent(null);
-                              }
-                            }}
-                            className={`w-full px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 transition-all ${
-                              isAlreadyDone
-                                ? "bg-[hsl(120_50%_50%)] border-[hsl(120_40%_40%)] text-white cursor-default"
-                                : isCheckingLocation
-                                ? "bg-[hsl(30_50%_60%)] border-[hsl(30_40%_50%)] text-white cursor-wait"
-                                : "bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] hover:scale-105 active:scale-95"
-                            }`}
-                            whileHover={!isAlreadyDone && !isCheckingLocation ? { scale: 1.05 } : {}}
-                            whileTap={!isAlreadyDone && !isCheckingLocation ? { scale: 0.95 } : {}}
-                            disabled={isAlreadyDone || isCheckingLocation}
-                          >
-                            {isAlreadyDone 
-                              ? "✓ Completed" 
-                              : isCheckingLocation 
-                              ? "Checking Location..." 
-                              : hasLocation
-                              ? "check in (Location Required)"
-                              : "check in"}
-                          </motion.button>
+                          <div className="w-12 h-12">
+                            <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />
+                          </div>
                         );
                       })()}
                     </div>
+
+                    {/* Time pill + location */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Pill variant="rose">{selectedEvent.time}</Pill>
+                      {selectedEvent.location && (
+                        <Pill variant="tag" icon={<MapPin />}>
+                          Location set
+                        </Pill>
+                      )}
+                    </div>
+
+                    {/* Title */}
+                    <DisplayHeading as="h2" className="text-2xl md:text-3xl mb-3">
+                      {selectedEvent.title}
+                    </DisplayHeading>
+
+                    {/* Description */}
+                    <p className="text-muted-foreground leading-relaxed mb-5">
+                      {selectedEvent.description}
+                    </p>
+
+                    {/* Photos section */}
+                    {checkpointPhotos.length > 0 && (
+                      <div className="mb-5">
+                        <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+                          Memories ({checkpointPhotos.length})
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {checkpointPhotos.slice(0, 6).map((photo) => (
+                            <div
+                              key={photo.id}
+                              className="relative aspect-square rounded-lg border border-border bg-foreground/5 overflow-hidden group"
+                            >
+                              <img
+                                src={photo.storageUrl || photo.src}
+                                alt={photo.caption || "Memory"}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback to local src if storage URL fails
+                                  const target = e.target as HTMLImageElement;
+                                  if (photo.storageUrl && target.src !== photo.src) {
+                                    target.src = photo.src;
+                                  }
+                                }}
+                              />
+                              {/* Delete button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePhoto(photo.id);
+                                }}
+                                disabled={deletingPhotoId === photo.id}
+                                className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground hover:brightness-110 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-wait"
+                                title="Delete photo"
+                              >
+                                {deletingPhotoId === photo.id ? (
+                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add Photo and Navigate buttons - side by side */}
+                    <div className="flex gap-2 mb-4">
+                      {/* Navigate dropdown - only show if location exists */}
+                      {selectedEvent.location && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <motion.button
+                              className="flex-1 px-4 py-3 text-sm font-medium rounded-[10px] border border-border text-foreground hover:border-foreground transition-all flex items-center justify-center gap-2"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.97 }}
+                            >
+                              <Navigation className="w-4 h-4" />
+                              Navigate
+                            </motion.button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="start"
+                            className="min-w-[11rem] border border-border bg-popover"
+                          >
+                            <DropdownMenuItem
+                              onClick={() => handleOpenNavigate("google")}
+                              className="text-sm cursor-pointer"
+                            >
+                              <MapPin className="w-4 h-4 mr-2" />
+                              Open in Google Maps
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleOpenNavigate("waze")}
+                              className="text-sm cursor-pointer"
+                            >
+                              <Navigation className="w-4 h-4 mr-2" />
+                              Open in Waze
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+
+                      <motion.button
+                        onClick={() => setShowPhotoCapture(true)}
+                        className="flex-1 px-4 py-3 text-sm font-medium rounded-[10px] border border-border text-foreground hover:border-foreground transition-all flex items-center justify-center gap-2"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                      >
+                        <Camera className="w-4 h-4" />
+                        Add Photo
+                      </motion.button>
+                    </div>
+
+                    {/* Location error message */}
+                    {locationError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30"
+                      >
+                        <p className="text-sm text-destructive text-center">
+                          {locationError}
+                        </p>
+                      </motion.div>
+                    )}
+
+                    {/* Done button */}
+                    {(() => {
+                      const eventIndex = itineraryState.findIndex(item =>
+                        item.time === selectedEvent.time &&
+                        item.title === selectedEvent.title
+                      );
+                      const isAlreadyDone = eventIndex >= 0 && itineraryState[eventIndex].isPast;
+                      const hasLocation = eventIndex >= 0 && itineraryState[eventIndex].location;
+
+                      return (
+                        <motion.button
+                          onClick={() => {
+                            if (eventIndex >= 0 && !isAlreadyDone) {
+                              handleMarkAsDone(eventIndex);
+                            } else {
+                              setSelectedEvent(null);
+                            }
+                          }}
+                          className={`w-full px-6 py-3 text-base font-medium rounded-[10px] border transition-all flex items-center justify-center gap-2 ${
+                            isAlreadyDone
+                              ? "bg-green-500 border-green-500 text-white cursor-default"
+                              : isCheckingLocation
+                              ? "bg-muted border-border text-muted-foreground cursor-wait"
+                              : "bg-rose border-rose text-white hover:brightness-95"
+                          }`}
+                          whileHover={!isAlreadyDone && !isCheckingLocation ? { scale: 1.02 } : {}}
+                          whileTap={!isAlreadyDone && !isCheckingLocation ? { scale: 0.97 } : {}}
+                          disabled={isAlreadyDone || isCheckingLocation}
+                        >
+                          {isAlreadyDone
+                            ? <><Check className="w-4 h-4" /> Completed</>
+                            : isCheckingLocation
+                            ? "Checking location…"
+                            : hasLocation
+                            ? "Check in (location required)"
+                            : "Check in"}
+                        </motion.button>
+                      );
+                    })()}
                   </div>
                 </div>
               </motion.div>

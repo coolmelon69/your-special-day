@@ -57,6 +57,10 @@ export default {
   				light: 'hsl(var(--periwinkle-light))'
   			},
   			lavender: 'hsl(var(--lavender))',
+  			rose: {
+  				DEFAULT: 'hsl(var(--rose))',
+  				light: 'hsl(var(--rose-light))'
+  			},
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
