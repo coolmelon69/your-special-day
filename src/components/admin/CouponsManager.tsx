@@ -32,6 +32,16 @@ import {
 } from "@/utils/adminStorage";
 import { loadCustomCouponsResult, loadGlobalAdminSettings } from "@/utils/supabaseSync";
 import { getCurrentUser } from "@/utils/auth";
+import { Pill } from "@/components/editorial";
+
+// Shared editorial field styles
+const inputCls =
+  "w-full px-3 py-2 text-sm rounded-[10px] border border-border bg-card text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition";
+const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5";
+const iconBtnCls =
+  "w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors flex-shrink-0";
+const iconBtnDanger =
+  "w-8 h-8 flex items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0";
 
 const DEFAULT_COUPONS = [
   {
@@ -136,89 +146,58 @@ function SortableCouponRow({
     <motion.div
       ref={setNodeRef}
       style={style}
-      className={`bg-gradient-to-br ${coupon.color} rounded-lg p-4 text-white relative flex items-start gap-2 ${isDragging ? "opacity-90 z-50 shadow-lg" : ""}`}
+      className={`bg-card border border-border rounded-xl p-3 relative flex items-start gap-3 ${isDragging ? "opacity-90 z-50 shadow-romantic" : ""}`}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
     >
       <button
         type="button"
-        className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 p-1 mt-0.5 text-white/80 hover:text-white"
+        className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 p-1 mt-1 text-muted-foreground hover:text-foreground"
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
       >
         <GripVertical className="w-4 h-4" />
       </button>
+      <div className={`w-11 h-11 flex-shrink-0 rounded-lg grid place-items-center text-2xl bg-gradient-to-br ${coupon.color}`}>
+        {coupon.emoji}
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-3 gap-2">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
-            <div className="min-w-0 flex-1">
-              <h4
-                className="font-pixel text-sm md:text-base font-bold mb-1.5 truncate"
-                style={{ textRendering: "optimizeSpeed" }}
-              >
-                {coupon.title}
-              </h4>
-              {coupon.category && (
-                <span
-                  className="font-pixel text-[8px] uppercase tracking-wider bg-white/25 backdrop-blur-sm px-2 py-1 rounded inline-block"
-                  style={{ textRendering: "optimizeSpeed" }}
-                >
-                  {coupon.category}
-                </span>
-              )}
-            </div>
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h4 className="font-medium text-sm text-foreground truncate">{coupon.title}</h4>
+            {coupon.category && <Pill variant="rose" className="capitalize">{coupon.category}</Pill>}
+            <Pill variant={isDefault ? "accent" : "done"}>{isDefault ? "Default" : "Custom"}</Pill>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span
-              className="font-pixel text-[7px] bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
-              {isDefault ? "DEFAULT" : "CUSTOM"}
-            </span>
             {isDefault && (
               <button
                 type="button"
                 onClick={(e) => onToggleDefault(e, (coupon as DefaultCoupon).id)}
-                className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
+                className={iconBtnDanger}
                 title="Hide coupon"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-4 h-4" />
               </button>
             )}
             {!isDefault && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => onEdit(coupon as CustomCoupon)}
-                  className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
-                  title="Edit"
-                >
-                  <Edit className="w-3 h-3" />
+              <>
+                <button onClick={() => onEdit(coupon as CustomCoupon)} className={iconBtnCls} title="Edit">
+                  <Edit className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => onDelete((coupon as CustomCoupon).id)}
-                  className="w-6 h-6 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded"
-                  title="Delete"
-                >
-                  <Trash2 className="w-3 h-3" />
+                <button onClick={() => onDelete((coupon as CustomCoupon).id)} className={iconBtnDanger} title="Delete">
+                  <Trash2 className="w-4 h-4" />
                 </button>
-              </div>
+              </>
             )}
           </div>
         </div>
-        <p
-          className="font-pixel text-[10px] md:text-[11px] mb-3 opacity-95 line-clamp-2 leading-relaxed"
-          style={{ textRendering: "optimizeSpeed" }}
-        >
+        <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
           {coupon.description}
         </p>
-        <div
-          className="font-pixel text-[9px] md:text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2 py-1 rounded inline-block"
-          style={{ textRendering: "optimizeSpeed" }}
-        >
+        <span className="font-mono text-[11px] text-muted-foreground">
           Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
-        </div>
+        </span>
       </div>
     </motion.div>
   );
@@ -488,12 +467,7 @@ const CouponsManager = () => {
   if (isLoading) {
     return (
       <div className="text-center py-8">
-        <p
-          className="font-pixel text-sm text-[hsl(15_60%_35%)]"
-          style={{ textRendering: "optimizeSpeed" }}
-        >
-          Loading...
-        </p>
+        <p className="font-mono text-sm uppercase tracking-wide text-muted-foreground">Loading…</p>
       </div>
     );
   }
@@ -504,45 +478,29 @@ const CouponsManager = () => {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2
-          className="font-pixel text-lg md:text-xl text-[hsl(15_70%_40%)]"
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Coupons ({DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).length + coupons.length})
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-serif text-2xl font-bold text-foreground">
+          Coupons <span className="text-muted-foreground">({DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).length + coupons.length})</span>
         </h2>
         <motion.button
           onClick={handleAddNew}
-          className="px-4 py-2 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all flex items-center gap-2"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="px-4 py-2 text-sm font-medium rounded-[10px] bg-primary text-primary-foreground hover:brightness-95 transition-all flex items-center gap-2"
+          whileTap={{ scale: 0.97 }}
         >
           <Plus className="w-4 h-4" />
-          Add New
+          Add new
         </motion.button>
       </div>
-      <p
-        className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-4 opacity-75"
-        style={{ textRendering: "optimizeSpeed" }}
-      >
+      <p className="text-sm text-muted-foreground mb-5">
         Manage all coupons. Default coupons can be hidden, custom coupons can be edited or deleted.
       </p>
 
       {/* All Coupons Section - Merged */}
       <div className="mb-6">
         {DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).length === 0 && coupons.length === 0 && !showForm ? (
-          <div className="text-center py-4 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] rounded-lg">
-            <p
-              className="font-pixel text-xs text-[hsl(15_60%_35%)]"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
-              No coupons available. Click "Add New" to create a custom coupon.
+          <div className="text-center py-6 bg-muted/30 border border-border rounded-xl">
+            <p className="text-sm text-muted-foreground">
+              No coupons available. Click "Add new" to create a custom coupon.
             </p>
           </div>
         ) : (
@@ -573,9 +531,9 @@ const CouponsManager = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <GripVertical className="w-4 h-4 flex-shrink-0 opacity-80" />
                       <span className="text-2xl flex-shrink-0">{coupon.emoji}</span>
-                      <span className="font-pixel text-sm font-bold truncate">{coupon.title}</span>
+                      <span className="text-sm font-semibold truncate">{coupon.title}</span>
                     </div>
-                    <p className="font-pixel text-[10px] opacity-95 line-clamp-2">{coupon.description}</p>
+                    <p className="text-[11px] opacity-95 line-clamp-2">{coupon.description}</p>
                   </div>
                 );
               })() : null}
@@ -588,186 +546,144 @@ const CouponsManager = () => {
       <AnimatePresence>
         {showForm && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[hsl(0_0%_0%)] bg-opacity-70"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="relative w-full max-w-md bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] p-1 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-md bg-card border border-border rounded-2xl p-6 max-h-[90vh] overflow-y-auto shadow-romantic"
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 20 }}
             >
-              <div className="border-2 border-[hsl(30_50%_60%)] p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3
-                    className="font-pixel text-base md:text-lg text-[hsl(15_70%_40%)]"
-                    style={{
-                      textRendering: "optimizeSpeed",
-                      WebkitFontSmoothing: "none",
-                      MozOsxFontSmoothing: "unset",
-                      fontSmooth: "never",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    {editingCoupon ? "Edit Coupon" : "New Coupon"}
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setShowForm(false);
-                      setEditingCoupon(null);
-                      // Reset form data when closing
-                      setFormData({
-                        title: "",
-                        description: "",
-                        emoji: "🎁",
-                        color: "from-pink-400 to-rose-500",
-                        requiredStamps: "1",
-                        category: "",
-                      });
-                    }}
-                    className="w-8 h-8 flex items-center justify-center bg-[hsl(0_60%_50%)] border-2 border-[hsl(0_50%_40%)] text-white hover:bg-[hsl(0_60%_60%)] transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="font-serif text-xl font-bold text-foreground">
+                  {editingCoupon ? "Edit coupon" : "New coupon"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingCoupon(null);
+                    // Reset form data when closing
+                    setFormData({
+                      title: "",
+                      description: "",
+                      emoji: "🎁",
+                      color: "from-pink-400 to-rose-500",
+                      requiredStamps: "1",
+                      category: "",
+                    });
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Title */}
+                <div>
+                  <label className={labelCls}>Title *</label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Free Zoo Entry"
+                    className={inputCls}
+                    required
+                  />
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Title */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="Free Zoo Entry"
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      required
-                    />
-                  </div>
+                {/* Description */}
+                <div>
+                  <label className={labelCls}>Description *</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="A fun day exploring together!"
+                    rows={3}
+                    className={`${inputCls} resize-none`}
+                    required
+                  />
+                </div>
 
-                  {/* Description */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Description *
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="A fun day exploring together!"
-                      rows={3}
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)] resize-none"
-                      required
-                    />
-                  </div>
+                {/* Emoji */}
+                <div>
+                  <label className={labelCls}>Emoji *</label>
+                  <input
+                    type="text"
+                    value={formData.emoji || ""}
+                    onChange={(e) => {
+                      // Always update with the actual input value, allowing empty strings to clear
+                      setFormData({ ...formData, emoji: e.target.value });
+                    }}
+                    placeholder="🎁"
+                    maxLength={2}
+                    className={`${inputCls} text-2xl text-center`}
+                    required
+                  />
+                </div>
 
-                  {/* Emoji */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Emoji *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.emoji || ""}
-                      onChange={(e) => {
-                        // Always update with the actual input value, allowing empty strings to clear
-                        setFormData({ ...formData, emoji: e.target.value });
-                      }}
-                      placeholder="🎁"
-                      maxLength={2}
-                      className="w-full px-3 py-2 font-pixel text-2xl bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-center focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      required
-                    />
-                  </div>
-
-                  {/* Color */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Color Gradient *
-                    </label>
-                    <select
-                      value={formData.color}
-                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      required
-                    >
-                      {COLOR_PRESETS.map((preset) => (
-                        <option key={preset.value} value={preset.value}>
-                          {preset.label}
-                        </option>
-                      ))}
-                    </select>
-                    {/* Color preview */}
-                    <div className={`mt-2 h-8 rounded border-2 border-[hsl(30_40%_60%)] bg-gradient-to-r ${formData.color}`} />
-                  </div>
-
-                  {/* Required Stamps */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Required Stamps *
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.requiredStamps}
-                      onChange={(e) => setFormData({ ...formData, requiredStamps: e.target.value })}
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      required
-                    />
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Category (Optional)
-                    </label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                    >
-                      <option value="">None</option>
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Submit button */}
-                  <motion.button
-                    type="submit"
-                    className="w-full px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all flex items-center justify-center gap-2"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                {/* Color */}
+                <div>
+                  <label className={labelCls}>Color gradient *</label>
+                  <select
+                    value={formData.color}
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                    className={inputCls}
+                    required
                   >
-                    <Save className="w-4 h-4" />
-                    {editingCoupon ? "Update Coupon" : "Create Coupon"}
-                  </motion.button>
-                </form>
-              </div>
+                    {COLOR_PRESETS.map((preset) => (
+                      <option key={preset.value} value={preset.value}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Color preview */}
+                  <div className={`mt-2 h-8 rounded-lg border border-border bg-gradient-to-r ${formData.color}`} />
+                </div>
+
+                {/* Required Stamps */}
+                <div>
+                  <label className={labelCls}>Required stamps *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.requiredStamps}
+                    onChange={(e) => setFormData({ ...formData, requiredStamps: e.target.value })}
+                    className={inputCls}
+                    required
+                  />
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className={labelCls}>Category (optional)</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">None</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Submit button */}
+                <motion.button
+                  type="submit"
+                  className="w-full px-6 py-3 text-sm font-medium rounded-[10px] bg-primary text-primary-foreground hover:brightness-95 transition-all flex items-center justify-center gap-2"
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Save className="w-4 h-4" />
+                  {editingCoupon ? "Update coupon" : "Create coupon"}
+                </motion.button>
+              </form>
             </motion.div>
           </motion.div>
         )}

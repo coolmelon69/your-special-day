@@ -34,8 +34,18 @@ import type { ItineraryItem } from "@/components/TimelineSection";
 import { loadCustomStampsResult, loadGlobalAdminSettings } from "@/utils/supabaseSync";
 import { saveCustomStampsToIndexedDB } from "@/utils/adminStorage";
 import { getCurrentUser } from "@/utils/auth";
+import { Pill } from "@/components/editorial";
 
 const AVAILABLE_SPRITES = Object.keys(sprites);
+
+// Shared editorial field styles
+const inputCls =
+  "w-full px-3 py-2 text-sm rounded-[10px] border border-border bg-card text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition";
+const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5";
+const iconBtnCls =
+  "w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors flex-shrink-0";
+const iconBtnDanger =
+  "w-8 h-8 flex items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0";
 
 type StampListItem =
   | { type: "default"; stamp: ItineraryItem; id: string }
@@ -114,62 +124,37 @@ function SortableStampRow({
     <motion.div
       ref={setNodeRef}
       style={style}
-      className={`bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3 ${isDragging ? "opacity-80 z-50 shadow-lg" : ""}`}
+      className={`bg-card border border-border p-3 rounded-xl flex items-center gap-3 ${isDragging ? "opacity-80 z-50 shadow-romantic" : ""}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
     >
       <button
         type="button"
-        className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 p-1 text-[hsl(15_60%_35%)] hover:text-[hsl(15_70%_45%)]"
+        className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 p-1 text-muted-foreground hover:text-foreground"
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
       >
         <GripVertical className="w-4 h-4" />
       </button>
-      <div className="w-10 h-10 flex-shrink-0">
+      <div className="w-11 h-11 flex-shrink-0 rounded-lg border border-border bg-foreground/5 grid place-items-center p-1.5">
         {SpriteComponent ? (
           <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
         ) : (
-          <div className="w-full h-full bg-[hsl(30_40%_60%)] flex items-center justify-center">
-            <span className="font-pixel text-xs">?</span>
-          </div>
+          <span className="text-xs text-muted-foreground">?</span>
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span
-            className="font-pixel text-[10px] md:text-xs bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded"
-            style={{ textRendering: "optimizeSpeed" }}
-          >
-            {stamp.time}
-          </span>
-          <h4
-            className="font-pixel text-xs text-[hsl(15_70%_40%)] truncate"
-            style={{ textRendering: "optimizeSpeed" }}
-          >
-            {stamp.title}
-          </h4>
-          <span
-            className={`font-pixel text-[8px] px-1.5 py-0.5 text-white rounded ${isDefault ? "bg-[hsl(200_60%_55%)]" : "bg-[hsl(142_60%_55%)]"}`}
-            style={{ textRendering: "optimizeSpeed" }}
-          >
-            {isDefault ? "DEFAULT" : "CUSTOM"}
-          </span>
+          <Pill variant="rose">{stamp.time}</Pill>
+          <h4 className="font-medium text-sm text-foreground truncate">{stamp.title}</h4>
+          <Pill variant={isDefault ? "accent" : "done"}>{isDefault ? "Default" : "Custom"}</Pill>
         </div>
-        <p
-          className="font-pixel text-[9px] text-[hsl(15_60%_35%)] line-clamp-1"
-          style={{ textRendering: "optimizeSpeed" }}
-        >
-          {stamp.description}
-        </p>
+        <p className="text-xs text-muted-foreground line-clamp-1">{stamp.description}</p>
         {customStamp?.location && (
           <div className="flex items-center gap-1 mt-1">
-            <MapPin className="w-3 h-3 text-[hsl(15_60%_35%)]" />
-            <span
-              className="font-pixel text-[8px] text-[hsl(15_60%_35%)]"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
+            <MapPin className="w-3 h-3 text-muted-foreground" />
+            <span className="font-mono text-[11px] text-muted-foreground">
               {customStamp.location.latitude.toFixed(4)}, {customStamp.location.longitude.toFixed(4)}
             </span>
           </div>
@@ -179,27 +164,19 @@ function SortableStampRow({
         <button
           type="button"
           onClick={(e) => onDeleteDefault(e, itineraryStamp.title)}
-          className="w-8 h-8 flex items-center justify-center border-2 transition-colors rounded flex-shrink-0 bg-[hsl(0_70%_50%)] border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)]"
+          className={iconBtnDanger}
           title="Delete stamp"
         >
-          <Trash2 className="w-3 h-3" />
+          <Trash2 className="w-4 h-4" />
         </button>
       )}
       {!isDefault && customStamp && (
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => onEdit(customStamp)}
-            className="w-8 h-8 flex items-center justify-center bg-[hsl(200_60%_55%)] border-2 border-[hsl(200_50%_45%)] text-white hover:bg-[hsl(200_60%_60%)] transition-colors"
-            title="Edit"
-          >
-            <Edit className="w-3 h-3" />
+          <button onClick={() => onEdit(customStamp)} className={iconBtnCls} title="Edit">
+            <Edit className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => onDelete(customStamp.id)}
-            className="w-8 h-8 flex items-center justify-center bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] text-white hover:bg-[hsl(0_70%_60%)] transition-colors"
-            title="Delete"
-          >
-            <Trash2 className="w-3 h-3" />
+          <button onClick={() => onDelete(customStamp.id)} className={iconBtnDanger} title="Delete">
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -444,12 +421,7 @@ const StampsManager = () => {
   if (isLoading) {
     return (
       <div className="text-center py-8">
-        <p
-          className="font-pixel text-sm text-[hsl(15_60%_35%)]"
-          style={{ textRendering: "optimizeSpeed" }}
-        >
-          Loading...
-        </p>
+        <p className="font-mono text-sm uppercase tracking-wide text-muted-foreground">Loading…</p>
       </div>
     );
   }
@@ -461,44 +433,28 @@ const StampsManager = () => {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2
-          className="font-pixel text-lg md:text-xl text-[hsl(15_70%_40%)]"
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-            letterSpacing: "0.05em",
-          }}
-        >
-          Stamps ({totalStampsCount})
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-serif text-2xl font-bold text-foreground">
+          Stamps <span className="text-muted-foreground">({totalStampsCount})</span>
         </h2>
         <motion.button
           onClick={handleAddNew}
-          className="px-4 py-2 font-pixel text-xs md:text-sm rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all flex items-center gap-2"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="px-4 py-2 text-sm font-medium rounded-[10px] bg-primary text-primary-foreground hover:brightness-95 transition-all flex items-center gap-2"
+          whileTap={{ scale: 0.97 }}
         >
           <Plus className="w-4 h-4" />
-          Add New
+          Add new
         </motion.button>
       </div>
-      <p
-        className="font-pixel text-xs text-[hsl(15_60%_35%)] mb-4 opacity-75"
-        style={{ textRendering: "optimizeSpeed" }}
-      >
+      <p className="text-sm text-muted-foreground mb-5">
         Add custom stamps with the button above. Default stamps can be deleted to remove them from the list.
       </p>
 
       {/* Single combined Stamps list */}
       <div className="mb-6">
         {totalStampsCount === 0 && !showForm ? (
-          <div className="text-center py-4 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] rounded-lg">
-            <p
-              className="font-pixel text-xs text-[hsl(15_60%_35%)]"
-              style={{ textRendering: "optimizeSpeed" }}
-            >
+          <div className="text-center py-6 bg-muted/30 border border-border rounded-xl">
+            <p className="text-sm text-muted-foreground">
               No stamps. Add a custom stamp or restore defaults (if you add a restore feature later).
             </p>
           </div>
@@ -524,24 +480,20 @@ const StampsManager = () => {
                 const SpriteComponent = sprites[item.stamp.sprite];
                 return (
                   <div
-                    className="bg-[hsl(35_30%_80%)] border-2 border-dashed border-[hsl(30_40%_60%)] p-3 rounded-lg flex items-center gap-3 opacity-90 shadow-xl cursor-grabbing"
+                    className="bg-card border border-dashed border-primary/40 p-3 rounded-xl flex items-center gap-3 opacity-95 cursor-grabbing"
                     style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.15)" }}
                   >
-                    <GripVertical className="w-4 h-4 flex-shrink-0 text-[hsl(15_60%_35%)]" />
-                    <div className="w-10 h-10 flex-shrink-0">
+                    <GripVertical className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                    <div className="w-11 h-11 flex-shrink-0 rounded-lg border border-border bg-foreground/5 grid place-items-center p-1.5">
                       {SpriteComponent ? (
                         <SpriteComponent isActive={item.stamp.isActive} isPast={item.stamp.isPast} />
                       ) : (
-                        <div className="w-full h-full bg-[hsl(30_40%_60%)] rounded flex items-center justify-center">
-                          <span className="font-pixel text-xs">?</span>
-                        </div>
+                        <span className="text-xs text-muted-foreground">?</span>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-pixel text-[10px] md:text-xs bg-[hsl(var(--primary))] px-2 py-0.5 text-[hsl(var(--primary-foreground))] rounded">
-                        {item.stamp.time}
-                      </span>
-                      <span className="font-pixel text-xs text-[hsl(15_70%_40%)] ml-2 truncate">{item.stamp.title}</span>
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <Pill variant="rose">{item.stamp.time}</Pill>
+                      <span className="font-medium text-sm text-foreground truncate">{item.stamp.title}</span>
                     </div>
                   </div>
                 );
@@ -555,230 +507,186 @@ const StampsManager = () => {
       <AnimatePresence>
         {showForm && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[hsl(0_0%_0%)] bg-opacity-70"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="relative w-full max-w-md bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] p-1 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-md bg-card border border-border rounded-2xl p-6 max-h-[90vh] overflow-y-auto shadow-romantic"
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 20 }}
             >
-              <div className="border-2 border-[hsl(30_50%_60%)] p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3
-                    className="font-pixel text-base md:text-lg text-[hsl(15_70%_40%)]"
-                    style={{
-                      textRendering: "optimizeSpeed",
-                      WebkitFontSmoothing: "none",
-                      MozOsxFontSmoothing: "unset",
-                      fontSmooth: "never",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    {editingStamp ? "Edit Stamp" : "New Stamp"}
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setShowForm(false);
-                      setEditingStamp(null);
-                      setIsSpriteDropdownOpen(false);
-                    }}
-                    className="w-8 h-8 flex items-center justify-center bg-[hsl(0_60%_50%)] border-2 border-[hsl(0_50%_40%)] text-white hover:bg-[hsl(0_60%_60%)] transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="font-serif text-xl font-bold text-foreground">
+                  {editingStamp ? "Edit stamp" : "New stamp"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingStamp(null);
+                    setIsSpriteDropdownOpen(false);
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Time */}
+                <div>
+                  <label className={labelCls}>Time *</label>
+                  <input
+                    type="text"
+                    value={formData.time}
+                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                    placeholder="9:00 AM"
+                    className={inputCls}
+                    required
+                  />
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Time */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Time *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.time}
-                      onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                      placeholder="9:00 AM"
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      required
-                    />
-                  </div>
+                {/* Title */}
+                <div>
+                  <label className={labelCls}>Title *</label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Breakfast Quest"
+                    className={inputCls}
+                    required
+                  />
+                </div>
 
-                  {/* Title */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="Breakfast Quest"
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      required
-                    />
-                  </div>
+                {/* Description */}
+                <div>
+                  <label className={labelCls}>Description *</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Wake up to your favorite breakfast..."
+                    rows={3}
+                    className={`${inputCls} resize-none`}
+                    required
+                  />
+                </div>
 
-                  {/* Description */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
+                {/* Sprite */}
+                <div>
+                  <label className={labelCls}>Sprite *</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsSpriteDropdownOpen(!isSpriteDropdownOpen)}
+                      className={`${inputCls} flex items-center gap-2`}
                     >
-                      Description *
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Wake up to your favorite breakfast..."
-                      rows={3}
-                      className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)] resize-none"
-                      required
-                    />
-                  </div>
-
-                  {/* Sprite */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Sprite *
-                    </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setIsSpriteDropdownOpen(!isSpriteDropdownOpen)}
-                        className="w-full px-3 py-2 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)] flex items-center gap-2"
-                        style={{ textRendering: "optimizeSpeed" }}
-                      >
-                        <div className="w-6 h-6 flex-shrink-0">
-                          {sprites[formData.sprite] && (
-                            <div className="w-full h-full">
-                              {(() => {
-                                const SpriteComponent = sprites[formData.sprite];
-                                return <SpriteComponent isActive={false} isPast={false} />;
-                              })()}
-                            </div>
-                          )}
-                        </div>
-                        <span className="flex-1 text-left">
-                          {formData.sprite.charAt(0).toUpperCase() + formData.sprite.slice(1)}
-                        </span>
-                        <span className="text-[hsl(15_60%_35%)]">▼</span>
-                      </button>
-                      <AnimatePresence>
-                        {isSpriteDropdownOpen && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-40"
-                              onClick={() => setIsSpriteDropdownOpen(false)}
-                            />
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute z-50 w-full mt-1 bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] rounded max-h-60 overflow-y-auto"
-                              style={{ imageRendering: "pixelated" }}
-                            >
-                              {AVAILABLE_SPRITES.map((sprite) => {
-                                const SpriteComponent = sprites[sprite];
-                                return (
-                                  <button
-                                    key={sprite}
-                                    type="button"
-                                    onClick={() => {
-                                      setFormData({ ...formData, sprite });
-                                      setIsSpriteDropdownOpen(false);
-                                    }}
-                                    className={`w-full px-3 py-2 font-pixel text-sm text-[hsl(15_60%_35%)] hover:bg-[hsl(35_40%_90%)] transition-colors flex items-center gap-2 ${
-                                      formData.sprite === sprite ? "bg-[hsl(15_70%_55%)] text-white" : ""
-                                    }`}
-                                    style={{ textRendering: "optimizeSpeed" }}
-                                  >
-                                    <div className="w-6 h-6 flex-shrink-0">
-                                      {SpriteComponent && (
-                                        <div className="w-full h-full">
-                                          <SpriteComponent isActive={false} isPast={false} />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <span className="flex-1 text-left">
-                                      {sprite.charAt(0).toUpperCase() + sprite.slice(1)}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </motion.div>
-                          </>
+                      <div className="w-6 h-6 flex-shrink-0">
+                        {sprites[formData.sprite] && (
+                          <div className="w-full h-full">
+                            {(() => {
+                              const SpriteComponent = sprites[formData.sprite];
+                              return <SpriteComponent isActive={false} isPast={false} />;
+                            })()}
+                          </div>
                         )}
-                      </AnimatePresence>
-                    </div>
+                      </div>
+                      <span className="flex-1 text-left">
+                        {formData.sprite.charAt(0).toUpperCase() + formData.sprite.slice(1)}
+                      </span>
+                      <span className="text-muted-foreground">▼</span>
+                    </button>
+                    <AnimatePresence>
+                      {isSpriteDropdownOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setIsSpriteDropdownOpen(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute z-50 w-full mt-1 bg-card border border-border rounded-[10px] max-h-60 overflow-y-auto shadow-romantic"
+                          >
+                            {AVAILABLE_SPRITES.map((sprite) => {
+                              const SpriteComponent = sprites[sprite];
+                              return (
+                                <button
+                                  key={sprite}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({ ...formData, sprite });
+                                    setIsSpriteDropdownOpen(false);
+                                  }}
+                                  className={`w-full px-3 py-2 text-sm transition-colors flex items-center gap-2 ${
+                                    formData.sprite === sprite
+                                      ? "bg-primary text-primary-foreground"
+                                      : "text-foreground hover:bg-muted/60"
+                                  }`}
+                                >
+                                  <div className="w-6 h-6 flex-shrink-0">
+                                    {SpriteComponent && (
+                                      <div className="w-full h-full">
+                                        <SpriteComponent isActive={false} isPast={false} />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="flex-1 text-left">
+                                    {sprite.charAt(0).toUpperCase() + sprite.slice(1)}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
                   </div>
+                </div>
 
-                  {/* Location (optional) */}
-                  <div>
-                    <label
-                      className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-1"
-                      style={{ textRendering: "optimizeSpeed" }}
-                    >
-                      Location (Optional)
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <input
-                          type="number"
-                          step="any"
-                          value={formData.latitude}
-                          onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                          placeholder="Latitude"
-                          className="w-full px-2 py-2 font-pixel text-xs bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          step="any"
-                          value={formData.longitude}
-                          onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                          placeholder="Longitude"
-                          className="w-full px-2 py-2 font-pixel text-xs bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          value={formData.radius}
-                          onChange={(e) => setFormData({ ...formData, radius: e.target.value })}
-                          placeholder="Radius (m)"
-                          className="w-full px-2 py-2 font-pixel text-xs bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                        />
-                      </div>
-                    </div>
+                {/* Location (optional) */}
+                <div>
+                  <label className={labelCls}>Location (optional)</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.latitude}
+                      onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                      placeholder="Latitude"
+                      className={inputCls}
+                    />
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.longitude}
+                      onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                      placeholder="Longitude"
+                      className={inputCls}
+                    />
+                    <input
+                      type="number"
+                      value={formData.radius}
+                      onChange={(e) => setFormData({ ...formData, radius: e.target.value })}
+                      placeholder="Radius (m)"
+                      className={inputCls}
+                    />
                   </div>
+                </div>
 
-                  {/* Submit button */}
-                  <motion.button
-                    type="submit"
-                    className="w-full px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all flex items-center justify-center gap-2"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Save className="w-4 h-4" />
-                    {editingStamp ? "Update Stamp" : "Create Stamp"}
-                  </motion.button>
-                </form>
-              </div>
+                {/* Submit button */}
+                <motion.button
+                  type="submit"
+                  className="w-full px-6 py-3 text-sm font-medium rounded-[10px] bg-primary text-primary-foreground hover:brightness-95 transition-all flex items-center justify-center gap-2"
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Save className="w-4 h-4" />
+                  {editingStamp ? "Update stamp" : "Create stamp"}
+                </motion.button>
+              </form>
             </motion.div>
           </motion.div>
         )}

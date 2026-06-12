@@ -44,108 +44,74 @@ const AdminLoginPage = () => {
       <Helmet>
         <title>Admin Login - Your Special Day</title>
       </Helmet>
-      <main className="min-h-screen flex items-center justify-center bg-[hsl(35_40%_85%)] pt-16 md:pt-20">
+      <main className="min-h-screen flex items-center justify-center bg-background px-4 pt-16 md:pt-20">
         <motion.div
-          className="w-full max-w-md mx-auto p-6"
+          className="w-full max-w-md mx-auto"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="bg-[hsl(35_40%_85%)] border-4 border-[hsl(15_60%_50%)] p-1">
-            <div className="border-2 border-[hsl(30_50%_60%)] p-6">
-              {/* Header */}
-              <div className="text-center mb-6">
-                <Lock className="mx-auto mb-4 text-[hsl(15_70%_40%)]" size={48} />
-                <h1
-                  className="font-pixel text-xl md:text-2xl text-[hsl(15_70%_40%)] mb-2"
-                  style={{
-                    textRendering: "optimizeSpeed",
-                    WebkitFontSmoothing: "none",
-                    MozOsxFontSmoothing: "unset",
-                    fontSmooth: "never",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  ADMIN PANEL
-                </h1>
-                <p
-                  className="font-pixel text-xs md:text-sm text-[hsl(15_60%_35%)]"
-                  style={{
-                    textRendering: "optimizeSpeed",
-                    WebkitFontSmoothing: "none",
-                    MozOsxFontSmoothing: "unset",
-                    fontSmooth: "never",
-                  }}
-                >
-                  Enter password to continue
-                </p>
+          <div className="bg-card border border-border rounded-2xl p-7 shadow-romantic">
+            {/* Header */}
+            <div className="mb-6">
+              <div className="w-10 h-10 grid place-items-center rounded-xl border border-border text-primary mb-4">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground mb-1.5">
+                Admin panel
+              </h1>
+              <p className="text-sm text-muted-foreground">Enter password to continue.</p>
+            </div>
+
+            {/* Error message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30 flex items-center gap-2"
+              >
+                <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0" />
+                <p className="text-sm text-destructive">{error}</p>
+              </motion.div>
+            )}
+
+            {/* Login form */}
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 pr-10 text-sm rounded-[10px] border border-border bg-card text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition"
+                    placeholder="Enter admin password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Error message */}
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 bg-[hsl(0_70%_50%)] border-2 border-[hsl(0_60%_40%)] rounded-lg flex items-center gap-2"
-                >
-                  <AlertCircle className="w-4 h-4 text-white flex-shrink-0" />
-                  <p
-                    className="font-pixel text-xs text-white"
-                    style={{
-                      textRendering: "optimizeSpeed",
-                      WebkitFontSmoothing: "none",
-                      MozOsxFontSmoothing: "unset",
-                      fontSmooth: "never",
-                    }}
-                  >
-                    {error}
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Login form */}
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label
-                    className="block font-pixel text-xs text-[hsl(15_60%_35%)] mb-2"
-                    style={{ textRendering: "optimizeSpeed" }}
-                  >
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-2 pr-10 font-pixel text-sm bg-[hsl(35_30%_80%)] border-2 border-[hsl(30_40%_60%)] text-[hsl(15_60%_35%)] focus:outline-none focus:border-[hsl(15_60%_50%)]"
-                      placeholder="Enter admin password"
-                      style={{ textRendering: "optimizeSpeed" }}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[hsl(15_60%_35%)] hover:text-[hsl(15_70%_50%)] transition-colors"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <motion.button
-                  type="submit"
-                  disabled={isLoading || !password}
-                  className="w-full px-6 py-3 font-pixel text-sm md:text-base rounded-lg border-2 bg-[hsl(15_70%_55%)] border-[hsl(15_60%_45%)] text-white hover:bg-[hsl(15_70%_60%)] transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center gap-2"
-                  whileHover={!isLoading && password ? { scale: 1.05 } : {}}
-                  whileTap={!isLoading && password ? { scale: 0.95 } : {}}
-                >
-                  {isLoading ? "Logging in..." : "Login"}
-                </motion.button>
-              </form>
-            </div>
+              <motion.button
+                type="submit"
+                disabled={isLoading || !password}
+                className="w-full px-6 py-3 text-sm font-medium rounded-[10px] bg-primary text-primary-foreground transition-all hover:brightness-95 disabled:opacity-50 disabled:cursor-wait flex items-center justify-center gap-2"
+                whileTap={!isLoading && password ? { scale: 0.97 } : {}}
+              >
+                {isLoading ? "Logging in…" : "Login"}
+              </motion.button>
+            </form>
           </div>
         </motion.div>
       </main>

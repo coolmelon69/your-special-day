@@ -22,13 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.od-skills
 
 # Environment variables
 .env
 .env.local
 .env.*.local
 kanban.md
-.od-skills/agent-browser-ff76ddd73c/SKILL.md
+.od-skills
 .od-skills/web-prototype-4ab6e4cb5f/SKILL.md
 .od-skills/web-prototype-4ab6e4cb5f/references/checklist.md
 design-direction-proposal.html
@@ -36,3 +37,7 @@ design-direction-proposal.html
 .od-skills/web-prototype-4ab6e4cb5f/open-design.json
 .od-skills/web-prototype-4ab6e4cb5f/assets/template.html
 .od-skills/web-prototype-4ab6e4cb5f/references/layouts.md
+.od-skills/web-prototype-4ab6e4cb5f/mockups/editorial-template.html
+.od-skills/web-prototype-4ab6e4cb5f/mockups/homepage-mockup.html
+.od-skills/web-prototype-4ab6e4cb5f/mockups/REDESIGN_ROADMAP.md
+.od-skills/web-prototype-4ab6e4cb5f/mockups/redesign-mockup.html

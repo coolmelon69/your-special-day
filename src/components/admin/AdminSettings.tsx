@@ -126,49 +126,26 @@ const AdminSettings = () => {
 
   return (
     <div className="space-y-6">
-      <h2
-        className="font-pixel text-lg md:text-xl text-[hsl(15_70%_40%)]"
-        style={{
-          textRendering: "optimizeSpeed",
-          WebkitFontSmoothing: "none",
-          MozOsxFontSmoothing: "unset",
-          fontSmooth: "never",
-          letterSpacing: "0.05em",
-        }}
-      >
-        Settings
-      </h2>
+      <h2 className="font-serif text-2xl font-bold text-foreground">Settings</h2>
 
       {/* Info */}
-      <div className="bg-[hsl(200_60%_55%)] border-2 border-[hsl(200_50%_45%)] p-4 rounded-lg flex items-start gap-2">
-        <AlertCircle className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-        <div>
-          <p
-            className="font-pixel text-xs text-white mb-1"
-            style={{ textRendering: "optimizeSpeed" }}
-          >
-            <strong>Note:</strong> Custom stamps and coupons are automatically shown together with
-            default items. They appear after the default items in the list.
-          </p>
-        </div>
+      <div className="bg-primary/8 border border-primary/20 p-4 rounded-xl flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-foreground">
+          <strong className="font-semibold">Note:</strong> Custom stamps and coupons are automatically
+          shown together with default items. They appear after the default items in the list.
+        </p>
       </div>
 
       {/* Reset Progress Button */}
-      <div className="flex justify-center">
+      <div className="flex justify-center pt-2">
         <motion.button
           onClick={handleResetAllProgress}
-          className="flex items-center gap-2 px-6 py-3 font-pixel text-xs md:text-sm rounded-lg border-2 transition-all bg-[hsl(0_60%_50%)] border-[hsl(0_50%_40%)] text-white hover:bg-[hsl(0_60%_60%)] hover:scale-105 active:scale-95"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            textRendering: "optimizeSpeed",
-            WebkitFontSmoothing: "none",
-            MozOsxFontSmoothing: "unset",
-            fontSmooth: "never",
-          }}
+          className="flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-[10px] border border-destructive bg-destructive text-destructive-foreground transition-all hover:brightness-95"
+          whileTap={{ scale: 0.97 }}
         >
           <RotateCcw className="w-4 h-4" />
-          <span>Reset All Progress</span>
+          <span>Reset all progress</span>
         </motion.button>
       </div>
     </div>
