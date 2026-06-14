@@ -162,7 +162,7 @@ const MemoryBookPage = () => {
               <Images className="text-primary" size={28} />
             </div>
             <h2 className="font-serif text-2xl font-semibold text-foreground mb-3">
-              No Memories Yet
+              No Memories Yet.
             </h2>
             <p className="font-sans font-light text-muted-foreground leading-relaxed">
               Start capturing photos at stamps to build your memory book — every adventure deserves a page.
