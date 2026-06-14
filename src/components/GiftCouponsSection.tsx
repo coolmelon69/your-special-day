@@ -453,7 +453,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             <EditorialFigure
-              src="/images/gallery/pic2.JPG"
+              src="/images/gallery/coupon.jpg"
               alt="A little promise, wrapped"
               dotGrid="br"
               aspectClassName="aspect-square"
