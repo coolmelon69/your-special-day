@@ -47,7 +47,7 @@ const EvidenceImage = ({
     <img
       src={imageUrl}
       alt={alt}
-      className="w-full h-full object-cover rounded-lg"
+      className="w-full h-full object-cover"
       onError={() => setImageError(true)}
     />
   );
@@ -194,21 +194,20 @@ const StampCollectionSection = ({
                   >
                     {/* Sprite Icon or Evidence Image */}
                     <div className={cn(
-                      "w-full aspect-square mb-3 flex-shrink-0 rounded-xl border grid place-items-center overflow-hidden p-3",
-                      isCompleted ? "bg-rose/10 border-rose/30" : "bg-foreground/5 border-border"
-                    )}>
-                      {isCompleted && item.imageUrl ? (
-                        // Show synced evidence image if available
-                        <EvidenceImage
-                          imageUrl={item.imageUrl}
-                          fallback={<div className="w-14 h-14"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>}
-                          alt={item.title}
-                        />
-                      ) : (
-                        // Show sprite icon if no image or not completed
-                        <div className="w-14 h-14"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>
-                      )}
-                    </div>
+                       "w-full aspect-square mb-3 flex-shrink-0 rounded-xl border overflow-hidden",
+                       isCompleted && item.imageUrl ? "" : "grid place-items-center p-3",
+                       isCompleted ? "bg-rose/10 border-rose/30" : "bg-foreground/5 border-border"
+                     )}>
+                       {isCompleted && item.imageUrl ? (
+                         <EvidenceImage
+                           imageUrl={item.imageUrl}
+                           fallback={<div className="w-14 h-14 grid place-items-center p-3"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>}
+                           alt={item.title}
+                         />
+                       ) : (
+                         <div className="w-14 h-14"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>
+                       )}
+                     </div>
 
                     {/* Time Badge */}
                     <div className="mb-2 flex-shrink-0 flex justify-center">

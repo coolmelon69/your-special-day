@@ -1,84 +1,80 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Play, Heart } from 'lucide-react';
+import { Eyebrow, DisplayHeading } from '@/components/editorial';
 
 const WrappedTeaserCard = () => {
   const navigate = useNavigate();
-
-  const handleClick = () => {
-    navigate('/wrapped');
-  };
+  const [imageError, setImageError] = useState(false);
 
   return (
     <motion.section
-      className="py-12 md:py-16"
+      className="py-12 md:py-20"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
     >
       <div className="container px-6">
         <motion.div
-          onClick={handleClick}
-          className="relative bg-gradient-to-r from-primary via-secondary to-primary rounded-3xl p-8 md:p-12 cursor-pointer overflow-hidden shadow-xl border-4 border-primary/30"
-          whileHover={{ scale: 1.02, y: -4 }}
-          whileTap={{ scale: 0.98 }}
+          onClick={() => navigate('/wrapped')}
+          className="group relative grid md:grid-cols-[1.1fr_0.9fr] overflow-hidden rounded-3xl border border-rose/40 bg-card shadow-romantic cursor-pointer"
+          whileHover={{ y: -4 }}
+          whileTap={{ scale: 0.99 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Decorative elements */}
-          <div className="absolute top-4 right-4">
-            <Sparkles className="text-white/30" size={32} />
-          </div>
-          <div className="absolute bottom-4 left-4">
-            <Sparkles className="text-white/20" size={24} />
+          {/* soft romantic wash */}
+          <div className="absolute inset-0 bg-gradient-romantic opacity-60 pointer-events-none" />
+
+          {/* Text side */}
+          <div className="relative z-10 p-8 md:p-12 flex flex-col justify-center">
+            <Eyebrow no="2025">Year in Review</Eyebrow>
+            <DisplayHeading as="h2" className="mt-4">
+              Your year, <em>wrapped</em>
+              <span className="dot-accent">.</span>
+            </DisplayHeading>
+            <p className="text-lg text-muted-foreground max-w-[44ch] mt-5">
+              Eleven little chapters of us — the turning point, the day it got official,
+              the days we've counted, and a promise or two. Press play.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4 mt-8">
+              <span className="inline-flex items-center gap-2 rounded-[10px] border border-rose bg-rose px-5 py-3 font-medium text-white transition-all group-hover:brightness-95">
+                <Play className="w-4 h-4 fill-white" /> Play your Wrapped
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                11 chapters · ~1 min
+              </span>
+            </div>
           </div>
 
-          {/* Animated background blob */}
-          <motion.div
-            className="absolute inset-0 opacity-20"
-            style={{
-              background: 'linear-gradient(135deg, hsl(340 65% 92%) 0%, hsl(30 50% 95%) 50%, hsl(143 30% 85%) 100%)',
-            }}
-            animate={{
-              x: [0, 50, -30, 0],
-              y: [0, -40, 30, 0],
-            }}
-            transition={{
-              duration: 15,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          />
+          {/* Visual side */}
+          <div className="relative z-10 min-h-[220px] md:min-h-0 p-6 md:p-8 flex items-center justify-center">
+            <div className="relative w-full max-w-[260px] aspect-[4/5]">
+              {/* story progress motif */}
+              <div className="absolute top-3 left-3 right-3 z-20 flex gap-1">
+                {[100, 60, 0, 0].map((w, i) => (
+                  <div key={i} className="flex-1 h-1 rounded-full bg-white/50 overflow-hidden">
+                    <div className="h-full rounded-full bg-rose" style={{ width: `${w}%` }} />
+                  </div>
+                ))}
+              </div>
 
-          {/* Content */}
-          <div className="relative z-10 text-center">
-            <motion.h2
-              className="font-sans text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-white"
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-            >
-              Your Year in Review is ready.
-            </motion.h2>
-            <motion.p
-              className="font-serif text-lg sm:text-xl md:text-2xl text-white/90 mb-6"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              Discover your relationship recap
-            </motion.p>
-            <motion.div
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full text-white font-medium"
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              <span className="font-sans text-base sm:text-lg">View Wrapped</span>
-              <ArrowRight className="w-5 h-5" />
-            </motion.div>
+              <span className="dotgrid -bottom-4 -right-4 z-0" />
+              <div className="w-full h-full rounded-2xl overflow-hidden border border-border bg-lilac-light grid place-items-center shadow-romantic">
+                {!imageError ? (
+                  <img
+                    src="/images/gallery/heart-anime.gif"
+                    alt="A peek at your Wrapped"
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <Heart className="w-16 h-16 text-rose/40" />
+                )}
+              </div>
+              <div className="figure-cap justify-center">A year of us</div>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -87,7 +83,3 @@ const WrappedTeaserCard = () => {
 };
 
 export default WrappedTeaserCard;
-
-
-
-

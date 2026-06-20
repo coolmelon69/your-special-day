@@ -1,7 +1,7 @@
 // Slide data configuration for Wrapped feature
 // Mock data and slide metadata
 
-export const RELATIONSHIP_START_DATE = new Date('2025-11-19T00:00:00');
+export const RELATIONSHIP_START_DATE = new Date('2026-05-01T00:00:00');
 
 export interface SlideConfig {
   id: string;

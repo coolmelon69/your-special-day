@@ -1,133 +1,97 @@
-import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { motion } from "framer-motion";
+import { useState } from "react";
+import { Eyebrow } from "@/components/editorial";
+import WrappedSlide from "../WrappedSlide";
+import { cn } from "@/lib/utils";
+
+interface SnapshotProps {
+  src: string;
+  alt: string;
+  className: string;
+  rotate: number;
+  delay: number;
+}
+
+/** A framed scrapbook photo with a soft card mat and graceful fallback. */
+const Snapshot = ({ src, alt, className, rotate, delay }: SnapshotProps) => {
+  const [error, setError] = useState(false);
+  return (
+    <motion.div
+      className={cn(
+        "absolute rounded-2xl border border-border bg-card p-1.5 shadow-romantic overflow-hidden",
+        className
+      )}
+      initial={{ opacity: 0, scale: 0.85, rotate: rotate * 2 }}
+      animate={{ opacity: 1, scale: 1, rotate }}
+      transition={{ duration: 0.7, delay, ease: "easeOut" }}
+    >
+      <div className="w-full h-full rounded-xl overflow-hidden bg-lilac-light grid place-items-center">
+        {!error ? (
+          <img src={src} alt={alt} className="w-full h-full object-cover" onError={() => setError(true)} />
+        ) : (
+          <span className="font-serif italic text-3xl text-primary/30">us</span>
+        )}
+      </div>
+    </motion.div>
+  );
+};
 
 const WhereItStartedSlide = () => {
-  const [imageError, setImageError] = useState(false);
-
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Background Image with Ken Burns Effect */}
-      <motion.div
-        className="absolute inset-0"
-        animate={{ scale: [1, 1.1] }}
-        transition={{ duration: 7, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' }}
-      >
-        {!imageError ? (
-          <img
-            src="/images/gallery/first-date-placeholder.jpg"
-            alt="First Date"
-            className="w-full h-full object-cover"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/40 via-secondary/30 to-primary/40" />
-        )}
-      </motion.div>
-
-      {/* Photo Collage Overlay - 4 photos */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Collage images arranged artistically - Larger sizes */}
-        <motion.div
-          className="absolute top-8 right-8 w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 lg:w-64 lg:h-64 rounded-lg overflow-hidden shadow-lg border-2 border-white/50"
-          initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-        >
-          <img
-            src="/images/gallery/pic5.JPG"
-            alt="First Date Photo 1"
-            className="w-full h-full object-cover"
-          />
-        </motion.div>
-
-        <motion.div
-          className="absolute top-32 right-32 sm:top-40 sm:right-40 md:top-48 md:right-48 w-28 h-28 sm:w-36 sm:h-36 md:w-48 md:h-48 lg:w-56 lg:h-56 rounded-lg overflow-hidden shadow-lg border-2 border-white/50"
-          initial={{ opacity: 0, scale: 0.8, rotate: 5 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-        >
-          <img
-            src="/images/gallery/pic2.JPG"
-            alt="First Date Photo 2"
-            className="w-full h-full object-cover"
-          />
-        </motion.div>
-
-        <motion.div
-          className="absolute bottom-32 left-8 sm:bottom-40 sm:left-12 md:bottom-48 md:left-16 w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 lg:w-64 lg:h-64 rounded-lg overflow-hidden shadow-lg border-2 border-white/50"
-          initial={{ opacity: 0, scale: 0.8, rotate: -3 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-        >
-          <img
-            src="/images/gallery/pic3.JPG"
-            alt="First Date Photo 3"
-            className="w-full h-full object-cover"
-          />
-        </motion.div>
-
-        <motion.div
-          className="absolute top-1/2 left-1/4 w-24 h-24 sm:w-32 sm:h-32 md:w-44 md:h-44 lg:w-52 lg:h-52 rounded-lg overflow-hidden shadow-lg border-2 border-white/50"
-          initial={{ opacity: 0, scale: 0.8, rotate: 3 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ duration: 0.6, delay: 0.9 }}
-        >
-          <img
-            src="/images/gallery/pic4.JPG"
-            alt="First Date Photo 4"
-            className="w-full h-full object-cover"
-          />
-        </motion.div>
+    <WrappedSlide tone="lavender" glyphs={false} bare>
+      {/* scattered scrapbook */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        <Snapshot
+          src="/images/gallery/cat.jpg"
+          alt="A first-date moment"
+          className="top-[8%] right-[8%] w-32 h-40 sm:w-44 sm:h-52 md:w-56 md:h-64"
+          rotate={4}
+          delay={0.3}
+        />
+        <Snapshot
+          src="/images/gallery/mmm_cat.png"
+          alt="A first-date moment"
+          className="top-[30%] right-[26%] sm:right-[30%] w-28 h-32 sm:w-36 sm:h-44 md:w-44 md:h-52"
+          rotate={-5}
+          delay={0.5}
+        />
+        <Snapshot
+          src="/images/gallery/mwehehe_cart.png"
+          alt="A first-date moment"
+          className="bottom-[24%] left-[7%] w-32 h-40 sm:w-44 sm:h-52 md:w-52 md:h-60"
+          rotate={-3}
+          delay={0.7}
+        />
+        <Snapshot
+          src="/images/gallery/marhsal.png"
+          alt="A first-date moment"
+          className="top-[40%] left-[24%] w-24 h-28 sm:w-32 sm:h-36 md:w-40 md:h-44 hidden sm:block"
+          rotate={5}
+          delay={0.9}
+        />
       </div>
 
-      {/* Dark Gradient Overlay at Bottom */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-
-      {/* Text Overlay */}
-      <div className="relative z-10 h-full flex flex-col justify-between p-6 sm:p-8 md:p-12">
-        {/* Title - Top Center */}
+      {/* editorial caption block */}
+      <div className="relative z-20 h-full flex flex-col items-center justify-end pb-14 sm:pb-20 px-6 text-center">
         <motion.div
-          className="text-center"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <h2 className="font-sans text-xs sm:text-sm md:text-base font-bold uppercase tracking-widest text-white/90">
-            THE FIRST DATE
-          </h2>
-        </motion.div>
-
-        {/* Date and Caption - Bottom Left */}
-        <motion.div
-          className="text-left"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
+          className="bg-card/70 backdrop-blur-md border border-border rounded-2xl px-7 py-6 shadow-romantic"
         >
-          <motion.p
-            className="font-sans text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-2"
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-          >
-            Nov 15, 2025
-          </motion.p>
-          <motion.p
-            className="font-serif text-lg sm:text-xl md:text-2xl text-white/90 italic"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-          >
-            The most random date
-          </motion.p>
+          <Eyebrow no="Nº 03" className="justify-center">
+            The first date
+          </Eyebrow>
+          <p className="font-serif font-bold text-foreground text-5xl sm:text-6xl md:text-7xl tracking-tight leading-none mt-3">
+            Nov 15<span className="dot-accent">,</span> 2025
+          </p>
+          <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-muted-foreground mt-4">
+            The most random date — and the best one
+          </p>
         </motion.div>
       </div>
-    </div>
+    </WrappedSlide>
   );
 };
 
 export default WhereItStartedSlide;
-
-
-
-

@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Happy Birthday, My Love - Redesign Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Dancing+Script:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --background: 270 35% 97%;
+      --foreground: 270 15% 15%;
+      --card: 0 0% 100%;
+      --primary: 272 50% 55%;
+      --secondary: 255 40% 63%;
+      --muted-foreground: 270 10% 48%;
+      --rose: 330 60% 62%;
+      --lilac: 270 35% 82%;
+      --lilac-light: 270 35% 94%;
+      --periwinkle: 255 45% 63%;
+      --primary-light: 270 40% 93%;
+      --border: 270 20% 91%;
+
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-sans: 'DM Sans', system-ui, sans-serif;
+      --font-script: 'Dancing Script', cursive;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* Magazine-style sticky nav */
+    .magazine-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: hsl(var(--card) / 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid hsl(var(--border));
+      padding: 0.75rem 0;
+    }
+
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      padding: 0 1.5rem;
+    }
+
+    .nav-tab {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: hsl(var(--muted-foreground));
+      text-decoration: none;
+      transition: color 0.2s;
+      padding: 0.5rem 0;
+      border-bottom: 2px solid transparent;
+    }
+
+    .nav-tab:hover {
+      color: hsl(var(--primary));
+    }
+
+    .nav-tab.active {
+      color: hsl(var(--primary));
+      border-bottom-color: hsl(var(--rose));
+    }
+
+    /* Editorial spread layout */
+    .spread {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 6rem 1.5rem 4rem;
+      position: relative;
+    }
+
+    /* Hero spread - asymmetric */
+    .hero-spread {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 4rem;
+      align-items: center;
+      padding-top: 2rem;
+      position: relative;
+    }
+
+    .hero-left {
+      position: relative;
+    }
+
+    .hero-issue {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: hsl(var(--muted-foreground));
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .hero-issue::before {
+      content: "";
+      width: 2rem;
+      height: 1px;
+      background: hsl(var(--primary));
+    }
+
+    .hero-title {
+      font-family: var(--font-serif);
+      font-weight: 500;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-title .line1 {
+      font-size: clamp(4rem, 12vw, 8rem);
+      display: block;
+      color: hsl(var(--foreground));
+    }
+
+    .hero-title .line2 {
+      font-size: clamp(5rem, 15vw, 10rem);
+      font-weight: 600;
+      display: block;
+      color: hsl(var(--primary));
+      font-style: italic;
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-script);
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--periwinkle)) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-top: 1rem;
+      line-height: 1.2;
+    }
+
+    .hero-right {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 600px;
+    }
+
+    .photo-cluster {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      height: 600px;
+    }
+
+    .polaroid {
+      position: absolute;
+      background: hsl(var(--card));
+      padding: 1rem;
+      box-shadow: 0 12px 40px -12px rgba(0,0,0,0.15);
+      transition: transform 0.3s ease;
+    }
+
+    .polaroid:hover {
+      transform: scale(1.05) rotate(0deg) !important;
+      z-index: 10;
+    }
+
+    .polaroid img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
+
+    .polaroid-1 {
+      width: 280px;
+      top: 0;
+      left: 0;
+      transform: rotate(-8deg);
+      z-index: 3;
+    }
+
+    .polaroid-2 {
+      width: 240px;
+      top: 80px;
+      right: 0;
+      transform: rotate(5deg);
+      z-index: 2;
+    }
+
+    .polaroid-3 {
+      width: 260px;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%) rotate(-3deg);
+      z-index: 1;
+    }
+
+    .polaroid-caption {
+      font-family: var(--font-script);
+      font-size: 1rem;
+      color: hsl(var(--muted-foreground));
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    /* Handwritten annotation */
+    .annotation {
+      position: absolute;
+      font-family: var(--font-script);
+      color: hsl(var(--rose));
+      font-size: 1.25rem;
+      pointer-events: none;
+    }
+
+    .annotation-heart {
+      top: -2rem;
+      right: -1rem;
+      font-size: 2rem;
+    }
+
+    .annotation-date {
+      bottom: -1rem;
+      left: -2rem;
+      transform: rotate(-12deg);
+    }
+
+    /* CTA section */
+    .cta-section {
+      margin-top: 4rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      background: hsl(var(--primary));
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 8px 32px -8px hsl(var(--primary) / 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px -8px hsl(var(--primary) / 0.4);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      background: hsl(var(--card));
+      color: hsl(var(--primary));
+      border: 1px solid hsl(var(--border));
+      border-radius: 9999px;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-secondary:hover {
+      border-color: hsl(var(--primary));
+      background: hsl(var(--primary-light));
+      transform: translateY(-2px);
+    }
+
+    /* Gallery spread - magazine feature */
+    .gallery-spread {
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .gallery-spread::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 2rem;
+      height: 1px;
+      background: hsl(var(--border));
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: hsl(var(--primary));
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 3rem;
+      padding-top: 2rem;
+    }
+
+    .section-eyebrow::before {
+      content: "";
+      width: 2rem;
+      height: 1px;
+      background: hsl(var(--primary));
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .gallery-item {
+      position: relative;
+      overflow: hidden;
+      border-radius: 0.5rem;
+      background: hsl(var(--primary-light));
+      aspect-ratio: 1;
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .gallery-item:hover img {
+      transform: scale(1.1);
+    }
+
+    .gallery-label {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      background: hsl(var(--card) / 0.95);
+      backdrop-filter: blur(8px);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: hsl(var(--primary));
+    }
+
+    /* Love note spread */
+    .love-spread {
+      padding: 6rem 0;
+      display: grid;
+      grid-template-columns: 1fr 1.5fr;
+      gap: 4rem;
+      align-items: start;
+      position: relative;
+    }
+
+    .love-spread::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 2rem;
+      height: 1px;
+      background: hsl(var(--border));
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .love-header {
+      padding-top: 2rem;
+    }
+
+    .love-title {
+      font-family: var(--font-serif);
+      font-size: clamp(3rem, 8vw, 5rem);
+      font-weight: 500;
+      color: hsl(var(--primary));
+      font-style: italic;
+      line-height: 1;
+      margin-bottom: 1rem;
+    }
+
+    .love-content {
+      font-size: 1.125rem;
+      line-height: 1.8;
+      color: hsl(var(--foreground) / 0.8);
+    }
+
+    /* Feature cards - stamps */
+    .feature-spread {
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .feature-spread::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 2rem;
+      height: 1px;
+      background: hsl(var(--border));
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2.5rem;
+      margin-top: 3rem;
+    }
+
+    .feature-card {
+      background: hsl(var(--card));
+      padding: 2.5rem;
+      border-radius: 1rem;
+      border: 1px solid hsl(var(--border));
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--rose)));
+      transform: scaleX(0);
+      transition: transform 0.3s;
+    }
+
+    .feature-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px -12px hsl(var(--primary) / 0.2);
+    }
+
+    .feature-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature-title {
+      font-family: var(--font-serif);
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: hsl(var(--foreground));
+    }
+
+    .feature-desc {
+      color: hsl(var(--muted-foreground));
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-link {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: hsl(var(--primary));
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: gap 0.2s;
+    }
+
+    .feature-link:hover {
+      gap: 0.75rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero-spread {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+        min-height: auto;
+        padding-top: 4rem;
+      }
+
+      .hero-right {
+        min-height: 400px;
+      }
+
+      .photo-cluster {
+        height: 400px;
+      }
+
+      .polaroid-1 {
+        width: 200px;
+      }
+
+      .polaroid-2 {
+        width: 180px;
+      }
+
+      .polaroid-3 {
+        width: 190px;
+      }
+
+      .love-spread {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+
+      .nav-inner {
+        gap: 1rem;
+        font-size: 0.7rem;
+      }
+
+      .nav-tab {
+        font-size: 0.7rem;
+      }
+    }
+
+    /* Decorative elements */
+    .stamp {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border: 3px solid hsl(var(--rose));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-serif);
+      font-weight: 600;
+      color: hsl(var(--rose));
+      transform: rotate(-15deg);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
+    .stamp::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 1px solid hsl(var(--rose));
+      border-radius: 50%;
+    }
+
+    .stamp-text {
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .washi-tape {
+      position: absolute;
+      width: 120px;
+      height: 30px;
+      background: repeating-linear-gradient(
+        45deg,
+        hsl(var(--lilac-light)),
+        hsl(var(--lilac-light)) 10px,
+        hsl(var(--lilac)) 10px,
+        hsl(var(--lilac)) 20px
+      );
+      transform: rotate(15deg);
+      opacity: 0.6;
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+  <!-- Magazine-style navigation -->
+  <nav class="magazine-nav">
+    <div class="nav-inner">
+      <a href="#home" class="nav-tab active">Home</a>
+      <a href="#gallery" class="nav-tab">Gallery</a>
+      <a href="#love" class="nav-tab">Love Note</a>
+      <a href="#stamps" class="nav-tab">Stamps</a>
+      <a href="#wrapped" class="nav-tab">Wrapped</a>
+    </div>
+  </nav>
+
+  <!-- Hero Spread -->
+  <section class="spread hero-spread" id="home">
+    <div class="hero-left">
+      <div class="hero-issue">
+        <span>Special Edition</span>
+        <span>•</span>
+        <span>Vol. 1</span>
+      </div>
+
+      <h1 class="hero-title">
+        <span class="line1">Happy</span>
+        <span class="line2">Birthday</span>
+      </h1>
+
+      <div class="hero-subtitle">my love ♡</div>
+
+      <div class="cta-section">
+        <button class="btn-primary">
+          Start the Day <span>→</span>
+        </button>
+        <button class="btn-secondary">
+          Memory Book
+        </button>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="photo-cluster">
+        <!-- Decorative washi tape -->
+        <div class="washi-tape" style="top: -10px; left: 30%;"></div>
+        
+        <!-- Polaroid photos -->
+        <div class="polaroid polaroid-1">
+          <img src="https://via.placeholder.com/280x280/e8d5f5/9d4edd?text=Us+1" alt="Memory 1">
+          <div class="polaroid-caption">that sunset ♡</div>
+        </div>
+
+        <div class="polaroid polaroid-2">
+          <img src="https://via.placeholder.com/240x240/f5e6f0/d4a5d4?text=Us+2" alt="Memory 2">
+          <div class="polaroid-caption">adventure time</div>
+        </div>
+
+        <div class="polaroid polaroid-3">
+          <img src="https://via.placeholder.com/260x260/f0e6f5/b8a9d4?text=Us+3" alt="Memory 3">
+          <div class="polaroid-caption">forever us</div>
+        </div>
+
+        <!-- Annotations -->
+        <div class="annotation annotation-heart">♡</div>
+        <div class="annotation annotation-date">our first trip...</div>
+      </div>
+
+      <!-- Decorative stamp -->
+      <div class="stamp" style="bottom: 20px; right: -20px;">
+        <div class="stamp-text">
+          <div style="font-size: 0.75rem;">EST.</div>
+          <div style="font-size: 1.5rem;">2023</div>
+          <div style="font-size: 0.6rem;">OUR LOVE</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gallery Spread -->
+  <section class="spread gallery-spread" id="gallery">
+    <div class="section-eyebrow">
+      <span>Nº 02 — Our Moments</span>
+    </div>
+
+    <div class="gallery-grid">
+      <div class="gallery-item">
+        <img src="https://via.placeholder.com/400x400/e8d5f5/9d4edd?text=Photo+1" alt="Gallery 1">
+        <div class="gallery-label">First Date</div>
+      </div>
+
+      <div class="gallery-item">
+        <img src="https://via.placeholder.com/400x400/f5e6f0/d4a5d4?text=Photo+2" alt="Gallery 2">
+        <div class="gallery-label">Adventure</div>
+      </div>
+
+      <div class="gallery-item">
+        <img src="https://via.placeholder.com/400x400/f0e6f5/b8a9d4?text=Photo+3" alt="Gallery 3">
+        <div class="gallery-label">Celebration</div>
+      </div>
+
+      <div class="gallery-item">
+        <img src="https://via.placeholder.com/400x400/e6d5f0/a9a9d4?text=Photo+4" alt="Gallery 4">
+        <div class="gallery-label">Cozy Nights</div>
+      </div>
+
+      <div class="gallery-item">
+        <img src="https://via.placeholder.com/400x400/f5e6f5/d4a5d4?text=Photo+5" alt="Gallery 5">
+        <div class="gallery-label">Travel</div>
+      </div>
+
+      <div class="gallery-item">
+        <img src="https://via.placeholder.com/400x400/f0e6e8/d4a5b8?text=Photo+6" alt="Gallery 6">
+        <div class="gallery-label">Everyday Love</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Love Note Spread -->
+  <section class="spread love-spread" id="love">
+    <div class="love-header">
+      <div class="section-eyebrow">
+        <span>Nº 03 — From My Heart</span>
+      </div>
+      <div class="love-title">for you</div>
+    </div>
+
+    <div class="love-content">
+      <p>
+        Every moment with you feels like a page from my favorite story — the one I never want to end. 
+        You've brought so much light, laughter, and love into my life that I can hardly remember what it 
+        was like before you.
+      </p>
+      <br>
+      <p>
+        On your special day, I want you to know: you are my greatest adventure, my safest place, 
+        and my favorite person. Here's to all the chapters we've written together and all the ones still 
+        waiting to be told.
+      </p>
+      <br>
+      <p style="font-family: var(--font-script); font-size: 1.5rem; color: hsl(var(--rose));">
+        Forever yours ♡
+      </p>
+    </div>
+  </section>
+
+  <!-- Feature Cards - Stamps & Activities -->
+  <section class="spread feature-spread" id="stamps">
+    <div class="section-eyebrow">
+      <span>Nº 04 — Your Birthday Adventure</span>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📍</div>
+        <div class="feature-title">Collect Stamps</div>
+        <div class="feature-desc">
+          Visit special places we've been together and collect digital stamps at each location. 
+          Every stamp tells a story of our journey.
+        </div>
+        <a href="#" class="feature-link">
+          Start Collecting <span>→</span>
+        </a>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🎁</div>
+        <div class="feature-title">Gift Coupons</div>
+        <div class="feature-desc">
+          Redeem special gift coupons I've made just for you. From date nights to adventures, 
+          there's something for every mood.
+        </div>
+        <a href="#" class="feature-link">
+          View Coupons <span>→</span>
+        </a>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📸</div>
+        <div class="feature-title">Memory Book</div>
+        <div class="feature-desc">
+          Capture new moments and add them to our digital memory book. 
+          See all our photos organized in a beautiful album.
+        </div>
+        <a href="#" class="feature-link">
+          Browse Album <span>→</span>
+        </a>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🎵</div>
+        <div class="feature-title">Our Wrapped</div>
+        <div class="feature-desc">
+          Your personal Spotify Wrapped is here! See our top songs, 
+          most played artists, and the soundtrack to our love story.
+        </div>
+        <a href="#" class="feature-link">
+          View Wrapped <span>→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="text-align: center; padding: 4rem 1.5rem 2rem; border-top: 1px solid hsl(var(--border)); margin-top: 4rem;">
+    <div style="font-family: var(--font-script); font-size: 2rem; color: hsl(var(--primary)); margin-bottom: 1rem;">
+      with love ♡
+    </div>
+    <div style="font-family: var(--font-mono); font-size: 0.75rem; color: hsl(var(--muted-foreground)); letter-spacing: 0.1em; text-transform: uppercase;">
+      Made for you, just for you
+    </div>
+  </footer>
+
+  <script>
+    // Smooth scroll for nav links
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = document.querySelector(tab.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth' });
+        }
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+
+    // Update active tab on scroll
+    const sections = document.querySelectorAll('section');
+    const navTabs = document.querySelectorAll('.nav-tab');
+
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (window.pageYOffset >= sectionTop - 200) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navTabs.forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.getAttribute('href') === `#${current}`) {
+          tab.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

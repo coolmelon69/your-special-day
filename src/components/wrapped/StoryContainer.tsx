@@ -164,6 +164,12 @@ const StoryContainer = () => {
 
   const CurrentSlideComponent = SLIDE_COMPONENTS[currentSlide];
 
+  const slideVariants = {
+    enter: (dir: 'forward' | 'backward') => ({ opacity: 0, x: dir === 'forward' ? 300 : -300 }),
+    center: { opacity: 1, x: 0 },
+    exit: (dir: 'forward' | 'backward') => ({ opacity: 0, x: dir === 'forward' ? -300 : 300 }),
+  };
+
   return (
     <div
       className="relative w-full h-full"
@@ -181,15 +187,10 @@ const StoryContainer = () => {
         <motion.div
           key={currentSlide}
           custom={direction}
-          initial={(dir) => ({ 
-            opacity: 0, 
-            x: dir === 'forward' ? 300 : -300 
-          })}
-          animate={{ opacity: 1, x: 0 }}
-          exit={(dir) => ({ 
-            opacity: 0, 
-            x: dir === 'forward' ? -300 : 300 
-          })}
+          variants={slideVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
           transition={{ duration: 0.3 }}
           className="absolute inset-0"
         >

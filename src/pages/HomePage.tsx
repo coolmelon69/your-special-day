@@ -2,6 +2,7 @@ import { Helmet } from "react-helmet-async";
 import HeroSection from "@/components/HeroSection";
 import GallerySection from "@/components/GallerySection";
 import LoveNoteSection from "@/components/LoveNoteSection";
+import WrappedTeaserCard from "@/components/WrappedTeaserCard";
 import FortuneTellerSection from "@/components/FortuneTellerSection";
 import Footer from "@/components/Footer";
 
@@ -18,6 +19,7 @@ const HomePage = () => {
         <HeroSection />
         <GallerySection />
         <LoveNoteSection />
+        <WrappedTeaserCard />
         <FortuneTellerSection />
         <Footer />
       </main>

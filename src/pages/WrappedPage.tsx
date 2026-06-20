@@ -58,12 +58,12 @@ const WrappedPage = () => {
         {/* Close button */}
         <motion.button
           onClick={handleClose}
-          className="absolute top-4 right-4 z-[101] w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full border-2 border-primary/30 shadow-lg hover:bg-white transition-colors"
+          className="absolute top-5 right-3 sm:top-6 sm:right-4 z-[101] w-9 h-9 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-full border border-border text-muted-foreground shadow-sm hover:text-foreground hover:border-foreground transition-colors"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           aria-label="Close"
         >
-          <X className="w-5 h-5 sm:w-6 sm:h-6 text-foreground" />
+          <X className="w-4 h-4" />
         </motion.button>
 
         {/* Story container */}

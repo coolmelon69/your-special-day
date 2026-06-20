@@ -1,77 +1,64 @@
-import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { motion } from "framer-motion";
+import { MapPin } from "lucide-react";
+import { Eyebrow, DisplayHeading, EditorialFigure, Pill } from "@/components/editorial";
+import WrappedSlide from "../WrappedSlide";
 
 const TheTurningPointSlide = () => {
-  const [imageError, setImageError] = useState(false);
-
   return (
-    <div className="relative w-full h-full flex flex-col md:flex-row items-center justify-center px-4 overflow-hidden bg-gradient-to-br from-muted/50 to-background">
-      {/* Image Side - Map Style */}
-      <motion.div
-        className="w-full md:w-1/2 h-1/2 md:h-full flex items-center justify-center p-4 md:p-8"
-        initial={{ opacity: 0, x: -30 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.8 }}
-      >
-        <div className="relative w-full max-w-md h-full max-h-md rounded-2xl overflow-hidden shadow-xl border-2 border-primary/20">
-          {!imageError ? (
-            <img
-              src="/images/gallery/emart.webp"
-              alt="Emart IOI Connezion"
-              className="w-full h-full object-cover"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-              <MapPin className="w-24 h-24 text-primary/40" />
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Text Side */}
-      <motion.div
-        className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col items-center justify-center p-4 md:p-8 text-center md:text-left"
-        initial={{ opacity: 0, x: 30 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      >
-        <motion.h2
-          className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-foreground/90"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-        >
-          The spot where everything changed.
-        </motion.h2>
-
-        <motion.p
-          className="font-serif text-lg sm:text-xl md:text-2xl text-foreground/80 mb-6 leading-relaxed"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-        >
-          We talked about our feelings here for the first time.
-        </motion.p>
-
+    <WrappedSlide tone="lavender" glyphs={false} bare>
+      <div className="relative z-10 h-full grid lg:grid-cols-[1fr_1.05fr] gap-8 lg:gap-16 items-center max-w-5xl mx-auto px-6 py-16">
+        {/* Figure */}
         <motion.div
-          className="inline-block px-4 py-2 bg-primary/10 rounded-full border border-primary/30"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
+          initial={{ opacity: 0, x: -24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7 }}
+          className="w-full max-w-sm mx-auto lg:mx-0"
         >
-          <p className="font-sans text-sm sm:text-base md:text-lg text-foreground/70 italic">
-            Emart IOI Connezion
-          </p>
+          <EditorialFigure
+            src="/images/gallery/emart.webp"
+            alt="Emart IOI Connezion"
+            dotGrid="tl"
+            aspectClassName="aspect-[4/5]"
+            annotate={
+              <>
+                The spot
+                <br />
+                we got real
+                <br />
+                with each other.
+              </>
+            }
+            caption="Emart IOI Connezion"
+          />
         </motion.div>
-      </motion.div>
-    </div>
+
+        {/* Text */}
+        <motion.div
+          className="text-center lg:text-left"
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7, delay: 0.15 }}
+        >
+          <div className="flex justify-center lg:justify-start">
+            <Eyebrow no="Nº 02">The turning point</Eyebrow>
+          </div>
+          <DisplayHeading as="h2" className="mt-4">
+            The spot where <em>everything</em> changed
+            <span className="dot-accent">.</span>
+          </DisplayHeading>
+          <p className="text-lg text-muted-foreground max-w-[46ch] mt-5 mx-auto lg:mx-0">
+            We talked about our feelings here for the very first time — and nothing
+            was quite the same after.
+          </p>
+          <div className="flex justify-center lg:justify-start mt-6">
+            <Pill variant="rose" icon={<MapPin />}>
+              Where it shifted
+            </Pill>
+          </div>
+        </motion.div>
+      </div>
+    </WrappedSlide>
   );
 };
 
 export default TheTurningPointSlide;
-
-
-
-

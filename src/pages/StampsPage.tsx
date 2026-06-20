@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Camera, Trash2, Loader2, Navigation, MapPin, Check } from "lucide-react";
 import { Eyebrow, DisplayHeading, EditorialFigure, Pill, StatBlock } from "@/components/editorial";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -468,38 +469,38 @@ const StampsPage = () => {
                   {/* Content */}
                   <div>
                     {/* Sprite preview or Evidence Image */}
-                    <div className="w-20 h-20 mb-4 rounded-xl border border-border bg-foreground/5 grid place-items-center overflow-hidden">
-                      {(() => {
-                        const eventIndex = itineraryState.findIndex(item =>
-                          item.time === selectedEvent.time &&
-                          item.title === selectedEvent.title
-                        );
-                        const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
-                        const SpriteComponent = sprites[selectedEvent.sprite];
+                    {(() => {
+                      const eventIndex = itineraryState.findIndex(item =>
+                        item.time === selectedEvent.time &&
+                        item.title === selectedEvent.title
+                      );
+                      const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
+                      const SpriteComponent = sprites[selectedEvent.sprite];
+                      const showImage = currentItem.isPast && currentItem.imageUrl;
 
-                        // Show evidence image if available and stamp is completed
-                        if (currentItem.isPast && currentItem.imageUrl) {
-                          return (
+                      return (
+                        <div className={cn(
+                          "w-20 h-20 mb-4 rounded-xl border border-border bg-foreground/5 overflow-hidden",
+                          showImage ? "" : "grid place-items-center"
+                        )}>
+                          {showImage ? (
                             <img
-                              src={currentItem.imageUrl}
+                              src={currentItem.imageUrl!}
                               alt={currentItem.title}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                // Fallback to sprite if image fails to load
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = "none";
                               }}
                             />
-                          );
-                        }
-
-                        return (
-                          <div className="w-12 h-12">
-                            <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />
-                          </div>
-                        );
-                      })()}
-                    </div>
+                          ) : (
+                            <div className="w-12 h-12">
+                              <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Time pill + location */}
                     <div className="flex items-center gap-2 mb-3">
