@@ -47,6 +47,9 @@ const DistanceIndicator: React.FC<DistanceIndicatorProps> = ({ targetLat, target
         setDistance(currentDistance);
 
         if (currentDistance <= radius && !hasArrived) {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([20, 50, 20]);
+          }
           setHasArrived(true);
           setTimeout(() => {
             onArrived?.();

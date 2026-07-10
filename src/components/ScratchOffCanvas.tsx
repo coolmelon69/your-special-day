@@ -25,6 +25,7 @@ export const ScratchOffCanvas: React.FC<ScratchOffCanvasProps> = ({
   const [internalIsRevealed, setInternalIsRevealed] = useState(externalIsRevealed);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const lastVibrateTime = useRef<number>(0);
 
   useEffect(() => {
     setInternalIsRevealed(externalIsRevealed);
@@ -111,6 +112,14 @@ export const ScratchOffCanvas: React.FC<ScratchOffCanvasProps> = ({
     const { x, y } = getCoordinates(e);
     ctx.lineTo(x, y);
     ctx.stroke();
+
+    const now = Date.now();
+    if (now - lastVibrateTime.current > 50) {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([10]);
+      }
+      lastVibrateTime.current = now;
+    }
   };
 
   const checkReveal = () => {
