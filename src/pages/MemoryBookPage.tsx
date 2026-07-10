@@ -9,6 +9,7 @@ import type { Photo } from "@/components/TimelineSection";
 import { useLocation } from "react-router-dom";
 import { loadCouponAchievements } from "@/utils/supabaseSync";
 import TimeCapsule from "@/components/TimeCapsule";
+import { Eyebrow, DisplayHeading, EditorialFigure } from "@/components/editorial";
 
 const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
 
@@ -182,33 +183,35 @@ const MemoryBookPage = () => {
       </Helmet>
 
       <main className="min-h-screen bg-background pt-20 pb-24">
-        <div className="container px-4 md:px-6 py-12">
+        <div className="container px-6 py-12 md:py-20">
 
           {/* Page header */}
           <motion.div
-            className="text-center mb-14"
+            className="mb-14"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <p className="font-mono-caption text-primary/70 mb-4">our story</p>
-            <h1 className="font-serif text-4xl md:text-5xl font-semibold text-foreground mb-3">
-              Memory <span className="text-gradient-romantic">Book</span>
-            </h1>
-            <p className="font-sans font-light text-muted-foreground text-lg mb-8">
-              {totalPhotos} {totalPhotos === 1 ? "memory" : "memories"} captured together
-            </p>
+            <Eyebrow no="Nº 03">our story</Eyebrow>
+            <DisplayHeading>
+              Memory <em>Book</em><span className="dot-accent">.</span>
+            </DisplayHeading>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6">
+              <p className="font-sans font-light text-muted-foreground text-lg">
+                {totalPhotos} {totalPhotos === 1 ? "memory" : "memories"} captured together
+              </p>
 
-            <motion.button
-              onClick={handleDownload}
-              disabled={isDownloading}
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-sans font-medium text-sm shadow-romantic hover:shadow-glow transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              whileHover={!isDownloading ? { y: -2 } : {}}
-              whileTap={!isDownloading ? { scale: 0.98 } : {}}
-            >
-              <Download size={16} />
-              {isDownloading ? "Generating…" : "Download Memory Book"}
-            </motion.button>
+              <motion.button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-sans font-medium text-sm shadow-romantic hover:shadow-glow transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                whileHover={!isDownloading ? { y: -2 } : {}}
+                whileTap={!isDownloading ? { scale: 0.98 } : {}}
+              >
+                <Download size={16} />
+                {isDownloading ? "Generating…" : "Download Memory Book"}
+              </motion.button>
+            </div>
           </motion.div>
 
           {/* Memory pages */}
@@ -236,39 +239,35 @@ const MemoryBookPage = () => {
 
                 {/* Photos grid */}
                 <div className="p-6 md:p-8">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 items-start">
+                  <div className="columns-1 sm:columns-2 md:columns-3 gap-6 space-y-6">
                     {page.photos.map((photo, photoIndex) => (
                       <motion.div
                         key={photo.id}
-                        className="relative group rounded-xl overflow-hidden border border-border bg-accent/30 hover:border-primary/40 hover:shadow-romantic transition-all duration-200 cursor-pointer"
+                        className="relative group cursor-pointer break-inside-avoid"
                         initial={{ opacity: 0, scale: 0.92 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: pageIndex * 0.08 + photoIndex * 0.04 }}
-                        whileHover={{ y: -2 }}
                         onClick={() => handlePhotoClick(photo, page)}
                       >
-                        {/* Delete button */}
-                        <motion.button
-                          onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id, false); }}
-                          disabled={deletingPhotoId === photo.id}
-                          className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          title="Delete photo"
-                        >
-                          <Trash2 size={12} />
-                        </motion.button>
-
-                        <img
+                        <EditorialFigure
                           src={photo.storageUrl || photo.src}
                           alt={photo.caption || "Memory"}
-                          className="w-full h-auto block"
-                        />
-                        {photo.caption && (
-                          <p className="font-mono-caption text-primary/70 text-center px-2 py-2">
-                            {photo.caption}
-                          </p>
-                        )}
+                          caption={page.checkpoint.title}
+                          annotate={formatTimestamp(photo.timestamp)}
+                          className="group-hover:-translate-y-1 transition-transform duration-300"
+                        >
+                          {/* Delete button */}
+                          <motion.button
+                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id, false); }}
+                            disabled={deletingPhotoId === photo.id}
+                            className="absolute top-2 left-2 z-10 bg-destructive text-destructive-foreground p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            title="Delete photo"
+                          >
+                            <Trash2 size={12} />
+                          </motion.button>
+                        </EditorialFigure>
                       </motion.div>
                     ))}
                   </div>
