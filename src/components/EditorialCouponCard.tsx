@@ -2,7 +2,8 @@ import { useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Lock, Gift, Check } from "lucide-react";
 import type { Coupon } from "./GiftCouponsSection";
-import { sparkleBurst } from "../utils/particles";
+import { sparkleBurst, burstConfetti } from "../utils/particles";
+import { ScratchOffCanvas } from "./ScratchOffCanvas";
 import { Pill } from "@/components/editorial";
 import { cn } from "@/lib/utils";
 
@@ -59,10 +60,28 @@ const EditorialCouponCard = ({
     >
       {/* Art block — coupon gradient + emoji */}
       <div className="relative aspect-video overflow-hidden rounded-xl border border-border">
-        <div className={cn("absolute inset-0 bg-gradient-to-br", coupon.color, isLocked && "grayscale")} />
-        <span className={cn("absolute inset-0 grid place-items-center text-[3.5rem] drop-shadow-md", isRedeemed && "grayscale opacity-60")}>
-          {coupon.emoji}
-        </span>
+        <ScratchOffCanvas
+          isInteractive={!isLocked && !isRedeemed && !isProcessing}
+          isRevealed={isRedeemed}
+          onReveal={() => {
+            if (cardRef.current) {
+              const rect = cardRef.current.getBoundingClientRect();
+              burstConfetti({
+                origin: {
+                  x: (rect.left + rect.width / 2) / window.innerWidth,
+                  y: (rect.top + rect.height / 2) / window.innerHeight,
+                },
+              });
+            }
+            onCardClick();
+          }}
+          className="absolute inset-0"
+        >
+          <div className={cn("absolute inset-0 bg-gradient-to-br", coupon.color, isLocked && "grayscale")} />
+          <span className={cn("absolute inset-0 grid place-items-center text-[3.5rem] drop-shadow-md", isRedeemed && "grayscale opacity-60")}>
+            {coupon.emoji}
+          </span>
+        </ScratchOffCanvas>
 
         {/* Processing overlay */}
         {isProcessing && (
@@ -72,7 +91,7 @@ const EditorialCouponCard = ({
         )}
         {/* Lock badge */}
         {isLocked && (
-          <div className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-card/90 text-muted-foreground">
+          <div className="absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center rounded-full bg-card/90 text-muted-foreground">
             <Lock className="h-4 w-4" />
           </div>
         )}
