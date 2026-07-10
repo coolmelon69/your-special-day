@@ -10,6 +10,7 @@ const STORES = {
   STAMPS: "customStamps",
   COUPONS: "customCoupons",
   SETTINGS: "adminSettings",
+  PHOTOS: "cameraPhotos",
 };
 
 let db: IDBDatabase | null = null;
@@ -54,6 +55,11 @@ const initDB = (): Promise<IDBDatabase> => {
       
       if (!database.objectStoreNames.contains(STORES.SETTINGS)) {
         database.createObjectStore(STORES.SETTINGS, { keyPath: "id" });
+      }
+      
+      if (!database.objectStoreNames.contains(STORES.PHOTOS)) {
+        const photoStore = database.createObjectStore(STORES.PHOTOS, { keyPath: "id" });
+        photoStore.createIndex("timestamp", "timestamp", { unique: false });
       }
     };
   });
@@ -576,7 +582,55 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
   }
 };
 
+// ========== Camera Photos ==========
 
+export interface CameraPhoto {
+  id: string;
+  dataUrl: string;
+  timestamp: number;
+  isDeveloped: boolean;
+}
 
+export const saveCameraPhoto = async (photoDataUrl: string): Promise<string> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.PHOTOS], "readwrite");
+    const store = transaction.objectStore(STORES.PHOTOS);
+    
+    const newPhoto: CameraPhoto = {
+      id: `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      dataUrl: photoDataUrl,
+      timestamp: Date.now(),
+      isDeveloped: false,
+    };
 
+    return new Promise<string>((resolve, reject) => {
+      const request = store.add(newPhoto);
+      request.onsuccess = () => resolve(newPhoto.id);
+      request.onerror = () => reject(new Error("Failed to add camera photo"));
+    });
+  } catch (error) {
+    console.error("Error saving camera photo:", error);
+    throw error;
+  }
+};
 
+export const getUndevelopedPhotosCount = async (): Promise<number> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.PHOTOS], "readonly");
+    const store = transaction.objectStore(STORES.PHOTOS);
+    
+    return new Promise<number>((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const photos = request.result as CameraPhoto[];
+        resolve(photos.filter(p => !p.isDeveloped).length);
+      };
+      request.onerror = () => reject(new Error("Failed to get photos count"));
+    });
+  } catch (error) {
+    console.error("Error getting photos count:", error);
+    return 0;
+  }
+};

@@ -19,6 +19,8 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ScanQRPage from "./pages/ScanQRPage";
 import RedemptionSuccessPage from "./pages/RedemptionSuccessPage";
 import NotFound from "./pages/NotFound";
+import CameraPage from "./pages/CameraPage";
+
 
 const queryClient = new QueryClient();
 
@@ -61,6 +63,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin" element={<PageWrapper><AdminPanelPage /></PageWrapper>} />
         <Route path="/scan-qr" element={<PageWrapper><ScanQRPage /></PageWrapper>} />
         <Route path="/redemption-success" element={<PageWrapper><RedemptionSuccessPage /></PageWrapper>} />
+        <Route path="/camera" element={<PageWrapper><CameraPage /></PageWrapper>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
