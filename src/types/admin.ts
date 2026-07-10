@@ -13,6 +13,7 @@ export type CustomStamp = {
     longitude: number;
     radius: number; // radius in meters
   };
+  is_secret?: boolean;
   createdAt: number;
   updatedAt: number;
 };

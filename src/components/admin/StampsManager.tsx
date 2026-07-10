@@ -203,6 +203,7 @@ const StampsManager = () => {
     latitude: "",
     longitude: "",
     radius: "100",
+    is_secret: false,
   });
 
   useEffect(() => {
@@ -315,6 +316,7 @@ const StampsManager = () => {
       latitude: "",
       longitude: "",
       radius: "100",
+      is_secret: false,
     });
     setShowForm(true);
   };
@@ -330,6 +332,7 @@ const StampsManager = () => {
       latitude: stamp.location?.latitude.toString() || "",
       longitude: stamp.location?.longitude.toString() || "",
       radius: stamp.location?.radius.toString() || "100",
+      is_secret: stamp.is_secret || false,
     });
     setShowForm(true);
   };
@@ -389,6 +392,7 @@ const StampsManager = () => {
         sprite: formData.sprite,
         isActive: editingStamp?.isActive || false,
         isPast: editingStamp?.isPast || false,
+        is_secret: formData.is_secret,
         location:
           formData.latitude && formData.longitude && formData.radius
             ? {
@@ -675,6 +679,20 @@ const StampsManager = () => {
                       className={inputCls}
                     />
                   </div>
+                </div>
+
+                {/* Is Secret? */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_secret"
+                    checked={formData.is_secret}
+                    onChange={(e) => setFormData({ ...formData, is_secret: e.target.checked })}
+                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20"
+                  />
+                  <label htmlFor="is_secret" className="text-sm font-medium text-foreground cursor-pointer">
+                    Is Secret?
+                  </label>
                 </div>
 
                 {/* Submit button */}
