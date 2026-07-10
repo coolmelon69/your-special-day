@@ -221,7 +221,7 @@ const StampCollectionSection = ({
                       "font-medium text-sm mb-2 flex-grow flex items-center justify-center text-center break-words line-clamp-2",
                       isCompleted ? "text-foreground" : "text-muted-foreground"
                     )}>
-                      {item.title}
+                      {item.is_secret && !isCompleted ? "Mystery Stop" : item.title}
                     </h3>
 
                     {/* Completion Indicator - postmark slam when just completed */}

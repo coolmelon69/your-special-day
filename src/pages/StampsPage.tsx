@@ -20,6 +20,7 @@ import PhotoCaptureModal from "@/components/PhotoCaptureModal";
 import PhotoEditor from "@/components/PhotoEditor";
 import { syncCheckpointPhoto, syncSingleStamp } from "@/utils/supabaseSync";
 import { uploadPhotoToStorage } from "@/utils/photoUpload";
+import DistanceIndicator from "@/components/DistanceIndicator";
 
 const StampsPage = () => {
   const location = useLocation();
@@ -468,15 +469,48 @@ const StampsPage = () => {
 
                   {/* Content */}
                   <div>
-                    {/* Sprite preview or Evidence Image */}
                     {(() => {
                       const eventIndex = itineraryState.findIndex(item =>
                         item.time === selectedEvent.time &&
                         item.title === selectedEvent.title
                       );
                       const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
-                      const SpriteComponent = sprites[selectedEvent.sprite];
-                      const showImage = currentItem.isPast && currentItem.imageUrl;
+                      const isSecretUncollected = currentItem.is_secret && !currentItem.isPast;
+
+                      if (isSecretUncollected && currentItem.location) {
+                        return (
+                          <>
+                            <div className="mb-4">
+                              <DistanceIndicator
+                                targetLat={currentItem.location.latitude}
+                                targetLng={currentItem.location.longitude}
+                                radius={currentItem.location.radius || 100}
+                                onArrived={() => {
+                                  if (eventIndex >= 0) {
+                                    handleMarkAsDone(eventIndex);
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <Pill variant="rose">{currentItem.time}</Pill>
+                            </div>
+                            <DisplayHeading as="h2" className="text-2xl md:text-3xl mb-3">
+                              Mystery Stop
+                            </DisplayHeading>
+                            <p className="text-muted-foreground leading-relaxed mb-5">
+                              Follow the indicator to discover this secret location!
+                            </p>
+                          </>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {/* Sprite preview or Evidence Image */}
+                          {(() => {
+                            const showImage = currentItem.isPast && currentItem.imageUrl;
+                            const SpriteComponent = sprites[selectedEvent.sprite];
 
                       return (
                         <div className={cn(
@@ -514,7 +548,7 @@ const StampsPage = () => {
 
                     {/* Title */}
                     <DisplayHeading as="h2" className="text-2xl md:text-3xl mb-3">
-                      {selectedEvent.title}
+                      {isSecretUncollected ? "Mystery Stop" : selectedEvent.title}
                     </DisplayHeading>
 
                     {/* Description */}
@@ -666,6 +700,9 @@ const StampsPage = () => {
                             ? "Check in (location required)"
                             : "Check in"}
                         </motion.button>
+                      );
+                    })()}
+                        </>
                       );
                     })()}
                   </div>
