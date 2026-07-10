@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import { Download, BookOpen, Trash2, X, Calendar, MapPin, Images } from "lucide-react";
+import { Download, BookOpen, Trash2, X, Calendar, MapPin, Images, Printer, Camera, Loader2 } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { generateMemoryBookPages, generateMemoryBookHTML, downloadMemoryBook } from "@/utils/memoryBookGenerator";
 import type { MemoryBookPage } from "@/utils/memoryBookGenerator";
@@ -25,9 +25,11 @@ function convertCouponId(id: number | string): number {
 }
 
 const MemoryBookPage = () => {
-  const { getAllPhotos, itineraryState, deletePhoto, refreshPhotos, reloadPhotosFromCloud, user, coupons } = useAdventure();
+  const { getAllPhotos, itineraryState, deletePhoto, refreshPhotos, reloadPhotosFromCloud, user, coupons, upsertPhoto } = useAdventure();
   const location = useLocation();
   const [pages, setPages] = useState<MemoryBookPage[]>([]);
+  const [undevelopedPhotos, setUndevelopedPhotos] = useState<Photo[]>([]);
+  const [isDeveloping, setIsDeveloping] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<{ photo: Photo; page: MemoryBookPage } | null>(null);
@@ -44,7 +46,12 @@ const MemoryBookPage = () => {
         await reloadPhotosFromCloud();
       }
       const photos = await getAllPhotos();
-      const memoryPages = generateMemoryBookPages(photos, itineraryState);
+      const developed = photos.filter(p => p.isDeveloped);
+      const undeveloped = photos.filter(p => !p.isDeveloped);
+      
+      setUndevelopedPhotos(undeveloped);
+      
+      const memoryPages = generateMemoryBookPages(developed, itineraryState);
       setPages(memoryPages);
     } catch (error) {
       console.error("Error loading memory book:", error);
@@ -108,6 +115,18 @@ const MemoryBookPage = () => {
     }
   };
 
+  const handleDevelopFilm = async () => {
+    setIsDeveloping(true);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    for (const p of undevelopedPhotos) {
+      await upsertPhoto({ ...p, isDeveloped: true });
+    }
+    
+    await loadMemoryBook();
+    setIsDeveloping(false);
+  };
+
   const handlePhotoClick = (photo: Photo, page: MemoryBookPage) => {
     setSelectedPhoto({ photo, page });
   };
@@ -151,7 +170,7 @@ const MemoryBookPage = () => {
     );
   }
 
-  if (pages.length === 0) {
+  if (pages.length === 0 && undevelopedPhotos.length === 0) {
     return (
       <>
         <Helmet>
@@ -205,18 +224,70 @@ const MemoryBookPage = () => {
                 {totalPhotos} {totalPhotos === 1 ? "memory" : "memories"} captured together
               </p>
 
-              <motion.button
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="inline-flex items-center gap-2 px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-sans font-medium text-sm shadow-romantic hover:shadow-glow transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                whileHover={!isDownloading ? { y: -2 } : {}}
-                whileTap={!isDownloading ? { scale: 0.98 } : {}}
-              >
-                <Download size={16} />
-                {isDownloading ? "Generating…" : "Download Memory Book"}
-              </motion.button>
+              <div className="flex items-center gap-3 no-print">
+                <motion.button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 px-7 py-3.5 bg-secondary text-secondary-foreground rounded-full font-sans font-medium text-sm shadow-romantic hover:shadow-glow transition-all duration-300"
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Printer size={16} />
+                  Export to Book
+                </motion.button>
+                <motion.button
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="inline-flex items-center gap-2 px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-sans font-medium text-sm shadow-romantic hover:shadow-glow transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  whileHover={!isDownloading ? { y: -2 } : {}}
+                  whileTap={!isDownloading ? { scale: 0.98 } : {}}
+                >
+                  <Download size={16} />
+                  {isDownloading ? "Generating…" : "Download PDF"}
+                </motion.button>
+              </div>
             </div>
           </motion.div>
+
+          {/* Develop Film Section */}
+          <AnimatePresence>
+            {undevelopedPhotos.length > 0 && (
+              <motion.div
+                className="mb-14 text-center p-8 bg-card border border-border rounded-2xl shadow-romantic no-print"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, height: 0, overflow: 'hidden' }}
+              >
+                <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Camera className="text-primary" size={28} />
+                </div>
+                <h3 className="font-serif text-2xl font-semibold mb-2">
+                  You have {undevelopedPhotos.length} undeveloped {undevelopedPhotos.length === 1 ? 'photo' : 'photos'}!
+                </h3>
+                <p className="text-muted-foreground mb-6 font-sans font-light">
+                  Click below to process your film and add them to your memory book.
+                </p>
+                <motion.button
+                  onClick={handleDevelopFilm}
+                  disabled={isDeveloping}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-sans font-medium shadow-glow transition-all disabled:opacity-50"
+                  whileHover={!isDeveloping ? { y: -2, scale: 1.02 } : {}}
+                  whileTap={!isDeveloping ? { scale: 0.98 } : {}}
+                >
+                  {isDeveloping ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Developing Film...
+                    </>
+                  ) : (
+                    <>
+                      <Camera size={18} />
+                      Develop Film
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Memory pages */}
           <div className="space-y-10 max-w-4xl mx-auto">
@@ -259,13 +330,13 @@ const MemoryBookPage = () => {
                           alt={photo.caption || "Memory"}
                           caption={page.checkpoint.title}
                           annotate={formatTimestamp(photo.timestamp)}
-                          className="group-hover:-translate-y-1 transition-transform duration-300"
+                          className="group-hover:-translate-y-1 transition-transform duration-300 vintage-film print-avoid-break"
                         >
                           {/* Delete button */}
                           <motion.button
                             onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id, false); }}
                             disabled={deletingPhotoId === photo.id}
-                            className="absolute top-2 left-2 z-10 bg-destructive text-destructive-foreground p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            className="absolute top-2 left-2 z-10 bg-destructive text-destructive-foreground p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm no-print"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             title="Delete photo"
@@ -283,7 +354,7 @@ const MemoryBookPage = () => {
         </div>
 
         {/* Time Capsule */}
-        <div className="max-w-4xl mx-auto mt-4">
+        <div className="max-w-4xl mx-auto mt-4 no-print">
           <TimeCapsule />
         </div>
 

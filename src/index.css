@@ -254,4 +254,22 @@
     mix-blend-mode: multiply;
     z-index: 0;
   }
+
+  .vintage-film {
+    filter: sepia(0.4) contrast(1.2) brightness(0.9);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.15);
+  }
+
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    .print-avoid-break {
+      page-break-inside: avoid;
+    }
+    
+    @page {
+      margin: 2cm;
+    }
+  }
 }

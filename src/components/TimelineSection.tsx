@@ -186,6 +186,7 @@ export type Photo = {
   frame?: string; // Frame preset name
   stickers?: Sticker[]; // Array of sticker overlays
   caption?: string;
+  isDeveloped?: boolean;
 };
 
 // Export types for use in other components
