@@ -1,6 +1,6 @@
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Download, BookOpen, Trash2, X, Calendar, MapPin, Images } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { generateMemoryBookPages, generateMemoryBookHTML, downloadMemoryBook } from "@/utils/memoryBookGenerator";
@@ -9,7 +9,7 @@ import type { Photo } from "@/components/TimelineSection";
 import { useLocation } from "react-router-dom";
 import { loadCouponAchievements } from "@/utils/supabaseSync";
 import TimeCapsule from "@/components/TimeCapsule";
-import { Eyebrow, DisplayHeading, EditorialFigure } from "@/components/editorial";
+import { Eyebrow, KineticHeading, EditorialFigure } from "@/components/editorial";
 
 const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
 
@@ -32,6 +32,10 @@ const MemoryBookPage = () => {
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<{ photo: Photo; page: MemoryBookPage } | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const { scrollYProgress } = useScroll();
+  const centerColY = useTransform(scrollYProgress, [0, 1], [0, -100]);
+  const outerColY = useTransform(scrollYProgress, [0, 1], [0, 50]);
 
   const loadMemoryBook = async () => {
     setIsLoading(true);
@@ -193,9 +197,9 @@ const MemoryBookPage = () => {
             transition={{ duration: 0.6 }}
           >
             <Eyebrow no="Nº 03">our story</Eyebrow>
-            <DisplayHeading>
+            <KineticHeading>
               Memory <em>Book</em><span className="dot-accent">.</span>
-            </DisplayHeading>
+            </KineticHeading>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6">
               <p className="font-sans font-light text-muted-foreground text-lg">
                 {totalPhotos} {totalPhotos === 1 ? "memory" : "memories"} captured together
@@ -232,7 +236,7 @@ const MemoryBookPage = () => {
                   <h2 className="font-serif text-xl md:text-2xl font-semibold text-foreground mb-1">
                     {page.checkpoint.title}
                   </h2>
-                  <p className="font-sans font-light text-sm text-muted-foreground leading-relaxed">
+                  <p className="font-sans font-light text-sm text-muted-foreground leading-relaxed drop-cap">
                     {page.checkpoint.description}
                   </p>
                 </div>
@@ -246,6 +250,7 @@ const MemoryBookPage = () => {
                         className="relative group cursor-pointer break-inside-avoid"
                         initial={{ opacity: 0, scale: 0.92 }}
                         animate={{ opacity: 1, scale: 1 }}
+                        style={{ y: photoIndex % 3 === 1 ? centerColY : outerColY }}
                         transition={{ delay: pageIndex * 0.08 + photoIndex * 0.04 }}
                         onClick={() => handlePhotoClick(photo, page)}
                       >

@@ -183,6 +183,16 @@
     text-transform: uppercase;
   }
 
+  .drop-cap::first-letter {
+    float: left;
+    font-family: var(--font-serif);
+    font-size: 3.5rem;
+    line-height: 0.8;
+    padding-right: 0.5rem;
+    padding-top: 0.25rem;
+    color: hsl(var(--primary));
+  }
+
   /* ─── gradients ─── */
   .bg-gradient-romantic {
     background: linear-gradient(

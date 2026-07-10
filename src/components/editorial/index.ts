@@ -3,3 +3,4 @@ export { default as DisplayHeading } from "./DisplayHeading";
 export { default as Pill } from "./Pill";
 export { default as StatBlock } from "./StatBlock";
 export { default as EditorialFigure } from "./EditorialFigure";
+export { default as KineticHeading } from "./KineticHeading";
