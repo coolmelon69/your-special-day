@@ -1,8 +1,20 @@
 import { motion } from "framer-motion";
-import { Heart, Sparkles, CheckSquare, Gift, ArrowRight, QrCode, Lock } from "lucide-react";
+import { Heart, CheckSquare, Gift, ArrowRight, QrCode, Lock } from "lucide-react";
 import { NavLink } from "./NavLink";
+import { useAdventure } from "@/contexts/AdventureContext";
+import { Eyebrow, DisplayHeading, Pill, StatBlock } from "@/components/editorial";
+import { cn } from "@/lib/utils";
 
 const LoveNoteSection = () => {
+  const { itineraryState, coupons } = useAdventure();
+  const completedStamps = itineraryState.filter((i) => i.isPast).length;
+  const totalStamps = itineraryState.length;
+  const unlockedCoupons = coupons.filter((c) => completedStamps >= c.requiredStamps).length;
+  const totalCoupons = coupons.length;
+
+  const stampsDone = totalStamps > 0 && completedStamps === totalStamps;
+  const couponsDone = totalCoupons > 0 && unlockedCoupons === totalCoupons;
+
   return (
     <section className="py-20 md:py-32 bg-background">
       <div className="container px-6">
@@ -127,47 +139,65 @@ const LoveNoteSection = () => {
           </motion.div>
         </motion.div>
 
-        {/* Navigation Section */}
+        {/* Navigation Section
+            THESIS — three doors, not a SaaS shelf. The cards read as index
+            entries in the site's own editorial system (Eyebrow/StatBlock),
+            not a gradient-card tile like the ones the /coupons ticket book
+            already refuses. Nº serials + a stat replace decorative Sparkles;
+            rose/shadow-romantic mark a fully-done card, primary marks the
+            in-progress default — the same states StampCollectionSection uses. */}
         <motion.div
-          className="text-center mb-10"
+          className="text-center mb-10 max-w-[42ch] mx-auto"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h3 className="font-serif text-2xl md:text-3xl font-bold mb-8">
-            Explore More
-          </h3>
+          <Eyebrow className="justify-center">Three ways in</Eyebrow>
+          <DisplayHeading as="h2" className="mt-4 text-3xl md:text-4xl">
+            Explore <em>more</em><span className="dot-accent">.</span>
+          </DisplayHeading>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
           {/* Stamps Navigation Card */}
           <NavLink to="/stamps" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-purple-400 to-fuchsia-400 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
+              className={cn(
+                "group relative h-full flex flex-col rounded-3xl border bg-card p-7 md:p-8 transition-colors",
+                stampsDone ? "border-rose/40 shadow-romantic" : "border-primary/40"
+              )}
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              whileHover={{ scale: 1.05, y: -4 }}
+              whileHover={{ y: -4 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Decorative elements */}
-              <div className="absolute top-4 right-4">
-                <Sparkles className="text-white/30" size={24} />
-              </div>
-              <div className="absolute bottom-4 left-4">
-                <Sparkles className="text-white/20" size={20} />
+              <div className="flex items-start justify-between gap-3">
+                <span
+                  className={cn(
+                    "grid h-11 w-11 shrink-0 place-items-center rounded-full border",
+                    stampsDone ? "bg-rose/10 border-rose/30 text-rose" : "bg-primary/10 border-primary/30 text-primary"
+                  )}
+                >
+                  <CheckSquare className="w-5 h-5" />
+                </span>
+                <Pill variant={stampsDone ? "rose" : "accent"}>Nº 01</Pill>
               </div>
 
-              <div className="relative z-10 flex flex-col flex-grow">
-                <CheckSquare className="mb-4" size={48} />
-                <h4 className="font-serif text-2xl font-bold mb-2">Stamp Collection</h4>
-                <p className="text-white/90 mb-6 flex-grow">
-                  View all your collected adventure stamps
-                </p>
-                <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">
-                  View Stamps
-                  <ArrowRight size={18} />
-                </div>
+              <h4 className="font-serif text-2xl font-bold mt-5 mb-2">Stamp Collection</h4>
+              <p className="text-muted-foreground mb-6 flex-grow">
+                Every adventure stop you've checked off, kept in one book.
+              </p>
+
+              <StatBlock
+                value={completedStamps}
+                unit={`/ ${totalStamps}`}
+                label={stampsDone ? "all stamps collected" : "stamps collected so far"}
+              />
+
+              <div className="inline-flex items-center gap-2 mt-6 font-medium text-primary group-hover:gap-3 transition-all">
+                View Stamps
+                <ArrowRight className="w-4 h-4" />
               </div>
             </motion.div>
           </NavLink>
@@ -175,63 +205,81 @@ const LoveNoteSection = () => {
           {/* Coupons Navigation Card */}
           <NavLink to="/coupons" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-indigo-400 to-purple-500 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
+              className={cn(
+                "group relative h-full flex flex-col rounded-3xl border bg-card p-7 md:p-8 transition-colors",
+                couponsDone ? "border-rose/40 shadow-romantic" : "border-primary/40"
+              )}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              whileHover={{ scale: 1.05, y: -4 }}
+              whileHover={{ y: -4 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Decorative elements */}
-              <div className="absolute top-4 right-4">
-                <Sparkles className="text-white/30" size={24} />
-              </div>
-              <div className="absolute bottom-4 left-4">
-                <Sparkles className="text-white/20" size={20} />
+              <div className="flex items-start justify-between gap-3">
+                <span
+                  className={cn(
+                    "grid h-11 w-11 shrink-0 place-items-center rounded-full border",
+                    couponsDone ? "bg-rose/10 border-rose/30 text-rose" : "bg-primary/10 border-primary/30 text-primary"
+                  )}
+                >
+                  <Gift className="w-5 h-5" />
+                </span>
+                <Pill variant={couponsDone ? "rose" : "accent"}>Nº 02</Pill>
               </div>
 
-              <div className="relative z-10 flex flex-col flex-grow">
-                <Gift className="mb-4" size={48} />
-                <h4 className="font-serif text-2xl font-bold mb-2">Gift Coupons</h4>
-                <p className="text-white/90 mb-6 flex-grow">
-                  Unlock and redeem your special gift coupons
-                </p>
-                <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">
-                  View Coupons
-                  <ArrowRight size={18} />
-                </div>
+              <h4 className="font-serif text-2xl font-bold mt-5 mb-2">Gift Coupons</h4>
+              <p className="text-muted-foreground mb-6 flex-grow">
+                Special promises, unlocked one stamp at a time.
+              </p>
+
+              {totalCoupons > 0 ? (
+                <StatBlock
+                  value={unlockedCoupons}
+                  unit={`/ ${totalCoupons}`}
+                  label={couponsDone ? "all coupons unlocked" : "coupons unlocked"}
+                />
+              ) : (
+                <Pill variant="tag" className="w-fit">
+                  Check back soon
+                </Pill>
+              )}
+
+              <div className="inline-flex items-center gap-2 mt-6 font-medium text-primary group-hover:gap-3 transition-all">
+                View Coupons
+                <ArrowRight className="w-4 h-4" />
               </div>
             </motion.div>
           </NavLink>
 
-          {/* QR Scanner Navigation Card */}
+          {/* QR Scanner Navigation Card — pure action, no fabricated stat */}
           <NavLink to="/scan-qr" className="h-full">
             <motion.div
-              className="bg-gradient-to-br from-violet-400 to-purple-400 rounded-3xl p-8 text-white shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col"
+              className="group relative h-full flex flex-col rounded-3xl border border-secondary/40 bg-card p-7 md:p-8 transition-colors"
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              whileHover={{ scale: 1.05, y: -4 }}
+              whileHover={{ y: -4 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Decorative elements */}
-              <div className="absolute top-4 right-4">
-                <Sparkles className="text-white/30" size={24} />
-              </div>
-              <div className="absolute bottom-4 left-4">
-                <Sparkles className="text-white/20" size={20} />
+              <div className="flex items-start justify-between gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border bg-secondary/10 border-secondary/30 text-secondary">
+                  <QrCode className="w-5 h-5" />
+                </span>
+                <Pill variant="tag">Nº 03</Pill>
               </div>
 
-              <div className="relative z-10 flex flex-col flex-grow">
-                <QrCode className="mb-4" size={48} />
-                <h4 className="font-serif text-2xl font-bold mb-2">Scan QR Code</h4>
-                <p className="text-white/90 mb-6 flex-grow">
-                  Scan and redeem your coupon QR codes
-                </p>
-                <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full font-medium">
-                  Scan Now
-                  <ArrowRight size={18} />
-                </div>
+              <h4 className="font-serif text-2xl font-bold mt-5 mb-2">Scan QR Code</h4>
+              <p className="text-muted-foreground mb-6 flex-grow">
+                Redeeming a ticket in person? Scan its code here.
+              </p>
+
+              <Pill variant="accent" icon={<QrCode />} className="w-fit">
+                Ready to scan
+              </Pill>
+
+              <div className="inline-flex items-center gap-2 mt-6 font-medium text-primary group-hover:gap-3 transition-all">
+                Scan Now
+                <ArrowRight className="w-4 h-4" />
               </div>
             </motion.div>
           </NavLink>

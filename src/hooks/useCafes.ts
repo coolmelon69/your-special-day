@@ -67,6 +67,16 @@ export const useCafePlaces = (categoryId: string | undefined) => {
   };
 };
 
+/**
+ * Writes need a session — the RLS policies are `auth.role() = 'authenticated'`.
+ * Signed out, Postgres answers with its own wording, which means nothing to
+ * anyone standing in a chip shop. Translate it once, here.
+ */
+const writeError = (message: string): Error =>
+  /row-level security/i.test(message)
+    ? new Error("Sign in first — only signed-in accounts can change the lists.")
+    : new Error(message);
+
 export const useCreateCategory = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -86,7 +96,7 @@ export const useCreateCategory = () => {
         .insert({ name: name.trim(), slug, icon })
         .select()
         .single();
-      if (error) throw new Error(error.message);
+      if (error) throw writeError(error.message);
       return data as CafeCategory;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: cafeKeys.categories }),
@@ -98,7 +108,7 @@ export const useDeleteCategory = () => {
   return useMutation({
     mutationFn: async (categoryId: string): Promise<void> => {
       const { error } = await db().from("cafe_categories").delete().eq("id", categoryId);
-      if (error) throw new Error(error.message);
+      if (error) throw writeError(error.message);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: cafeKeys.all }),
   });
@@ -122,7 +132,7 @@ export const useSavePlace = () => {
           .eq("id", id)
           .select()
           .single();
-        if (error) throw new Error(error.message);
+        if (error) throw writeError(error.message);
         return data as CafePlace;
       }
 
@@ -131,7 +141,7 @@ export const useSavePlace = () => {
         .insert(payload)
         .select()
         .single();
-      if (error) throw new Error(error.message);
+      if (error) throw writeError(error.message);
       return data as CafePlace;
     },
     onMutate: async (place) => {
@@ -161,7 +171,7 @@ export const useDeletePlace = () => {
   return useMutation({
     mutationFn: async (place: CafePlace): Promise<void> => {
       const { error } = await db().from("cafe_places").delete().eq("id", place.id);
-      if (error) throw new Error(error.message);
+      if (error) throw writeError(error.message);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: cafeKeys.places }),
   });

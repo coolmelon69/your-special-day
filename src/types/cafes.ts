@@ -33,10 +33,15 @@ export interface CafePlace {
   updated_at: string;
 }
 
-/** What the edit form hands back. `id` absent means insert. */
+/**
+ * What the edit form hands back. `id` absent means insert.
+ *
+ * `gmaps_url` stays out: it is derivable from the place ID, so storing it would
+ * only be a second copy that can drift. See `mapsUrlForPlace`.
+ */
 export type NewCafePlace = Omit<
   CafePlace,
-  "id" | "created_at" | "updated_at" | "gmaps_place_id" | "gmaps_url"
+  "id" | "created_at" | "updated_at" | "gmaps_url"
 > & { id?: string };
 
 /** Swap these two for real names when you have them. */

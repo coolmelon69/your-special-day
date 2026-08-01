@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useSavePlace } from "@/hooks/useCafes";
 import { uploadPhotoToStorage } from "@/utils/photoUpload";
 import { slugify } from "@/utils/cafeRanking";
+import { localityFromAddress, type CafePlaceMatch } from "@/utils/cafePlaces";
 import StarRating from "./StarRating";
+import PlaceLinkField from "./PlaceLinkField";
 import {
   PRICE_SYMBOL,
   RATER_A_LABEL,
@@ -43,6 +45,7 @@ interface FormState {
   would_return: boolean | null;
   rating_him: number | null;
   rating_her: number | null;
+  gmaps_place_id: string | null;
 }
 
 const emptyForm = (status: PlaceStatus): FormState => ({
@@ -56,6 +59,7 @@ const emptyForm = (status: PlaceStatus): FormState => ({
   would_return: null,
   rating_him: null,
   rating_her: null,
+  gmaps_place_id: null,
 });
 
 const fromPlace = (place: CafePlace): FormState => ({
@@ -69,6 +73,7 @@ const fromPlace = (place: CafePlace): FormState => ({
   would_return: place.would_return,
   rating_him: place.rating_him,
   rating_her: place.rating_her,
+  gmaps_place_id: place.gmaps_place_id,
 });
 
 const PlaceSheet = ({
@@ -92,6 +97,15 @@ const PlaceSheet = ({
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
+
+  // Linking only fills blanks. Anything you typed yourself survives.
+  const handleLink = (match: CafePlaceMatch) =>
+    setForm((current) => ({
+      ...current,
+      gmaps_place_id: match.placeId,
+      name: current.name.trim() || match.name,
+      area: current.area.trim() || localityFromAddress(match.address) || "",
+    }));
 
   const handlePhoto = async (file: File | undefined) => {
     if (!file) return;
@@ -139,6 +153,7 @@ const PlaceSheet = ({
       would_return: form.status === "visited" ? form.would_return : null,
       rating_him: form.status === "visited" ? form.rating_him : null,
       rating_her: form.status === "visited" ? form.rating_her : null,
+      gmaps_place_id: form.gmaps_place_id,
     };
 
     savePlace.mutate(payload, {
@@ -166,6 +181,13 @@ const PlaceSheet = ({
           autoFocus
         />
       </div>
+
+      <PlaceLinkField
+        placeId={form.gmaps_place_id}
+        nameHint={form.name}
+        onLink={handleLink}
+        onUnlink={() => set("gmaps_place_id", null)}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">

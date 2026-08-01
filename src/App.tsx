@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +23,8 @@ import NotFound from "./pages/NotFound";
 import CameraPage from "./pages/CameraPage";
 import CafesPage from "./pages/CafesPage";
 import CafeCategoryPage from "./pages/CafeCategoryPage";
+import LockscreenPage from "./pages/LockscreenPage";
+import { isSiteUnlocked } from "@/utils/adminAuth";
 
 
 const queryClient = new QueryClient();
@@ -75,6 +78,26 @@ const AnimatedRoutes = () => {
   );
 };
 
+const SiteGate = () => {
+  const location = useLocation();
+  const [unlocked, setUnlocked] = useState(isSiteUnlocked());
+  const isPublicPath =
+    location.pathname === "/cafes" || location.pathname.startsWith("/cafes/");
+
+  if (!isPublicPath && !unlocked) {
+    return <LockscreenPage onUnlock={() => setUnlocked(true)} />;
+  }
+
+  return (
+    <AdventureProvider>
+      <ErrorBoundary>
+        <NavigationBar />
+        <AnimatedRoutes />
+      </ErrorBoundary>
+    </AdventureProvider>
+  );
+};
+
 const App = () => (
   <ErrorBoundary>
     <HelmetProvider>
@@ -88,12 +111,7 @@ const App = () => (
               v7_relativeSplatPath: true,
             }}
           >
-            <AdventureProvider>
-              <ErrorBoundary>
-                <NavigationBar />
-                <AnimatedRoutes />
-              </ErrorBoundary>
-            </AdventureProvider>
+            <SiteGate />
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>

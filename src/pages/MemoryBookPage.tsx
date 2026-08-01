@@ -8,7 +8,6 @@ import type { MemoryBookPage } from "@/utils/memoryBookGenerator";
 import type { Photo } from "@/components/TimelineSection";
 import { useLocation } from "react-router-dom";
 import { loadCouponAchievements } from "@/utils/supabaseSync";
-import TimeCapsule from "@/components/TimeCapsule";
 import { Eyebrow, KineticHeading, EditorialFigure } from "@/components/editorial";
 
 const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
@@ -351,11 +350,6 @@ const MemoryBookPage = () => {
               </motion.div>
             ))}
           </div>
-        </div>
-
-        {/* Time Capsule */}
-        <div className="max-w-4xl mx-auto mt-4 no-print">
-          <TimeCapsule />
         </div>
 
         {/* Photo Detail Modal */}

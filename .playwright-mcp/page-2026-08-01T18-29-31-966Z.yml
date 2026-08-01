@@ -1,0 +1,12 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Not yet." [level=1] [ref=e8]
+      - paragraph [ref=e9]: This one's private. Enter the password, or head to the cafes.
+      - generic [ref=e10]:
+        - textbox "Password" [active] [ref=e11]
+        - button "Enter" [disabled] [ref=e12]
+      - button "Browse cafes instead" [ref=e13] [cursor=pointer]

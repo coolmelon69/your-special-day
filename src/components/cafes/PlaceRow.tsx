@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/editorial";
@@ -14,6 +14,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useDeletePlace } from "@/hooks/useCafes";
+import { useGooglePlacePhoto } from "@/hooks/useGooglePlacePhoto";
+import { mapsUrlForPlace } from "@/utils/cafePlaces";
 import type { RankedPlace } from "@/utils/cafeRanking";
 import {
   MAX_RATING,
@@ -103,6 +105,10 @@ const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const deletePlace = useDeletePlace();
   const meta = metaLine(place);
+  const googlePhoto = useGooglePlacePhoto(place.gmaps_place_id);
+  // Your own upload always wins. Google only fills the gap.
+  const photoSrc = place.photo_url ?? googlePhoto.data?.uri ?? null;
+  const credits = place.photo_url ? [] : (googlePhoto.data?.attributions ?? []);
 
   return (
     <article
@@ -133,10 +139,21 @@ const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
             <h3 className="truncate font-serif text-xl font-bold leading-tight md:text-2xl">
               {place.name}
             </h3>
-            {meta && (
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                {meta}
-              </p>
+            {(meta || place.gmaps_place_id) && (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              {meta}
+              {place.gmaps_place_id && (
+                <a
+                  href={mapsUrlForPlace(place.gmaps_place_id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+                >
+                  Maps
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
+            </p>
             )}
           </div>
 
@@ -183,14 +200,20 @@ const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
       </div>
 
       {/* photo */}
-      {place.photo_url && (
+      {photoSrc && (
         <figure className="col-span-2 md:col-span-1 md:row-span-1">
           <img
-            src={place.photo_url}
+            src={photoSrc}
             alt={place.name}
             loading="lazy"
             className="aspect-[4/3] w-full rounded-md border border-border object-cover md:aspect-[3/4]"
           />
+          {/* Google requires the contributor to be credited when it names one. */}
+          {credits.length > 0 && (
+            <figcaption className="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+              {credits.map((credit) => credit.name).join(", ")}
+            </figcaption>
+          )}
         </figure>
       )}
 

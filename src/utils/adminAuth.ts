@@ -53,6 +53,26 @@ export const logout = (): void => {
   }
 };
 
+// Site-wide lockscreen (separate session from admin, same password)
+const SITE_LOCK_KEY = "site-lock-session";
+
+export const isSiteUnlocked = (): boolean => {
+  if (typeof window === "undefined" || !window.sessionStorage) {
+    return false;
+  }
+  return sessionStorage.getItem(SITE_LOCK_KEY) === "true";
+};
+
+export const unlockSite = (password: string): boolean => {
+  if (password === ADMIN_PASSWORD) {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      sessionStorage.setItem(SITE_LOCK_KEY, "true");
+      return true;
+    }
+  }
+  return false;
+};
+
 // Get session info
 export const getSessionInfo = (): { timestamp: number } | null => {
   if (typeof window === "undefined" || !window.sessionStorage) {

@@ -5,7 +5,7 @@ import { syncCustomStamps, deleteCustomStampFromSupabase, syncCustomCoupons, del
 import { getCurrentUser } from "./auth";
 
 const DB_NAME = "admin-data-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = {
   STAMPS: "customStamps",
   COUPONS: "customCoupons",
@@ -611,6 +611,41 @@ export const saveCameraPhoto = async (photoDataUrl: string): Promise<string> => 
     });
   } catch (error) {
     console.error("Error saving camera photo:", error);
+    throw error;
+  }
+};
+
+export const getAllCameraPhotos = async (): Promise<CameraPhoto[]> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.PHOTOS], "readonly");
+    const store = transaction.objectStore(STORES.PHOTOS);
+    return new Promise<CameraPhoto[]>((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const photos = (request.result as CameraPhoto[]).sort((a, b) => b.timestamp - a.timestamp);
+        resolve(photos);
+      };
+      request.onerror = () => reject(new Error("Failed to get camera photos"));
+    });
+  } catch (error) {
+    console.error("Error getting camera photos:", error);
+    return [];
+  }
+};
+
+export const deleteCameraPhoto = async (photoId: string): Promise<void> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.PHOTOS], "readwrite");
+    const store = transaction.objectStore(STORES.PHOTOS);
+    return new Promise<void>((resolve, reject) => {
+      const request = store.delete(photoId);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(new Error("Failed to delete camera photo"));
+    });
+  } catch (error) {
+    console.error("Error deleting camera photo:", error);
     throw error;
   }
 };

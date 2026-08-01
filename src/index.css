@@ -349,6 +349,158 @@
     color: hsl(var(--ink));
     text-transform: uppercase;
   }
+
+  /* ─── the ticket book — /coupons ──────────────────────────────────
+     A section-local material world: security-tinted ticket stock,
+     guilloché bands, perforations, punched notches, torn edges and
+     rubber overprints. Scoped under .ticketbook so none of it leaks
+     into the editorial system. See DESIGN_SYSTEM.md §14. */
+  .ticketbook {
+    --stock: 40 42% 98.5%;
+    --stock-shade: 274 20% 85%;
+    --print: 330 60% 62%; /* the only ink colour on the paper */
+    --perf: 274 16% 70%;
+  }
+
+  /* security-tinted ticket stock — two counter-rotated hairline screens
+     over a fine dot, the way a printed voucher resists a photocopier */
+  .ticket-stock {
+    background-color: hsl(var(--stock));
+    background-image:
+      repeating-linear-gradient(58deg, hsl(var(--print) / 0.075) 0 1px, transparent 1px 6px),
+      repeating-linear-gradient(-58deg, hsl(var(--primary) / 0.065) 0 1px, transparent 1px 6px),
+      radial-gradient(hsl(var(--primary) / 0.07) 0.5px, transparent 0.5px);
+    background-size: auto, auto, 4px 4px;
+  }
+
+  /* the engraved band across a ticket's head — interfering arc screens,
+     fine enough to read as engine-turning rather than ornament */
+  .ticket-guilloche {
+    background-image:
+      repeating-radial-gradient(circle at 50% 132%, transparent 0 2.1px, hsl(var(--print) / 0.13) 2.1px 2.7px),
+      repeating-radial-gradient(circle at 50% -32%, transparent 0 2.1px, hsl(var(--primary) / 0.11) 2.1px 2.7px);
+    background-size: 15px 100%;
+  }
+
+  /* the perforation the stub is pulled along — vertical by default */
+  .ticket-perf {
+    background-image: radial-gradient(circle, hsl(var(--perf)) 0 1.5px, transparent 1.8px);
+    background-size: 100% 9px;
+    background-repeat: repeat-y;
+    background-position: center top;
+  }
+  .ticket-perf--h {
+    background-size: 9px 100%;
+    background-repeat: repeat-x;
+    background-position: left center;
+  }
+
+  /* the punched half-moons where the perforation meets the paper's edge */
+  .ticket-notch {
+    position: absolute;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 999px;
+    background: hsl(var(--background));
+    box-shadow: inset 0 1px 2px hsl(272 30% 30% / 0.2);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* the edge a stub leaves behind — irregular, because paper tears, not cuts */
+  .ticket-torn {
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    right: -1px;
+    width: 0.6rem;
+    background: hsl(var(--background));
+    pointer-events: none;
+    z-index: 2;
+    /* the paper and the page are close in value, so the tear needs its own
+       edge line to read as torn rather than trimmed */
+    filter: drop-shadow(-1px 0 0 hsl(var(--stock-shade)));
+    clip-path: polygon(
+      100% 0%, 100% 100%, 34% 97%, 78% 93%, 22% 88%, 66% 84%, 30% 79%, 84% 74%,
+      26% 70%, 70% 65%, 18% 60%, 74% 55%, 32% 50%, 80% 45%, 24% 40%, 68% 35%,
+      28% 30%, 82% 25%, 20% 20%, 72% 15%, 30% 10%, 76% 5%
+    );
+  }
+
+  /* rubber overprint — REDEEMED, NOT YET VALID */
+  .ticket-overprint {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    line-height: 1.35;
+    text-align: center;
+    color: hsl(var(--print) / 0.78);
+    border: 2px solid hsl(var(--print) / 0.4);
+    border-radius: 0.2rem;
+    padding: 0.4rem 0.85rem;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  .ticket-overprint--void {
+    color: hsl(var(--muted-foreground) / 0.85);
+    border-color: hsl(var(--muted-foreground) / 0.35);
+  }
+
+  /* a printed field on the ticket: tiny mono key over its value */
+  .ticket-field-key {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+  .ticket-field-val {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: hsl(var(--foreground));
+    margin-top: 0.1rem;
+  }
+
+  /* the word printed down the stub */
+  .ticket-pull {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+
+  /* a seal pressed into the book's cover */
+  .ticket-seal {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 5.25rem;
+    height: 5.25rem;
+    border-radius: 999px;
+    border: 1.5px solid hsl(var(--print) / 0.45);
+    color: hsl(var(--print));
+    background: hsl(var(--print) / 0.05);
+  }
+  .ticket-seal::before {
+    content: "";
+    position: absolute;
+    inset: 0.3125rem;
+    border-radius: 999px;
+    border: 1px dashed hsl(var(--print) / 0.4);
+  }
+  .ticket-seal--blind {
+    border-color: hsl(274 18% 78%);
+    color: hsl(var(--muted-foreground));
+    background: hsl(274 18% 92% / 0.5);
+    box-shadow: inset 0 2px 3px hsl(272 24% 40% / 0.16), 0 1px 0 hsl(0 0% 100% / 0.9);
+  }
+  .ticket-seal--blind::before {
+    border-color: hsl(274 18% 78%);
+  }
 }
 
 @layer utilities {
