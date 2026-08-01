@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Home, CheckSquare, Gift, BookOpen, Shield, LogIn, LogOut, User, QrCode } from "lucide-react";
+import { Home, CheckSquare, Gift, BookOpen, Shield, LogIn, LogOut, User, QrCode, Coffee } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { NavLink } from "./NavLink";
@@ -49,6 +49,7 @@ const NavigationBar = () => {
     { path: "/coupons", label: "Coupons", icon: Gift },
     { path: "/scan-qr", label: "Scan QR", icon: QrCode },
     { path: "/memory-book", label: "Memory Book", icon: BookOpen },
+    { path: "/cafes", label: "Cafés", icon: Coffee },
     ...(authenticated ? [{ path: "/admin", label: "Admin", icon: Shield }] : []),
   ];
 
