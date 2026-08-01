@@ -167,8 +167,16 @@ const PlaceSheet = ({
 
   const title = place ? "Edit place" : form.status === "visited" ? "Add a place you've been" : "Add to the wishlist";
 
+  /**
+   * The shell is a three-band column: title, scrolling fields, pinned actions.
+   *
+   * Only the middle band scrolls. Letting the whole panel scroll instead pushes
+   * Save off the bottom on short viewports, and the rounded fixed drawer repaints
+   * its scrolled region badly, so the form appears to vanish mid-field.
+   */
   const body = (
-    <form onSubmit={handleSubmit} className="space-y-5 px-5 pb-8 md:px-0 md:pb-0">
+    <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 pb-6 pt-1 md:px-6">
       <div className="space-y-2">
         <Label htmlFor="cafe-name" className="font-mono text-[10px] uppercase tracking-[0.18em]">
           Name
@@ -352,7 +360,10 @@ const PlaceSheet = ({
         )}
       </div>
 
-      <div className="flex gap-3 pt-1">
+      </div>
+
+      {/* The drawer sits on the bottom edge, so keep the buttons off the home indicator. */}
+      <div className="flex shrink-0 gap-3 border-t border-border bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 md:px-6">
         <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
@@ -366,8 +377,8 @@ const PlaceSheet = ({
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[92vh] overflow-y-auto">
-          <DrawerHeader>
+        <DrawerContent className="max-h-[92vh]">
+          <DrawerHeader className="shrink-0 px-5 pb-2 text-left">
             <DrawerTitle className="font-serif text-2xl">{title}</DrawerTitle>
           </DrawerHeader>
           {body}
@@ -378,8 +389,8 @@ const PlaceSheet = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 p-0 sm:max-w-lg">
+        <DialogHeader className="shrink-0 px-6 pb-2 pt-6">
           <DialogTitle className="font-serif text-2xl">{title}</DialogTitle>
         </DialogHeader>
         {body}
