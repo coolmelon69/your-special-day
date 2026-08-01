@@ -299,18 +299,49 @@ const PlaceSheet = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="cafe-photo" className="font-mono text-[10px] uppercase tracking-[0.18em]">
+        <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           Photo
-        </Label>
-        <div className="flex items-center gap-3">
-          <Input
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {/*
+            The native file input is hidden and driven by its label. Left visible
+            it renders as bare text — no border, no fill — which reads as an
+            empty field rather than a button.
+          */}
+          <label
+            htmlFor="cafe-photo"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground transition-gentle hover:border-primary/40 hover:text-primary"
+          >
+            {isUploading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : (
+              <ImagePlus className="h-4 w-4" />
+            )}
+            {isUploading ? "Uploading…" : form.photo_url ? "Replace photo" : "Choose photo"}
+          </label>
+          <input
             id="cafe-photo"
             type="file"
             accept="image/*"
-            onChange={(event) => handlePhoto(event.target.files?.[0])}
+            className="sr-only"
             disabled={isUploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              // Clear it so picking the same file twice still fires a change.
+              event.target.value = "";
+              handlePhoto(file);
+            }}
           />
-          {isUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+          {form.photo_url && (
+            <button
+              type="button"
+              onClick={() => set("photo_url", null)}
+              className="inline-flex items-center gap-2 rounded-md px-2 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground hover:text-destructive"
+            >
+              <X className="h-4 w-4" />
+              Remove
+            </button>
+          )}
         </div>
         {form.photo_url && (
           <img
