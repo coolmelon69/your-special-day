@@ -82,7 +82,10 @@ export default {
 			serif: ['Cormorant Garamond', 'Iowan Old Style', 'Georgia', 'serif'],
 			script: ['Dancing Script', 'cursive'],
 			mono: ['DM Mono', 'IBM Plex Mono', 'ui-monospace', 'monospace'],
-			pixel: ['"Press Start 2P"', 'cursive']
+			pixel: ['"Press Start 2P"', 'cursive'],
+			/* Us Gallery album leaf only — see DESIGN_SYSTEM.md §13 */
+			label: ['"Martian Mono"', 'DM Mono', 'ui-monospace', 'monospace'],
+			hand: ['"Shantell Sans"', '"Segoe Print"', 'cursive']
 		},
 		keyframes: {
 			'accordion-down': {
