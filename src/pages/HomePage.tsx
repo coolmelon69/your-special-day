@@ -13,8 +13,8 @@ const HomePage = () => {
   return (
     <>
       <Helmet>
-        <title>Happy Birthday, My Love! 💕</title>
-        <meta name="description" content="A special birthday celebration website made with love" />
+        <title>Happy birthday, Mochi — Your Special Day</title>
+        <meta name="description" content="One whole day for Mochi, kept in one place: the itinerary, the photos, and every coupon there is to cash in." />
       </Helmet>
       
       <main className="overflow-x-hidden pt-16 md:pt-20">

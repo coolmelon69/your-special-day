@@ -1,192 +1,122 @@
 import { useEffect } from "react";
-import { motion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  sideConfetti,
-  ambientSparkles,
-} from "../utils/particles";
+import { Eyebrow, DisplayHeading, EditorialFigure } from "@/components/editorial";
+import { sideConfetti } from "@/utils/particles";
 
-const FLOAT_SYMBOLS = ["♡", "✦", "◌", "♡"];
-const FLOAT_POSITIONS = [
-  { top: "12%", left: "8%", size: "32px", delay: 0 },
-  { top: "20%", right: "10%", size: "24px", delay: -2 },
-  { bottom: "20%", left: "12%", size: "20px", delay: -4 },
-  { bottom: "15%", right: "8%", size: "28px", delay: -1 },
-];
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 const HeroSection = () => {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
 
+  // The one authored moment on this page: a small burst on arrival, then it's quiet.
   useEffect(() => {
+    if (reduceMotion) return;
     sideConfetti({ duration: 3000, particleCount: 3 });
-    setTimeout(() => {
-      ambientSparkles({ duration: 15000, sparkleCount: 12 });
-    }, 1000);
-  }, []);
+  }, [reduceMotion]);
 
-  const scrollToNext = () => {
-    document.getElementById("gallery")?.scrollIntoView({ behavior: "smooth" });
-  };
+  const startTheDay = () =>
+    document.getElementById("gallery")?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+
+  /** The cover prints in: each block lands a beat after the one above it. */
+  const printIn = (delay: number) => ({
+    initial: reduceMotion ? false : { opacity: 0, y: 18 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.7, delay, ease: EASE },
+  });
 
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-hero overflow-hidden">
-      {/* Radial glow at top */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 40% at 50% 0%, hsl(var(--primary) / 0.12), transparent)",
-        }}
-      />
+    <section className="bg-gradient-hero py-14 md:py-24 lg:flex lg:min-h-[calc(100svh-5rem)] lg:items-center">
+      <div className="container grid items-center gap-14 px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-20">
+        {/* ── The cover story ── */}
+        <div>
+          <motion.div {...printIn(0)}>
+            <Eyebrow no="Nº 01">Today's issue</Eyebrow>
+          </motion.div>
 
-      {/* Elegant floating symbols */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-        {FLOAT_SYMBOLS.map((sym, i) => (
-          <motion.span
-            key={i}
-            className="absolute font-serif text-primary/10"
-            style={{ ...FLOAT_POSITIONS[i], fontSize: FLOAT_POSITIONS[i].size }}
-            animate={{ y: [0, -12, 0], rotate: [-2, 2, -2] }}
-            transition={{
-              duration: 6,
-              repeat: Infinity,
-              delay: FLOAT_POSITIONS[i].delay,
-              ease: "easeInOut",
-            }}
+          <motion.div {...printIn(0.08)}>
+            <DisplayHeading className="mt-5">
+              Happy birthday, <em>Mochi</em>. One <strong>whole day</strong>, kept in
+              one place<span className="dot-accent">.</span>
+            </DisplayHeading>
+          </motion.div>
+
+          <motion.p
+            className="mt-6 max-w-[52ch] text-lg leading-relaxed text-muted-foreground"
+            {...printIn(0.16)}
           >
-            {sym}
-          </motion.span>
-        ))}
-      </div>
+            Every stop we're making, every photo we take, every coupon you get to cash
+            in. It all lives on this page, so start at the top and work your way down
+            the day.
+          </motion.p>
 
-      {/* Floating cat characters */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute"
-          initial={{ y: "100vh", x: "10%" }}
-          animate={{ y: "-100vh", x: ["10%", "15%", "10%"] }}
-          transition={{ duration: 12, repeat: Infinity, delay: 2, ease: "linear" }}
-        >
-          <img src="/images/gallery/mmm_cat.png" alt="Cat" className="w-16 h-16 md:w-20 md:h-20 opacity-70" />
-        </motion.div>
-        <motion.div
-          className="absolute"
-          initial={{ y: "100vh", x: "85%" }}
-          animate={{ y: "-100vh", x: ["85%", "80%", "85%"] }}
-          transition={{ duration: 14, repeat: Infinity, delay: 4, ease: "linear" }}
-        >
-          <img src="/images/gallery/mwehehe_cart.png" alt="Cat" className="w-16 h-16 md:w-20 md:h-20 opacity-70" />
-        </motion.div>
-        <motion.div
-          className="absolute"
-          initial={{ y: "100vh", x: "25%" }}
-          animate={{ y: "-100vh", x: ["25%", "30%", "25%"] }}
-          transition={{ duration: 16, repeat: Infinity, delay: 6, ease: "linear" }}
-        >
-          <img src="/images/gallery/mmm_cat.png" alt="Cat" className="w-12 h-12 md:w-16 md:h-16 opacity-60" />
-        </motion.div>
-        <motion.div
-          className="absolute"
-          initial={{ y: "100vh", x: "70%" }}
-          animate={{ y: "-100vh", x: ["70%", "65%", "70%"] }}
-          transition={{ duration: 18, repeat: Infinity, delay: 8, ease: "linear" }}
-        >
-          <img src="/images/gallery/mwehehe_cart.png" alt="Cat" className="w-12 h-12 md:w-16 md:h-16 opacity-60" />
-        </motion.div>
-      </div>
+          <motion.div
+            className="mt-9 flex flex-wrap items-center gap-3"
+            {...printIn(0.24)}
+          >
+            <button
+              onClick={startTheDay}
+              className="inline-flex items-center gap-2 rounded-[10px] border border-primary bg-primary px-5 py-3 font-sans font-medium text-primary-foreground transition-gentle hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Start the day
+              <ArrowRight className="h-4 w-4" />
+            </button>
 
-      <div className="container px-6 text-center relative z-10">
-        {/* Eyebrow */}
-        <motion.p
-          className="font-mono-caption text-primary/70 mb-6"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.0 }}
-        >
-          a gift made with love
-        </motion.p>
+            <button
+              onClick={() => navigate("/memory-book")}
+              className="inline-flex items-center gap-2 rounded-[10px] border border-border px-5 py-3 font-sans font-medium text-foreground transition-gentle hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Memory book
+            </button>
+          </motion.div>
+        </div>
 
-        {/* Cat image */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+        {/* ── Exhibit A ── */}
+        <motion.figure
+          /* Capped near the GIF's native size — blown up any further it goes soft. */
+          className="m-0 w-full max-w-[460px] justify-self-center lg:justify-self-end"
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
+          transition={{ duration: 0.7, delay: 0.12, ease: EASE }}
         >
-          <img
+          <EditorialFigure
             src="/images/gallery/heart-anime.gif"
-            alt="I love you"
-            className="mx-auto mb-6 object-contain"
-            style={{ width: "280px", height: "280px" }}
-          />
-        </motion.div>
-
-        {/* Main heading */}
-        <motion.h1
-          className="font-serif text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tight mb-3 text-foreground"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          Happy Birthday,
-        </motion.h1>
-
-        {/* Script accent line */}
-        <motion.span
-          className="block font-script text-gradient-romantic mb-6"
-          style={{ fontSize: "clamp(2.75rem, 7.5vw, 5rem)", lineHeight: 1.15 }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.35 }}
-        >
-          my love ♡
-        </motion.span>
-
-        {/* Subtitle */}
-        <motion.p
-          className="font-sans font-light text-lg md:text-xl text-muted-foreground mb-10 max-w-sm mx-auto leading-relaxed"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.45 }}
-        >
-          A special day, a special place — every memory we've made, gathered here just for you.
-        </motion.p>
-
-        {/* CTA buttons */}
-        <motion.div
-          className="flex flex-wrap items-center justify-center gap-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-        >
-          <motion.button
-            onClick={scrollToNext}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-sans font-medium text-base shadow-romantic hover:shadow-glow transition-all duration-300"
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            alt="Roy Mustang holding a phone with a heart, captioned I love you"
+            dotGrid="br"
+            aspectClassName="aspect-square"
+            annotate={
+              <>
+                this is me,
+                <br />
+                every day,
+                <br />
+                about you.
+              </>
+            }
           >
-            Start the Day <span className="text-lg">→</span>
-          </motion.button>
+            {/* The one cat that survived — stuck on like a sticker, on purpose. */}
+            <motion.span
+              className="sticker -left-5 -top-6 w-20 md:w-24"
+              aria-hidden="true"
+              initial={reduceMotion ? false : { opacity: 0, y: -12, rotate: 6 }}
+              animate={{ opacity: 1, y: 0, rotate: -8 }}
+              transition={{ duration: 0.6, delay: 0.8, ease: EASE }}
+            >
+              <img
+                src="/images/gallery/mmm_cat.png"
+                alt=""
+                className="block w-full rounded-[0.55rem]"
+              />
+            </motion.span>
+          </EditorialFigure>
 
-          <motion.button
-            onClick={() => navigate("/memory-book")}
-            className="inline-flex items-center gap-2 px-7 py-4 bg-card text-primary border border-border rounded-full font-sans font-medium text-base transition-all duration-300 hover:border-primary hover:bg-accent"
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Memory Book
-          </motion.button>
-        </motion.div>
+          <figcaption className="figure-cap">Exhibit A — the general feeling</figcaption>
+        </motion.figure>
       </div>
-
-      {/* Scroll indicator */}
-      <motion.div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
-        animate={{ y: [0, 10, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
-        <ChevronDown className="text-muted-foreground" size={28} />
-      </motion.div>
     </section>
   );
 };

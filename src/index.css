@@ -161,6 +161,19 @@
     pointer-events: none;
   }
 
+  /* die-cut paper sticker — something printed, trimmed, and pressed onto the page.
+     White bleed border + an offset shadow so it sits above the stock it's stuck to. */
+  .sticker {
+    position: absolute;
+    padding: 0.3rem;
+    border-radius: 0.8rem;
+    background: hsl(var(--card));
+    box-shadow:
+      0 1px 1px hsl(var(--foreground) / 0.1),
+      0 14px 26px -14px hsl(272 40% 30% / 0.45);
+    pointer-events: none;
+  }
+
   /* big serif stat number */
   .stat-num {
     font-family: var(--font-serif);
