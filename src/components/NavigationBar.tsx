@@ -93,7 +93,7 @@ const NavigationBar = () => {
             to="/"
             className="font-serif text-lg font-bold tracking-tight text-foreground transition-gentle hover:text-primary md:text-xl"
           >
-            Your Special Day<span className="dot-accent">.</span>
+            Hehe<span className="dot-accent">.</span>
           </Link>
 
           {/* ── Desktop: the nav is set, not decorated ── */}
@@ -169,7 +169,7 @@ const NavigationBar = () => {
               </SheetTrigger>
               <SheetContent side="right" className="w-[86vw] max-w-sm px-6 py-8">
                 <SheetTitle className="font-serif text-xl font-bold tracking-tight text-foreground">
-                  Your Special Day<span className="dot-accent">.</span>
+                  Hehe<span className="dot-accent">.</span>
                 </SheetTitle>
                 <SheetDescription className="sr-only">
                   Every page on the site
