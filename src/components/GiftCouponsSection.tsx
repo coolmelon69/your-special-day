@@ -8,11 +8,11 @@ import { DisplayHeading } from "@/components/editorial";
 import { cn } from "@/lib/utils";
 import { useAdventure } from "@/contexts/AdventureContext";
 import {
-  syncCouponAchievements,
   loadCouponAchievements,
   subscribeToCouponAchievements,
   type AchievementData as AchievementDataType,
 } from "@/utils/supabaseSync";
+import { redeemCoupon } from "@/utils/redeemCoupon";
 
 export interface Coupon {
   id: number;
@@ -354,56 +354,18 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
     setProcessingCouponId(id);
     setRedeemError(null);
     try {
-      // Always base the write on the latest DB state to avoid overwriting concurrent changes
-      const remote = await loadCouponAchievements();
-      const current = remote?.data ?? achievementData;
+      const result = await redeemCoupon(id, coupons.length, achievementData);
 
-      if (current.redeemedCouponIds.includes(id)) {
-        return true;
-      }
-
-      const nextRedeemed = [...current.redeemedCouponIds, id];
-      const now = Date.now();
-      const nextUnlocked = [...(current.achievementsUnlocked || [])];
-      const nextTimestamps = { ...(current.achievementTimestamps || {}) };
-
-      if (nextRedeemed.length >= 1 && !nextUnlocked.includes("adventure-seeker")) {
-        nextUnlocked.push("adventure-seeker");
-        nextTimestamps["adventure-seeker"] = now;
-      }
-      if (nextRedeemed.length >= 5 && !nextUnlocked.includes("romantic-explorer")) {
-        nextUnlocked.push("romantic-explorer");
-        nextTimestamps["romantic-explorer"] = now;
-      }
-      if (nextRedeemed.length >= coupons.length && !nextUnlocked.includes("coupon-master")) {
-        nextUnlocked.push("coupon-master");
-        nextTimestamps["coupon-master"] = now;
-      }
-
-      const nextData: AchievementDataType = {
-        redeemedCouponIds: nextRedeemed,
-        achievementsUnlocked: nextUnlocked,
-        achievementTimestamps: nextTimestamps,
-      };
-
-      const ok = await syncCouponAchievements(nextData);
-      if (!ok) {
+      if (result.status === "error") {
         setRedeemError("The magic had a hiccup, try again!");
         return false;
       }
 
-      // Re-validate from DB after a successful write (DB is source of truth)
-      const refreshed = await loadCouponAchievements();
-      const finalData = refreshed?.data ?? nextData;
-      setRedeemedCoupons(finalData.redeemedCouponIds);
-      setAchievementData(finalData);
-      prevUnlockedRef.current = finalData.achievementsUnlocked;
+      setRedeemedCoupons(result.data.redeemedCouponIds);
+      setAchievementData(result.data);
+      prevUnlockedRef.current = result.data.achievementsUnlocked;
 
       return true;
-    } catch (e) {
-      console.error("Error redeeming coupon:", e);
-      setRedeemError("The magic had a hiccup, try again!");
-      return false;
     } finally {
       setProcessingCouponId(null);
     }

@@ -1,26 +1,88 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import QrScanner from "qr-scanner";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/utils/supabaseClient";
+import { useAdventure } from "@/contexts/AdventureContext";
+import { redeemCoupon } from "@/utils/redeemCoupon";
 import { Helmet } from "react-helmet-async";
 
 const ScanQRPage = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<QrScanner | null>(null);
+  /* A ref, not state: the scan callback closes over its scope once, so a state
+     flag would still read `false` on every frame after the first hit. */
+  const busyRef = useRef(false);
   const navigate = useNavigate();
-  const [isScanning, setIsScanning] = useState(false);
-  const [hasScanned, setHasScanned] = useState(false);
+  const { coupons, user } = useAdventure();
+  const totalCouponsRef = useRef(coupons.length);
+  totalCouponsRef.current = coupons.length;
+
+  /** Show the problem, then hand the camera back so they can try again. */
+  const rejectScan = useCallback((title: string, description: string) => {
+    toast({ variant: "destructive", title, description });
+    window.setTimeout(() => {
+      busyRef.current = false;
+      scannerRef.current?.start().catch((error) => {
+        console.error("Error restarting QR scanner:", error);
+      });
+    }, 2000);
+  }, []);
+
+  const handleQRScan = useCallback(
+    async (qrData: string) => {
+      const trimmedData = qrData.trim();
+
+      let parsedData: { code?: string; couponId?: number; title?: string };
+      try {
+        parsedData = JSON.parse(trimmedData);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError, "Data:", trimmedData);
+        rejectScan("Invalid QR code", "This QR code is not a valid coupon code.");
+        return;
+      }
+
+      const couponId = parsedData.couponId;
+      if (typeof couponId !== "number") {
+        rejectScan("Invalid coupon", "This QR code does not contain a valid coupon ID.");
+        return;
+      }
+
+      if (!user) {
+        rejectScan("Not signed in", "Sign in on this device before redeeming a coupon.");
+        return;
+      }
+
+      const result = await redeemCoupon(couponId, totalCouponsRef.current);
+
+      if (result.status === "error") {
+        rejectScan("Redemption failed", "Unable to redeem coupon. Please try again.");
+        return;
+      }
+
+      if (result.status === "already") {
+        rejectScan("Already Used!", "This coupon has already been redeemed.");
+        return;
+      }
+
+      navigate("/redemption-success", {
+        state: { couponTitle: parsedData.title || "Coupon" },
+      });
+    },
+    [navigate, rejectScan, user]
+  );
+
+  const handleScanRef = useRef(handleQRScan);
+  handleScanRef.current = handleQRScan;
 
   useEffect(() => {
     if (!videoRef.current) return;
+    let cancelled = false;
 
     const startScanner = async () => {
       try {
-        // Check if QR Scanner is supported
-        if (!QrScanner.hasCamera()) {
+        if (!(await QrScanner.hasCamera())) {
           toast({
             variant: "destructive",
             title: "Camera not available",
@@ -29,15 +91,16 @@ const ScanQRPage = () => {
           navigate("/coupons");
           return;
         }
+        if (cancelled) return;
 
-        // Create QR scanner instance
         const qrScanner = new QrScanner(
           videoRef.current!,
           async (result) => {
-            if (hasScanned) return; // Prevent multiple scans
-            setHasScanned(true);
-            // QrScanner returns a ScanResult object with a 'data' property
-            await handleQRScan(result.data);
+            if (busyRef.current) return;
+            busyRef.current = true;
+            // Stop first so a second frame can't fire while the write is in flight.
+            qrScanner.stop();
+            await handleScanRef.current(result.data);
           },
           {
             highlightScanRegion: false,
@@ -47,7 +110,7 @@ const ScanQRPage = () => {
 
         scannerRef.current = qrScanner;
         await qrScanner.start();
-        setIsScanning(true);
+        if (cancelled) qrScanner.stop();
       } catch (error) {
         console.error("Error starting QR scanner:", error);
         toast({
@@ -62,143 +125,18 @@ const ScanQRPage = () => {
     startScanner();
 
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop();
-        scannerRef.current.destroy();
-        scannerRef.current = null;
-      }
-      setIsScanning(false);
+      cancelled = true;
+      scannerRef.current?.destroy();
+      scannerRef.current = null;
     };
-  }, [hasScanned, navigate]);
-
-  const handleQRScan = async (qrData: string) => {
-    try {
-      // Stop scanner immediately to prevent multiple scans
-      if (scannerRef.current) {
-        scannerRef.current.stop();
-      }
-
-      // Trim whitespace from the scanned data
-      const trimmedData = qrData.trim();
-      
-      // Debug: log the raw data (remove in production if needed)
-      console.log("Scanned QR data:", trimmedData);
-
-      // Parse QR code data (format: JSON string with { code, couponId, title })
-      let parsedData: { code?: string; couponId?: number; title?: string };
-      try {
-        parsedData = JSON.parse(trimmedData);
-      } catch (parseError) {
-        console.error("JSON parse error:", parseError, "Data:", trimmedData);
-        toast({
-          variant: "destructive",
-          title: "Invalid QR code",
-          description: "This QR code is not a valid coupon code.",
-        });
-        // Restart scanner after a delay
-        setTimeout(() => {
-          setHasScanned(false);
-          scannerRef.current?.start();
-        }, 2000);
-        return;
-      }
-
-      const couponId = parsedData.couponId;
-      if (!couponId) {
-        toast({
-          variant: "destructive",
-          title: "Invalid coupon",
-          description: "This QR code does not contain a valid coupon ID.",
-        });
-        setTimeout(() => {
-          setHasScanned(false);
-          scannerRef.current?.start();
-        }, 2000);
-        return;
-      }
-
-      // Update coupon in Supabase
-      if (!supabase) {
-        toast({
-          variant: "destructive",
-          title: "Database error",
-          description: "Unable to connect to database. Please try again later.",
-        });
-        setTimeout(() => {
-          setHasScanned(false);
-          scannerRef.current?.start();
-        }, 2000);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("coupons")
-        .update({
-          is_redeemed: true,
-          redeemed_at: new Date().toISOString(),
-        })
-        .eq("id", couponId)
-        .select();
-
-      if (error) {
-        console.error("Supabase error:", error);
-        toast({
-          variant: "destructive",
-          title: "Redemption failed",
-          description: "Unable to redeem coupon. Please try again.",
-        });
-        setTimeout(() => {
-          setHasScanned(false);
-          scannerRef.current?.start();
-        }, 2000);
-        return;
-      }
-
-      // Check if coupon was already redeemed
-      if (data && data.length > 0 && data[0].is_redeemed) {
-        // Check if it was just redeemed now or was already redeemed
-        const redeemedAt = new Date(data[0].redeemed_at);
-        const now = new Date();
-        const timeDiff = now.getTime() - redeemedAt.getTime();
-
-        // If redeemed more than 1 second ago, it was already redeemed
-        if (timeDiff > 1000) {
-          toast({
-            variant: "destructive",
-            title: "Already Used!",
-            description: "This coupon has already been redeemed.",
-          });
-          setTimeout(() => {
-            setHasScanned(false);
-            scannerRef.current?.start();
-          }, 2000);
-          return;
-        }
-      }
-
-      // Success! Navigate to success page with coupon title
-      navigate("/redemption-success", {
-        state: { couponTitle: parsedData.title || "Coupon" },
-      });
-    } catch (error) {
-      console.error("Error processing QR scan:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-      });
-      setTimeout(() => {
-        setHasScanned(false);
-        scannerRef.current?.start();
-      }, 2000);
-    }
-  };
+    // Mounts the camera once. The scan handler is reached through a ref so a
+    // re-render never tears the video stream down mid-scan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleClose = () => {
-    if (scannerRef.current) {
-      scannerRef.current.stop();
-      scannerRef.current.destroy();
-    }
+    scannerRef.current?.destroy();
+    scannerRef.current = null;
     navigate("/coupons");
   };
 

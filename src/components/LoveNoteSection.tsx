@@ -1,12 +1,109 @@
 import { motion } from "framer-motion";
-import { Heart, CheckSquare, Gift, ArrowRight, QrCode, Lock } from "lucide-react";
+import { Heart, CheckSquare, Gift, ArrowRight, QrCode, Lock, Images } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useAdventure } from "@/contexts/AdventureContext";
-import { Eyebrow, DisplayHeading, Pill, StatBlock } from "@/components/editorial";
+import { Eyebrow, DisplayHeading } from "@/components/editorial";
 import { cn } from "@/lib/utils";
 
+/* A door is a window onto its destination, then a caption. The window shows the
+   real thing behind the door — the stamp sheet, the ticket, the prints — so the
+   card is evidence, not an icon standing in for one. */
+type DoorTone = "rose" | "primary" | "muted" | "ink";
+
+const toneCard: Record<DoorTone, string> = {
+  rose: "border-rose/40 shadow-romantic",
+  primary: "border-primary/40",
+  muted: "border-border",
+  ink: "border-foreground/25",
+};
+
+const toneMeta: Record<DoorTone, string> = {
+  rose: "text-rose",
+  primary: "text-primary",
+  muted: "text-muted-foreground",
+  ink: "text-foreground",
+};
+
+/* A 21×21 module map — the size of a real version-1 code. Finder squares and
+   timing rows are laid out correctly so the plate reads as a code at a glance;
+   the data modules are a fixed pattern, not a live encoding. */
+const QR_SIZE = 21;
+const QR_CELLS: boolean[] = Array.from({ length: QR_SIZE * QR_SIZE }, (_, i) => {
+  const x = i % QR_SIZE;
+  const y = Math.floor(i / QR_SIZE);
+
+  for (const [ox, oy] of [[0, 0], [QR_SIZE - 7, 0], [0, QR_SIZE - 7]]) {
+    const dx = x - ox;
+    const dy = y - oy;
+    if (dx >= 0 && dy >= 0 && dx < 7 && dy < 7) {
+      const ring = Math.max(Math.abs(dx - 3), Math.abs(dy - 3));
+      return ring === 3 || ring <= 1;
+    }
+  }
+  // Separator quiet zone around each finder.
+  if ((x < 8 && y < 8) || (x > QR_SIZE - 9 && y < 8) || (x < 8 && y > QR_SIZE - 9)) return false;
+  // Timing patterns — the alternating run a reader locks onto.
+  if (x === 6 || y === 6) return (x + y) % 2 === 0;
+  return (((x * 3 + y * 7) ^ (x * y)) % 3) === 0;
+});
+
+interface DoorProps {
+  to: string;
+  title: string;
+  blurb: string;
+  metaIcon: React.ReactNode;
+  meta: string;
+  action: string;
+  tone: DoorTone;
+  index: number;
+  /** The window: a miniature of what actually lives behind this door. */
+  children: React.ReactNode;
+}
+
+const Door = ({ to, title, blurb, metaIcon, meta, action, tone, index, children }: DoorProps) => (
+  <NavLink
+    to={to}
+    className="group h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+  >
+    <motion.article
+      className={cn(
+        "h-full flex flex-col overflow-hidden rounded-2xl border bg-card transition-colors",
+        toneCard[tone]
+      )}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.5, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <div className="relative h-36 overflow-hidden border-b border-border">{children}</div>
+
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="font-serif text-xl font-bold leading-snug">{title}</h3>
+        <p className="mt-1.5 flex-grow text-sm leading-relaxed text-muted-foreground">{blurb}</p>
+
+        <div className="mt-5 border-t border-border pt-3">
+          <span
+            className={cn(
+              "flex items-center gap-2 whitespace-nowrap font-mono text-[11px] uppercase tracking-wide",
+              toneMeta[tone]
+            )}
+          >
+            <span className="shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5">{metaIcon}</span>
+            {meta}
+          </span>
+          <span className="mt-2 inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-primary transition-[gap] group-hover:gap-2.5">
+            {action}
+            <ArrowRight className="h-4 w-4" />
+          </span>
+        </div>
+      </div>
+    </motion.article>
+  </NavLink>
+);
+
 const LoveNoteSection = () => {
-  const { itineraryState, coupons } = useAdventure();
+  const { itineraryState, coupons, photos } = useAdventure();
   const completedStamps = itineraryState.filter((i) => i.isPast).length;
   const totalStamps = itineraryState.length;
   const unlockedCoupons = coupons.filter((c) => completedStamps >= c.requiredStamps).length;
@@ -14,6 +111,13 @@ const LoveNoteSection = () => {
 
   const stampsDone = totalStamps > 0 && completedStamps === totalStamps;
   const couponsDone = totalCoupons > 0 && unlockedCoupons === totalCoupons;
+
+  // The three most recent prints, newest first — the fan in the memory-book window.
+  const recentPrints = [...photos].sort((a, b) => b.timestamp - a.timestamp).slice(0, 3);
+  const nextStampIndex = itineraryState.findIndex((i) => !i.isPast);
+  // Six across at most, then balance the rows so the sheet never ends in a stray square.
+  const stampRows = Math.max(1, Math.ceil(totalStamps / 6));
+  const stampColumns = Math.max(1, Math.ceil(totalStamps / stampRows));
 
   return (
     <section className="py-20 md:py-32 bg-background">
@@ -140,149 +244,210 @@ const LoveNoteSection = () => {
         </motion.div>
 
         {/* Navigation Section
-            THESIS — three doors, not a SaaS shelf. The cards read as index
-            entries in the site's own editorial system (Eyebrow/StatBlock),
-            not a gradient-card tile like the ones the /coupons ticket book
-            already refuses. Nº serials + a stat replace decorative Sparkles;
-            rose/shadow-romantic mark a fully-done card, primary marks the
-            in-progress default — the same states StampCollectionSection uses. */}
+            THESIS — four windows, not a card shelf. Every door shows a
+            miniature of the real thing behind it, drawn from live state: the
+            stamp sheet with the stops actually checked off, a ticket with the
+            promises actually unlocked, the prints actually taken, and the
+            scanner's own dark plate. An icon in a tinted disc would have been a
+            label for the destination; this is a look at it. Rose/shadow-romantic
+            still marks a finished door and primary the one in progress — the
+            same states StampCollectionSection uses. */}
         <motion.div
           className="text-center mb-10 max-w-[42ch] mx-auto"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <Eyebrow className="justify-center">Three ways in</Eyebrow>
+          <Eyebrow className="justify-center">Four ways in</Eyebrow>
           <DisplayHeading as="h2" className="mt-4 text-3xl md:text-4xl">
             Explore <em>more</em><span className="dot-accent">.</span>
           </DisplayHeading>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
-          {/* Stamps Navigation Card */}
-          <NavLink to="/stamps" className="h-full">
-            <motion.div
-              className={cn(
-                "group relative h-full flex flex-col rounded-3xl border bg-card p-7 md:p-8 transition-colors",
-                stampsDone ? "border-rose/40 shadow-romantic" : "border-primary/40"
-              )}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ y: -4 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span
-                  className={cn(
-                    "grid h-11 w-11 shrink-0 place-items-center rounded-full border",
-                    stampsDone ? "bg-rose/10 border-rose/30 text-rose" : "bg-primary/10 border-primary/30 text-primary"
-                  )}
-                >
-                  <CheckSquare className="w-5 h-5" />
-                </span>
-                <Pill variant={stampsDone ? "rose" : "accent"}>Nº 01</Pill>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto items-stretch">
+          {/* Nº 01 — the sheet. One perforated square per stop, inked when stamped. */}
+          <Door
+            to="/stamps"
+            title="Stamp Collection"
+            blurb="Every stop we make, checked off and kept in one book."
+            metaIcon={<CheckSquare />}
+            meta={stampsDone ? "sheet complete" : `${completedStamps} / ${totalStamps} collected`}
+            action="View Stamps"
+            tone={stampsDone ? "rose" : "primary"}
+            index={0}
+          >
+            <div className="absolute inset-0 bg-accent" />
+            <div className="absolute inset-0 grid place-items-center px-4">
+              {/* The sheet itself, so the squares read as one perforated block. */}
+              <div
+                className="grid gap-1.5 rounded-md border border-primary/15 bg-card/45 p-2.5"
+                style={{ gridTemplateColumns: `repeat(${stampColumns}, minmax(0, 1fr))` }}
+              >
+                {itineraryState.map((stop, i) => (
+                  <span
+                    key={stop.title}
+                    title={stop.title}
+                    className={cn(
+                      "h-6 w-6 rounded-[3px] transition-colors duration-300",
+                      stop.isPast
+                        ? "bg-rose/75 shadow-[0_1px_2px_hsl(var(--rose)/0.35)] ring-1 ring-inset ring-card/50"
+                        : "border border-dashed border-primary/25 bg-card/70",
+                      // The next stop up sits inked-in-waiting; hovering the door fills it.
+                      i === nextStampIndex &&
+                        "border-solid border-primary/50 bg-primary/10 group-hover:bg-primary/30"
+                    )}
+                  />
+                ))}
               </div>
+            </div>
+          </Door>
 
-              <h4 className="font-serif text-2xl font-bold mt-5 mb-2">Stamp Collection</h4>
-              <p className="text-muted-foreground mb-6 flex-grow">
-                Every adventure stop you've checked off, kept in one book.
-              </p>
-
-              <StatBlock
-                value={completedStamps}
-                unit={`/ ${totalStamps}`}
-                label={stampsDone ? "all stamps collected" : "stamps collected so far"}
+          {/* Nº 02 — the ticket. Its stub pulls away from the perforation on hover. */}
+          <Door
+            to="/coupons"
+            title="Gift Coupons"
+            blurb="Promises to cash in, unlocked one stamp at a time."
+            metaIcon={<Gift />}
+            meta={
+              totalCoupons === 0
+                ? "none written yet"
+                : couponsDone
+                  ? "all unlocked"
+                  : `${unlockedCoupons} / ${totalCoupons} unlocked`
+            }
+            action="View Coupons"
+            tone={totalCoupons === 0 ? "muted" : couponsDone ? "rose" : "primary"}
+            index={1}
+          >
+            {/* Rose ground: the ticket book's own ink, carried onto its door. */}
+            <div className="absolute inset-0 bg-rose-light/50" />
+            {/* The ticket underneath, so the book reads as more than one. */}
+            <div className="absolute left-8 right-4 top-9 h-16 rotate-[3deg] rounded-md border border-border bg-card/60" />
+            <div className="absolute left-5 right-7 top-7 flex h-16 -rotate-[2deg] overflow-hidden rounded-md border border-border bg-card shadow-sm">
+              <div className="flex w-12 shrink-0 items-center justify-center transition-transform duration-300 group-hover:-translate-x-1">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground [writing-mode:vertical-rl]">
+                  Pull
+                </span>
+              </div>
+              <div
+                className="w-px shrink-0"
+                style={{
+                  backgroundImage:
+                    "repeating-linear-gradient(to bottom, hsl(var(--border)) 0 3px, transparent 3px 6px)",
+                }}
               />
-
-              <div className="inline-flex items-center gap-2 mt-6 font-medium text-primary group-hover:gap-3 transition-all">
-                View Stamps
-                <ArrowRight className="w-4 h-4" />
+              <div className="flex flex-1 flex-col justify-center px-3">
+                {totalCoupons > 0 ? (
+                  <>
+                    <span className="font-mono text-[8px] uppercase tracking-[0.16em] text-muted-foreground">
+                      Unlocked
+                    </span>
+                    <span className="font-serif text-2xl font-bold leading-none text-rose">
+                      {unlockedCoupons}
+                      <span className="ml-0.5 text-sm text-muted-foreground">/ {totalCoupons}</span>
+                    </span>
+                  </>
+                ) : (
+                  // A blank ticket: the book exists, nothing is printed in it yet.
+                  <span className="space-y-1.5">
+                    <span className="block h-1.5 w-3/4 rounded-full bg-border" />
+                    <span className="block h-1.5 w-1/2 rounded-full bg-border" />
+                  </span>
+                )}
               </div>
-            </motion.div>
-          </NavLink>
+            </div>
+          </Door>
 
-          {/* Coupons Navigation Card */}
-          <NavLink to="/coupons" className="h-full">
-            <motion.div
-              className={cn(
-                "group relative h-full flex flex-col rounded-3xl border bg-card p-7 md:p-8 transition-colors",
-                couponsDone ? "border-rose/40 shadow-romantic" : "border-primary/40"
-              )}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ y: -4 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span
-                  className={cn(
-                    "grid h-11 w-11 shrink-0 place-items-center rounded-full border",
-                    couponsDone ? "bg-rose/10 border-rose/30 text-rose" : "bg-primary/10 border-primary/30 text-primary"
-                  )}
-                >
-                  <Gift className="w-5 h-5" />
-                </span>
-                <Pill variant={couponsDone ? "rose" : "accent"}>Nº 02</Pill>
+          {/* Nº 03 — the prints, fanned. Real photos when there are any. */}
+          <Door
+            to="/memory-book"
+            title="Memory Book"
+            blurb="Every photo taken along the way, bound into pages."
+            metaIcon={<Images />}
+            meta={
+              photos.length === 0
+                ? "no prints yet"
+                : `${photos.length} ${photos.length === 1 ? "print" : "prints"}`
+            }
+            action="Open the Book"
+            tone={photos.length === 0 ? "muted" : "primary"}
+            index={2}
+          >
+            <div className="absolute inset-0 bg-muted" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              {[-9, 0, 9].map((angle, i) => {
+                const print = recentPrints[i];
+                return (
+                  <div
+                    key={angle}
+                    /* The fan opens under the cursor — the prints are being spread
+                       across the table, which is the whole promise of the door. */
+                    className={cn(
+                      "absolute h-[76px] w-[60px] rounded-[3px] bg-card p-1 pb-2.5 shadow-md",
+                      "transition-transform duration-500 ease-out",
+                      "[transform:rotate(var(--r))_translateX(var(--x))]",
+                      "group-hover:[transform:rotate(calc(var(--r)*1.7))_translateX(calc(var(--x)*1.5))]",
+                      !print && "border border-dashed border-border shadow-none"
+                    )}
+                    style={
+                      {
+                        "--r": `${angle}deg`,
+                        "--x": `${(i - 1) * 30}px`,
+                        zIndex: 3 - Math.abs(i - 1),
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div
+                      className={cn(
+                        "h-full w-full overflow-hidden rounded-[2px]",
+                        print ? "bg-foreground/10" : "bg-muted"
+                      )}
+                    >
+                      {print && (
+                        <img
+                          src={print.storageUrl || print.src}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className={cn(
+                            "h-full w-full object-cover",
+                            print.isDeveloped === false && "blur-[3px] saturate-50"
+                          )}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Door>
+
+          {/* Nº 04 — the scanner's own plate. The one dark window: this door is a camera. */}
+          <Door
+            to="/scan-qr"
+            title="Scan a Ticket"
+            blurb="Redeeming a coupon in person? Point the camera at its code."
+            metaIcon={<QrCode />}
+            meta="Opens the scanner"
+            action="Scan Now"
+            tone="ink"
+            index={3}
+          >
+            <div className="absolute inset-0 bg-foreground" />
+            <div className="absolute inset-0 grid place-items-center">
+              <div
+                className="grid h-[84px] w-[84px] transition-transform duration-500 ease-out group-hover:scale-[1.06]"
+                style={{ gridTemplateColumns: `repeat(${QR_SIZE}, 1fr)` }}
+                aria-hidden="true"
+              >
+                {QR_CELLS.map((on, i) => (
+                  <span key={i} className={on ? "bg-background" : undefined} />
+                ))}
               </div>
-
-              <h4 className="font-serif text-2xl font-bold mt-5 mb-2">Gift Coupons</h4>
-              <p className="text-muted-foreground mb-6 flex-grow">
-                Special promises, unlocked one stamp at a time.
-              </p>
-
-              {totalCoupons > 0 ? (
-                <StatBlock
-                  value={unlockedCoupons}
-                  unit={`/ ${totalCoupons}`}
-                  label={couponsDone ? "all coupons unlocked" : "coupons unlocked"}
-                />
-              ) : (
-                <Pill variant="tag" className="w-fit">
-                  Check back soon
-                </Pill>
-              )}
-
-              <div className="inline-flex items-center gap-2 mt-6 font-medium text-primary group-hover:gap-3 transition-all">
-                View Coupons
-                <ArrowRight className="w-4 h-4" />
-              </div>
-            </motion.div>
-          </NavLink>
-
-          {/* QR Scanner Navigation Card — pure action, no fabricated stat */}
-          <NavLink to="/scan-qr" className="h-full">
-            <motion.div
-              className="group relative h-full flex flex-col rounded-3xl border border-secondary/40 bg-card p-7 md:p-8 transition-colors"
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ y: -4 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border bg-secondary/10 border-secondary/30 text-secondary">
-                  <QrCode className="w-5 h-5" />
-                </span>
-                <Pill variant="tag">Nº 03</Pill>
-              </div>
-
-              <h4 className="font-serif text-2xl font-bold mt-5 mb-2">Scan QR Code</h4>
-              <p className="text-muted-foreground mb-6 flex-grow">
-                Redeeming a ticket in person? Scan its code here.
-              </p>
-
-              <Pill variant="accent" icon={<QrCode />} className="w-fit">
-                Ready to scan
-              </Pill>
-
-              <div className="inline-flex items-center gap-2 mt-6 font-medium text-primary group-hover:gap-3 transition-all">
-                Scan Now
-                <ArrowRight className="w-4 h-4" />
-              </div>
-            </motion.div>
-          </NavLink>
+              {/* The read: a rose line crosses the plate once the door is hovered. */}
+              <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-rose opacity-0 shadow-[0_0_10px_2px_hsl(var(--rose)/0.7)] motion-safe:group-hover:animate-door-scan" />
+            </div>
+          </Door>
         </div>
 
         {/* Wrapped teaser now lives in its own editorial component, rendered on HomePage */}

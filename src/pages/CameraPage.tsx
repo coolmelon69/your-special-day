@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Camera, Image as ImageIcon, AlertCircle, X, Trash2, ArrowLeft } from 'lucide-react';
+import { Camera, Image as ImageIcon, AlertCircle, X, Trash2, ArrowLeft, Upload } from 'lucide-react';
 import { saveCameraPhoto, getUndevelopedPhotosCount, getAllCameraPhotos, deleteCameraPhoto, type CameraPhoto } from '@/utils/adminStorage';
+import { useAdventure } from '@/contexts/AdventureContext';
 import { toast } from 'sonner';
 
 const CameraPage = () => {
   const navigate = useNavigate();
+  const { itineraryState, upsertPhoto } = useAdventure();
   const [undevelopedCount, setUndevelopedCount] = useState(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,6 +16,9 @@ const CameraPage = () => {
   const [showGallery, setShowGallery] = useState(false);
   const [photos, setPhotos] = useState<CameraPhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<CameraPhoto | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [selectedCheckpoint, setSelectedCheckpoint] = useState<string>('');
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -60,6 +65,45 @@ const CameraPage = () => {
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
     setSelectedPhoto(null);
     fetchCount();
+  };
+
+  const toggleSelected = (photoId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
+  };
+
+  const handlePromote = async () => {
+    if (!selectedCheckpoint || selectedIds.size === 0) {
+      toast.error("Select checkpoint and photos");
+      return;
+    }
+
+    try {
+      const toPromote = photos.filter((p) => selectedIds.has(p.id));
+      for (const photo of toPromote) {
+        await upsertPhoto({
+          id: photo.id,
+          checkpointId: selectedCheckpoint,
+          src: photo.dataUrl,
+          timestamp: photo.timestamp,
+          isDeveloped: false,
+        });
+      }
+      toast.success(`Promoted ${toPromote.length} photo(s) to Memory Book`);
+      setShowPromoteModal(false);
+      setSelectedIds(new Set());
+      setSelectedCheckpoint('');
+    } catch (err) {
+      console.error("Error promoting photos:", err);
+      toast.error("Failed to promote photos");
+    }
   };
 
   const handleCapture = async () => {
@@ -146,10 +190,10 @@ const CameraPage = () => {
         </div>
       </div>
 
-      <div className="mt-8 mb-12 flex justify-center">
+      <div className="mt-6 mb-4 flex justify-center">
         <div className="relative">
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             className="w-20 h-20 rounded-full bg-yellow-500 hover:bg-yellow-400 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)] transition-transform active:scale-95 flex items-center justify-center"
             disabled={isCapturing || !!error}
             onClick={handleCapture}
@@ -160,11 +204,15 @@ const CameraPage = () => {
       </div>
 
       {showGallery && (
-        <div className="fixed inset-0 z-40 bg-black flex flex-col p-4">
-          <div className="flex justify-between items-center mb-6 mt-2">
-            <h2 className="text-xl font-bold">Camera Roll</h2>
-            <button onClick={() => setShowGallery(false)} className="p-2 text-white/70 hover:text-white">
-              <X className="w-6 h-6" />
+        <div className="fixed inset-0 top-16 md:top-20 z-40 bg-black flex flex-col p-4">
+          <div className="flex items-center gap-3 mb-6 mt-2">
+            <button onClick={() => { setShowGallery(false); setSelectedIds(new Set()); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800/80 text-white rounded-lg text-sm hover:bg-zinc-700 flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+            <h2 className="text-lg font-bold flex-1">Camera Roll</h2>
+            <button onClick={() => { setShowGallery(false); setSelectedIds(new Set()); }} className="p-2 text-white/70 hover:text-white flex-shrink-0">
+              <X className="w-5 h-5" />
             </button>
           </div>
           {photos.length === 0 ? (
@@ -173,18 +221,74 @@ const CameraPage = () => {
               <p className="text-sm">No photos yet</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pb-8">
-              {photos.map((photo) => (
+            <>
+              <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pb-8">
+                {photos.map((photo) => (
+                  <div key={photo.id} className="relative aspect-[3/4] rounded-lg overflow-hidden border border-zinc-700 cursor-pointer" onClick={() => setSelectedPhoto(photo)}>
+                    <img src={photo.dataUrl} alt="Captured" className="w-full h-full object-cover" />
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(photo.id)}
+                      onChange={() => toggleSelected(photo.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-2 left-2 w-4 h-4 cursor-pointer"
+                    />
+                    {selectedIds.has(photo.id) && (
+                      <div className="absolute inset-0 bg-blue-500/30 pointer-events-none" />
+                    )}
+                  </div>
+                ))}
+              </div>
+              {selectedIds.size > 0 && (
                 <button
-                  key={photo.id}
-                  onClick={() => setSelectedPhoto(photo)}
-                  className="aspect-[3/4] rounded-lg overflow-hidden border border-zinc-700"
+                  onClick={() => setShowPromoteModal(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
                 >
-                  <img src={photo.dataUrl} alt="Captured" className="w-full h-full object-cover" />
+                  <Upload className="w-4 h-4" />
+                  Promote {selectedIds.size} to Memory Book
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {showPromoteModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-lg p-6 max-w-sm w-full border border-zinc-700">
+            <h3 className="text-lg font-bold mb-4">Choose Checkpoint</h3>
+            <div className="max-h-60 overflow-y-auto mb-6 space-y-2">
+              {itineraryState.map((item) => (
+                <button
+                  key={item.title}
+                  onClick={() => setSelectedCheckpoint(item.title)}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                    selectedCheckpoint === item.title
+                      ? "bg-blue-600 text-white"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  <div className="font-medium">{item.time}</div>
+                  <div className="text-sm opacity-75">{item.title}</div>
                 </button>
               ))}
             </div>
-          )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowPromoteModal(false); setSelectedCheckpoint(''); }}
+                className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePromote}
+                disabled={!selectedCheckpoint}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 text-white rounded-lg text-sm font-medium"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
