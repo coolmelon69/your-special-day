@@ -1,70 +1,72 @@
-import { motion } from 'framer-motion';
-import { Pause, Play } from 'lucide-react';
-import { TOTAL_SLIDES, SLIDE_CONFIGS } from './slideData';
+import { useEffect, useRef, useState } from "react";
 
 interface ProgressBarsProps {
-  currentSlide: number;
-  progress: number; // 0-1, progress within current slide
-  isPaused: boolean;
-  onTogglePause: (e: React.MouseEvent) => void;
+  count: number;
+  index: number;
+  /** Duration of the active slide, in milliseconds. */
+  duration: number;
+  paused: boolean;
+  /** Called once when the active slide's time runs out. Must be stable. */
+  onComplete: () => void;
 }
 
-const ProgressBars = ({ currentSlide, progress, isPaused, onTogglePause }: ProgressBarsProps) => {
-  const slideDuration = SLIDE_CONFIGS[currentSlide].duration;
-  const timeRemaining = Math.ceil((slideDuration * (1 - progress)) / 1000);
+/**
+ * Segmented story progress bar. Owns the frame clock deliberately: elapsed
+ * time changes every frame, and keeping that state here means the slide
+ * content above does not re-render sixty times a second.
+ */
+const ProgressBars = ({ count, index, duration, paused, onComplete }: ProgressBarsProps) => {
+  const [elapsed, setElapsed] = useState(0);
+  const [renderedIndex, setRenderedIndex] = useState(index);
+  const firedFor = useRef(-1);
+
+  // Reset during render, not in an effect. An effect would leave `elapsed`
+  // holding the previous slide's value for one render, and the completion
+  // effect below would read that stale value and advance a second time,
+  // skipping a slide.
+  if (renderedIndex !== index) {
+    setRenderedIndex(index);
+    setElapsed(0);
+  }
+
+  useEffect(() => {
+    if (paused) return;
+
+    let frame = 0;
+    let last = performance.now();
+
+    const tick = (now: number) => {
+      setElapsed((previous) => previous + (now - last));
+      last = now;
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [paused, index]);
+
+  useEffect(() => {
+    // Keyed to the index so one expiry fires exactly once per slide, even
+    // though `onComplete` changes identity whenever the index does.
+    if (firedFor.current !== index && elapsed >= duration) {
+      firedFor.current = index;
+      onComplete();
+    }
+  }, [elapsed, duration, index, onComplete]);
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-50">
-      {/* Progress bars — editorial light theme */}
-      <div className="flex gap-1.5 px-3 pt-3 sm:px-4 sm:pt-4">
-        {Array.from({ length: TOTAL_SLIDES }).map((_, index) => {
-          const isActive = index === currentSlide;
-          const isPast = index < currentSlide;
-
-          return (
+    <div className="absolute top-4 left-4 right-16 z-[101] flex gap-2">
+      {Array.from({ length: count }, (_, i) => {
+        const fill = i < index ? 1 : i > index ? 0 : Math.min(elapsed / duration, 1);
+        return (
+          <div key={i} className="h-1 flex-1 bg-foreground/20 rounded-full overflow-hidden">
             <div
-              key={index}
-              className="relative flex-1 h-1 rounded-full overflow-hidden bg-foreground/10"
-            >
-              <motion.div
-                className="h-full rounded-full bg-rose"
-                initial={{ width: isPast ? '100%' : '0%' }}
-                animate={{ width: isActive ? `${progress * 100}%` : isPast ? '100%' : '0%' }}
-                transition={{ duration: 0.1, ease: 'linear' }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Pause / play + countdown — editorial pill */}
-      <div className="absolute top-6 left-3 sm:top-7 sm:left-4">
-        <motion.div
-          className="flex items-center gap-2 rounded-full border border-border bg-card/80 backdrop-blur-sm px-3 py-1.5 cursor-pointer hover:bg-card transition-colors shadow-sm"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-          onClick={onTogglePause}
-        >
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            {isPaused ? (
-              <Play className="w-3 h-3 text-rose fill-rose" />
-            ) : (
-              <Pause className="w-3 h-3 text-rose fill-rose" />
-            )}
-          </motion.div>
-
-          <motion.div
-            className={`w-1.5 h-1.5 rounded-full ${isPaused ? 'bg-muted-foreground' : 'bg-rose'}`}
-            animate={{ opacity: isPaused ? [1, 0.4, 1] : 1, scale: isPaused ? 1 : [1, 1.25, 1] }}
-            transition={{ duration: isPaused ? 1.5 : 2, repeat: Infinity, ease: 'easeInOut' }}
-          />
-
-          <span className="font-mono text-[11px] tracking-wide text-muted-foreground tabular-nums">
-            {timeRemaining}s
-          </span>
-        </motion.div>
-      </div>
+              className="h-full bg-foreground rounded-full"
+              style={{ width: `${fill * 100}%` }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 };
