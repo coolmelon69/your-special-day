@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Camera, Image as ImageIcon, AlertCircle, X, Trash2, ArrowLeft, Upload } from 'lucide-react';
 import { saveCameraPhoto, getUndevelopedPhotosCount, getAllCameraPhotos, deleteCameraPhoto, type CameraPhoto } from '@/utils/adminStorage';
 import { useAdventure } from '@/contexts/AdventureContext';
+import { checkpointKey } from '@/utils/memoryBookGenerator';
 import { toast } from 'sonner';
 
 const CameraPage = () => {
@@ -261,9 +262,9 @@ const CameraPage = () => {
               {itineraryState.map((item) => (
                 <button
                   key={item.title}
-                  onClick={() => setSelectedCheckpoint(item.title)}
+                  onClick={() => setSelectedCheckpoint(checkpointKey(item))}
                   className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    selectedCheckpoint === item.title
+                    selectedCheckpoint === checkpointKey(item)
                       ? "bg-blue-600 text-white"
                       : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
                   }`}

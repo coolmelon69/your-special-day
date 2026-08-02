@@ -67,7 +67,7 @@ const ScanQRPage = () => {
       }
 
       navigate("/redemption-success", {
-        state: { couponTitle: parsedData.title || "Coupon" },
+        state: { couponTitle: parsedData.title || "Coupon", couponId },
       });
     },
     [navigate, rejectScan, user]

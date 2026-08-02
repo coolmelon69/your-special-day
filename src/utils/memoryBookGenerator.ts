@@ -41,6 +41,12 @@ const convertImageToDataURL = async (imageUrl: string): Promise<string> => {
   }
 };
 
+// The canonical id a Photo uses to point at an itinerary stop.
+// Every writer of `Photo.checkpointId` must go through this — a photo stored under
+// any other shape silently never lands on a memory book page.
+export const checkpointKey = (checkpoint: Pick<ItineraryItem, "time" | "title">): string =>
+  `${checkpoint.time}-${checkpoint.title}`;
+
 // Generate memory book pages grouped by checkpoint
 export const generateMemoryBookPages = (
   photos: Photo[],
@@ -49,7 +55,7 @@ export const generateMemoryBookPages = (
   const pages: MemoryBookPage[] = [];
 
   itinerary.forEach((checkpoint) => {
-    const checkpointId = `${checkpoint.time}-${checkpoint.title}`;
+    const checkpointId = checkpointKey(checkpoint);
     const checkpointPhotos = photos.filter(
       (photo) => photo.checkpointId === checkpointId
     );

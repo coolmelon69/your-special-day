@@ -1,16 +1,43 @@
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import { Download, BookOpen, Trash2, X, Calendar, MapPin, Images, Printer, Camera, Loader2 } from "lucide-react";
+import { Download, BookOpen, Trash2, X, Calendar, MapPin, Images, Printer } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
-import { generateMemoryBookPages, generateMemoryBookHTML, downloadMemoryBook } from "@/utils/memoryBookGenerator";
+import {
+  generateMemoryBookPages,
+  generateMemoryBookHTML,
+  downloadMemoryBook,
+  checkpointKey,
+} from "@/utils/memoryBookGenerator";
 import type { MemoryBookPage } from "@/utils/memoryBookGenerator";
 import type { Photo } from "@/components/TimelineSection";
 import { useLocation } from "react-router-dom";
-import { loadCouponAchievements } from "@/utils/supabaseSync";
+import { loadCouponAchievements, syncCheckpointPhoto } from "@/utils/supabaseSync";
 import { Eyebrow, KineticHeading, EditorialFigure } from "@/components/editorial";
+import DevelopFilmPanel from "@/components/DevelopFilmPanel";
 
 const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
+const DEVELOPED_STORAGE_KEY = "memory-book-developed";
+
+// ponytail: `checkpoint_photos` has no `is_developed` column, and reloadPhotosFromCloud wipes the
+// local store before repopulating from it — so the develop flag can only survive here. Add the
+// column (and map it in supabaseSync) if develop state ever needs to follow the user across devices.
+const loadDevelopedIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(DEVELOPED_STORAGE_KEY);
+    return new Set<string>(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set<string>();
+  }
+};
+
+const saveDevelopedIds = (ids: Set<string>) => {
+  try {
+    localStorage.setItem(DEVELOPED_STORAGE_KEY, JSON.stringify([...ids]));
+  } catch (error) {
+    console.error("Could not persist developed photos:", error);
+  }
+};
 
 function convertCouponId(id: number | string): number {
   if (typeof id === "number") return id;
@@ -28,7 +55,6 @@ const MemoryBookPage = () => {
   const location = useLocation();
   const [pages, setPages] = useState<MemoryBookPage[]>([]);
   const [undevelopedPhotos, setUndevelopedPhotos] = useState<Photo[]>([]);
-  const [isDeveloping, setIsDeveloping] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<{ photo: Photo; page: MemoryBookPage } | null>(null);
@@ -45,11 +71,20 @@ const MemoryBookPage = () => {
         await reloadPhotosFromCloud();
       }
       const photos = await getAllPhotos();
-      const developed = photos.filter(p => p.isDeveloped);
-      const undeveloped = photos.filter(p => !p.isDeveloped);
-      
+      const developedIds = loadDevelopedIds();
+      const stopKeys = new Set(itineraryState.map(checkpointKey));
+
+      // A frame is latent while it is either explicitly undeveloped, or filed under a stop that
+      // isn't on the itinerary — both cases mean it would never surface on a page.
+      const isLatent = (photo: Photo) =>
+        !developedIds.has(photo.id) &&
+        (photo.isDeveloped === false || !stopKeys.has(photo.checkpointId));
+
+      const developed = photos.filter((p) => !isLatent(p));
+      const undeveloped = photos.filter(isLatent);
+
       setUndevelopedPhotos(undeveloped);
-      
+
       const memoryPages = generateMemoryBookPages(developed, itineraryState);
       setPages(memoryPages);
     } catch (error) {
@@ -114,16 +149,29 @@ const MemoryBookPage = () => {
     }
   };
 
-  const handleDevelopFilm = async () => {
-    setIsDeveloping(true);
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    for (const p of undevelopedPhotos) {
-      await upsertPhoto({ ...p, isDeveloped: true });
+  // assignments: photoId → checkpointKey chosen in the develop panel.
+  const handleDevelopFilm = async (assignments: Record<string, string>) => {
+    const developedIds = loadDevelopedIds();
+    try {
+      for (const photo of undevelopedPhotos) {
+        const checkpointId = assignments[photo.id];
+        if (!checkpointId) continue;
+
+        const filed: Photo = { ...photo, checkpointId, isDeveloped: true };
+        await upsertPhoto(filed);
+        // Only photos already in Storage have a cloud row worth updating; local-only captures
+        // would push their whole data URL into the metadata table.
+        if (user && photo.storageUrl) {
+          await syncCheckpointPhoto(filed);
+        }
+        developedIds.add(photo.id);
+      }
+      saveDevelopedIds(developedIds);
+      await loadMemoryBook();
+    } catch (error) {
+      console.error("Error developing film:", error);
+      alert("Could not develop those frames. Please try again.");
     }
-    
-    await loadMemoryBook();
-    setIsDeveloping(false);
   };
 
   const handlePhotoClick = (photo: Photo, page: MemoryBookPage) => {
@@ -247,43 +295,20 @@ const MemoryBookPage = () => {
             </div>
           </motion.div>
 
-          {/* Develop Film Section */}
+          {/* Develop Film — file each latent frame under the stop it was taken at */}
           <AnimatePresence>
             {undevelopedPhotos.length > 0 && (
               <motion.div
-                className="mb-14 text-center p-8 bg-card border border-border rounded-2xl shadow-romantic no-print"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95, height: 0, overflow: 'hidden' }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8, height: 0, overflow: "hidden" }}
+                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
               >
-                <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Camera className="text-primary" size={28} />
-                </div>
-                <h3 className="font-serif text-2xl font-semibold mb-2">
-                  You have {undevelopedPhotos.length} undeveloped {undevelopedPhotos.length === 1 ? 'photo' : 'photos'}!
-                </h3>
-                <p className="text-muted-foreground mb-6 font-sans font-light">
-                  Click below to process your film and add them to your memory book.
-                </p>
-                <motion.button
-                  onClick={handleDevelopFilm}
-                  disabled={isDeveloping}
-                  className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-sans font-medium shadow-glow transition-all disabled:opacity-50"
-                  whileHover={!isDeveloping ? { y: -2, scale: 1.02 } : {}}
-                  whileTap={!isDeveloping ? { scale: 0.98 } : {}}
-                >
-                  {isDeveloping ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Developing Film...
-                    </>
-                  ) : (
-                    <>
-                      <Camera size={18} />
-                      Develop Film
-                    </>
-                  )}
-                </motion.button>
+                <DevelopFilmPanel
+                  photos={undevelopedPhotos}
+                  itinerary={itineraryState}
+                  onDevelop={handleDevelopFilm}
+                />
               </motion.div>
             )}
           </AnimatePresence>

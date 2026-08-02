@@ -478,8 +478,8 @@
     position: relative;
     display: grid;
     place-items: center;
-    width: 5.25rem;
-    height: 5.25rem;
+    width: var(--seal-size, 5.25rem);
+    height: var(--seal-size, 5.25rem);
     border-radius: 999px;
     border: 1.5px solid hsl(var(--print) / 0.45);
     color: hsl(var(--print));
@@ -492,6 +492,19 @@
     border-radius: 999px;
     border: 1px dashed hsl(var(--print) / 0.4);
   }
+  /* the counter's green ink — the one place on the paper that isn't rose.
+     Reserved for a redemption that actually went through. */
+  .ticket-seal--ok {
+    --ok: 152 52% 29%;
+    border-color: hsl(var(--ok) / 0.72);
+    color: hsl(var(--ok));
+    background: hsl(var(--ok) / 0.11);
+    box-shadow: 0 14px 30px -16px hsl(var(--ok) / 0.6);
+  }
+  .ticket-seal--ok::before {
+    border-color: hsl(var(--ok) / 0.55);
+  }
+
   .ticket-seal--blind {
     border-color: hsl(274 18% 78%);
     color: hsl(var(--muted-foreground));
