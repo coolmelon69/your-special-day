@@ -23,6 +23,7 @@ import NotFound from "./pages/NotFound";
 import CameraPage from "./pages/CameraPage";
 import CafesPage from "./pages/CafesPage";
 import CafeCategoryPage from "./pages/CafeCategoryPage";
+import CafeAchievementsPage from "./pages/CafeAchievementsPage";
 import LockscreenPage from "./pages/LockscreenPage";
 import { isSiteUnlocked } from "@/utils/adminAuth";
 
@@ -70,6 +71,7 @@ const AnimatedRoutes = () => {
         <Route path="/redemption-success" element={<PageWrapper><RedemptionSuccessPage /></PageWrapper>} />
         <Route path="/camera" element={<PageWrapper><CameraPage /></PageWrapper>} />
         <Route path="/cafes" element={<PageWrapper><CafesPage /></PageWrapper>} />
+        <Route path="/cafes/achievements" element={<PageWrapper><CafeAchievementsPage /></PageWrapper>} />
         <Route path="/cafes/:slug" element={<PageWrapper><CafeCategoryPage /></PageWrapper>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
