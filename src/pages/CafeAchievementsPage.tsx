@@ -111,7 +111,7 @@ const CafeAchievementsPage = () => {
                       <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
                         {track[0].title.replace(/ (I|II|III)$/, "")}
                       </p>
-                      <div className="mt-3 grid grid-cols-3 gap-3">
+                      <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
                         {track.map((tier) => (
                           <AchievementCard
                             key={tier.id}
