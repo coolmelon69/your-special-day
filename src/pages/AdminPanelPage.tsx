@@ -8,6 +8,7 @@ import StampsManager from "@/components/admin/StampsManager";
 import CouponsManager from "@/components/admin/CouponsManager";
 import AdminSettings from "@/components/admin/AdminSettings";
 import WrappedSlidesManager from "@/components/admin/WrappedSlidesManager";
+import WrappedTemplateEditor from "@/components/admin/WrappedTemplateEditor";
 import { DisplayHeading } from "@/components/editorial";
 import { logout } from "@/utils/adminAuth";
 
@@ -93,7 +94,14 @@ const AdminPanelPage = () => {
               >
                 {activeTab === "stamps" && <StampsManager />}
                 {activeTab === "coupons" && <CouponsManager />}
-                {activeTab === "wrapped" && <WrappedSlidesManager />}
+                {activeTab === "wrapped" && (
+                  <div className="space-y-8">
+                    <WrappedTemplateEditor />
+                    <div className="border-t border-border pt-8">
+                      <WrappedSlidesManager />
+                    </div>
+                  </div>
+                )}
                 {activeTab === "settings" && <AdminSettings />}
               </motion.div>
             </AnimatePresence>

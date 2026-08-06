@@ -3,7 +3,7 @@ import { getCurrentUser } from "./auth";
 import type { ItineraryItem } from "@/components/TimelineSection";
 import type { Photo } from "@/components/TimelineSection";
 import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
-import type { CustomWrappedSlide } from "@/types/admin";
+import type { CustomWrappedSlide, WrappedTemplateCopy } from "@/types/admin";
 
 export interface AchievementData {
   redeemedCouponIds: number[];
@@ -1224,6 +1224,95 @@ export const loadGlobalAdminSettings = async (): Promise<{
     };
   } catch (error) {
     console.error("Error in loadGlobalAdminSettings:", error);
+    return null;
+  }
+};
+
+// Wrapped Template Copy Sync Functions (single global row, public read)
+
+/**
+ * Sync admin-edited copy for the built-in /wrapped slides. Requires auth
+ * (admin session); mirrors syncGlobalAdminSettings.
+ */
+export const syncWrappedTemplateCopy = async (
+  copy: WrappedTemplateCopy
+): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to sync wrapped template copy");
+    return false;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("wrapped_template_copy")
+      .upsert(
+        {
+          id: "global",
+          content: copy,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+        }
+      )
+      .select();
+
+    if (error) {
+      if (error.code === "PGRST205") {
+        console.warn("wrapped_template_copy table doesn't exist yet. Please run sql/2026-08-06-wrapped-template-copy.sql in Supabase.");
+        return false;
+      }
+      console.error("Error syncing wrapped template copy:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in syncWrappedTemplateCopy:", error);
+    return false;
+  }
+};
+
+/**
+ * Load the built-in /wrapped slide copy. No auth required — the /wrapped
+ * page itself is public.
+ */
+export const loadWrappedTemplateCopy = async (): Promise<WrappedTemplateCopy | null> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("wrapped_template_copy")
+      .select("*")
+      .eq("id", "global")
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        return null;
+      }
+      if (error.code === "PGRST205") {
+        console.warn("wrapped_template_copy table doesn't exist yet. Please run sql/2026-08-06-wrapped-template-copy.sql in Supabase.");
+        return null;
+      }
+      console.error("Error loading wrapped template copy:", error);
+      return null;
+    }
+
+    if (!data?.content) {
+      return null;
+    }
+
+    return data.content as WrappedTemplateCopy;
+  } catch (error) {
+    console.error("Error in loadWrappedTemplateCopy:", error);
     return null;
   }
 };

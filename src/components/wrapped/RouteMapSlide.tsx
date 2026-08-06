@@ -4,6 +4,8 @@ import { Route } from "lucide-react";
 import { DisplayHeading, Eyebrow, StatBlock } from "@/components/editorial";
 import { normalizeRoute } from "@/utils/wrappedStats";
 import type { WrappedStats } from "@/types/wrapped";
+import type { WrappedTemplateCopy } from "@/types/admin";
+import { applyHeadingTokens } from "@/utils/wrappedTemplate";
 
 const VIEWBOX = 100;
 
@@ -12,15 +14,18 @@ const VIEWBOX = 100;
  * into a square viewBox and stroked as a polyline, so there is no tile
  * provider, no API key, and nothing to load.
  */
-const RouteMapSlide = ({ stats }: { stats: WrappedStats }) => {
+const RouteMapSlide = ({ stats, copy }: { stats: WrappedStats; copy: WrappedTemplateCopy }) => {
   const points = useMemo(() => normalizeRoute(stats.route, VIEWBOX, 10), [stats.route]);
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const heading = applyHeadingTokens(copy.route.heading, { distance: stats.distanceKm.toFixed(1) });
 
   return (
     <div className="flex flex-col h-full justify-center px-6 max-w-2xl mx-auto w-full">
-      <Eyebrow className="mb-4">Where You Went</Eyebrow>
+      <Eyebrow className="mb-4">{copy.route.eyebrow}</Eyebrow>
       <DisplayHeading as="h2" className="mb-8">
-        You covered <em>{stats.distanceKm.toFixed(1)} km</em>.
+        {heading.before}
+        <em>{heading.emphasis}</em>
+        {heading.after}
       </DisplayHeading>
 
       <div className="w-full rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-4 mb-8">
@@ -64,7 +69,7 @@ const RouteMapSlide = ({ stats }: { stats: WrappedStats }) => {
 
       <div className="flex items-center gap-2">
         <Route className="w-4 h-4 text-muted-foreground" />
-        <StatBlock value={points.length} label="Checkpoints on the route" />
+        <StatBlock value={points.length} label={copy.route.checkpointsLabel} />
       </div>
     </div>
   );

@@ -56,3 +56,76 @@ export type CustomWrappedSlide = {
   createdAt: number;
   updatedAt: number;
 };
+
+/**
+ * A heading split into three parts so the emphasized (italic) middle word
+ * can carry a `{token}` while the surrounding text stays plain.
+ */
+export type WrappedHeadingTemplate = {
+  before: string;
+  emphasis: string;
+  after: string;
+};
+
+/**
+ * Admin-editable copy for the built-in /wrapped slides. Every heading's
+ * `emphasis` field may contain `{token}` placeholders (e.g. `{duration}`)
+ * that get filled in from live stats at render time — see
+ * src/utils/wrappedTemplate.ts. Falls back to WRAPPED_TEMPLATE_DEFAULTS
+ * (src/components/wrapped/copy.ts) for any empty field.
+ */
+export type WrappedTemplateCopy = {
+  intro: {
+    eyebrow: string;
+    heading: WrappedHeadingTemplate;
+    hint: string;
+    mockHint: string;
+  };
+  numbers: {
+    eyebrow: string;
+    heading: WrappedHeadingTemplate;
+    statLabels: {
+      stamps: string;
+      photos: string;
+      coupons: string;
+      distance: string;
+    };
+  };
+  time: {
+    eyebrow: string;
+    heading: WrappedHeadingTemplate;
+    firstStampLabel: string;
+    lastStampLabel: string;
+    longestGapLabel: string;
+  };
+  route: {
+    eyebrow: string;
+    heading: WrappedHeadingTemplate;
+    checkpointsLabel: string;
+  };
+  topMoment: {
+    eyebrow: string;
+    heading: WrappedHeadingTemplate;
+    photosLabel: string;
+    caption: string;
+  };
+  photoStats: {
+    eyebrow: string;
+    heading: WrappedHeadingTemplate;
+    photosLabel: string;
+    stickersLabel: string;
+    filterLabel: string;
+  };
+  receipt: {
+    title: string;
+    subtitle: string;
+    photosLabel: string;
+    stickersLabel: string;
+    distanceLabel: string;
+    timeOutLabel: string;
+    totalLabel: string;
+    totalValue: string;
+    footer: string;
+  };
+  updatedAt: number;
+};

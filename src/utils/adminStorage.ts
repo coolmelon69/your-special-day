@@ -1,6 +1,6 @@
 // IndexedDB storage for admin data (custom stamps, coupons, settings)
 
-import type { CustomStamp, CustomCoupon, AdminSettings, CustomWrappedSlide } from "@/types/admin";
+import type { CustomStamp, CustomCoupon, AdminSettings, CustomWrappedSlide, WrappedTemplateCopy } from "@/types/admin";
 import {
   syncCustomStamps,
   deleteCustomStampFromSupabase,
@@ -12,17 +12,22 @@ import {
   loadGlobalAdminSettings,
   syncCustomWrappedSlides,
   deleteCustomWrappedSlideFromSupabase,
+  syncWrappedTemplateCopy,
+  loadWrappedTemplateCopy,
 } from "./supabaseSync";
 import { getCurrentUser } from "./auth";
+import { WRAPPED_TEMPLATE_DEFAULTS } from "@/components/wrapped/copy";
+import { mergeWrappedTemplateCopy } from "./wrappedTemplate";
 
 const DB_NAME = "admin-data-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORES = {
   STAMPS: "customStamps",
   COUPONS: "customCoupons",
   SETTINGS: "adminSettings",
   PHOTOS: "cameraPhotos",
   WRAPPED_SLIDES: "customWrappedSlides",
+  WRAPPED_TEMPLATE: "wrappedTemplateCopy",
 };
 
 let db: IDBDatabase | null = null;
@@ -77,6 +82,10 @@ const initDB = (): Promise<IDBDatabase> => {
       if (!database.objectStoreNames.contains(STORES.WRAPPED_SLIDES)) {
         const wrappedSlidesStore = database.createObjectStore(STORES.WRAPPED_SLIDES, { keyPath: "id" });
         wrappedSlidesStore.createIndex("order", "order", { unique: false });
+      }
+
+      if (!database.objectStoreNames.contains(STORES.WRAPPED_TEMPLATE)) {
+        database.createObjectStore(STORES.WRAPPED_TEMPLATE, { keyPath: "id" });
       }
     };
   });
@@ -866,5 +875,84 @@ export const reorderCustomWrappedSlides = async (orderedIds: string[]): Promise<
   } catch (error) {
     console.error("Error reordering custom wrapped slides:", error);
     throw error;
+  }
+};
+
+// ========== Wrapped Template Copy ==========
+
+/**
+ * Get admin-edited copy for the built-in /wrapped slides, merged over the
+ * defaults. Reads IndexedDB first (fast, local), then refreshes from the
+ * public Supabase row in the background — same shape as getAdminSettings,
+ * but the remote read needs no auth since /wrapped is public.
+ */
+export const getWrappedTemplateCopy = async (): Promise<WrappedTemplateCopy> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.WRAPPED_TEMPLATE], "readonly");
+    const store = transaction.objectStore(STORES.WRAPPED_TEMPLATE);
+
+    const local = await new Promise<WrappedTemplateCopy | null>((resolve, reject) => {
+      const request = store.get("template");
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => reject(new Error("Failed to get wrapped template copy"));
+    });
+
+    try {
+      const remote = await loadWrappedTemplateCopy();
+      if (remote && (!local || remote.updatedAt > local.updatedAt)) {
+        getDB().then((db) => {
+          const writeTransaction = db.transaction([STORES.WRAPPED_TEMPLATE], "readwrite");
+          writeTransaction.objectStore(STORES.WRAPPED_TEMPLATE).put({ id: "template", ...remote });
+        }).catch((err) => {
+          console.warn("Failed to save synced wrapped template copy to IndexedDB:", err);
+        });
+        return mergeWrappedTemplateCopy(remote);
+      }
+    } catch (syncError) {
+      console.warn("Background sync of wrapped template copy failed:", syncError);
+    }
+
+    return mergeWrappedTemplateCopy(local);
+  } catch (error) {
+    console.error("Error getting wrapped template copy:", error);
+    return WRAPPED_TEMPLATE_DEFAULTS;
+  }
+};
+
+/**
+ * Save admin-edited copy for the built-in /wrapped slides. Persists to
+ * IndexedDB immediately, then syncs to Supabase (requires an authenticated
+ * admin session).
+ */
+export const updateWrappedTemplateCopy = async (
+  copy: Partial<WrappedTemplateCopy>
+): Promise<void> => {
+  const database = await getDB();
+  const transaction = database.transaction([STORES.WRAPPED_TEMPLATE], "readwrite");
+  const store = transaction.objectStore(STORES.WRAPPED_TEMPLATE);
+
+  const current = await new Promise<WrappedTemplateCopy | null>((resolve, reject) => {
+    const request = store.get("template");
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => reject(new Error("Failed to get current wrapped template copy"));
+  });
+
+  const merged = mergeWrappedTemplateCopy({ ...current, ...copy });
+  const updated: WrappedTemplateCopy = { ...merged, updatedAt: Date.now() };
+
+  await new Promise<void>((resolve, reject) => {
+    const request = store.put({ id: "template", ...updated });
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(new Error("Failed to update wrapped template copy"));
+  });
+
+  const user = await getCurrentUser();
+  if (user) {
+    try {
+      await syncWrappedTemplateCopy(updated);
+    } catch (syncError) {
+      console.error("Error syncing wrapped template copy to Supabase:", syncError);
+    }
   }
 };
