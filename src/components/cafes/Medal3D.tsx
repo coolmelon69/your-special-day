@@ -11,7 +11,7 @@ import {
 } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import PinBadge, { TIER_METAL, shapeFor, type Tier } from "@/components/cafes/PinBadge";
-import { degreesFromDrag, projectRelease, snapTarget } from "@/utils/medalRotation";
+import { degreesFromDrag, isShowingBack, projectRelease, snapTarget } from "@/utils/medalRotation";
 import { cn } from "@/lib/utils";
 
 /** Slices of the extruded edge, as a fraction of half the medal's thickness.
@@ -62,6 +62,13 @@ const Medal3D = ({ tier, iconKey, Icon, locked, isActive, pct, size, back }: Med
     rotateY,
     (deg) => 0.7 + Math.abs(Math.cos((deg * Math.PI) / 180)) * 0.3
   );
+
+  // Which face is showing is decided here rather than left to `backface-visibility`.
+  // WebKit doesn't depth-sort this stack — it paints in DOM order and ignores the
+  // property, so on Safari the engraved back covered the front at every angle.
+  // Switching opacity at the 90° crossings does the same job on every engine.
+  const frontOpacity = useTransform(rotateY, (deg) => (isShowingBack(deg) ? 0 : 1));
+  const backOpacity = useTransform(rotateY, (deg) => (isShowingBack(deg) ? 1 : 0));
 
   const startSway = useCallback(() => {
     if (!spinnable || reduceMotion || swayHeld.current) return;
@@ -130,8 +137,12 @@ const Medal3D = ({ tier, iconKey, Icon, locked, isActive, pct, size, back }: Med
   return (
     <div
       data-medal
-      className="relative"
+      // Without this a spin drags a text selection across the page on Safari.
+      className="relative select-none [-webkit-touch-callout:none]"
       style={{ width: size, height: size, perspective: size * 4 }}
+      // Safari starts a text selection on pointerdown even over unselectable
+      // content, and that selection eats the pointermove stream the spin needs.
+      onPointerDown={(event) => event.preventDefault()}
       onPointerMove={handlePointerMove}
       onPointerLeave={() => tilt.set(reduceMotion ? 0 : 3)}
     >
@@ -166,19 +177,24 @@ const Medal3D = ({ tier, iconKey, Icon, locked, isActive, pct, size, back }: Med
           </div>
         ))}
 
-        <div
+        <motion.div
           className="absolute inset-0"
-          style={{ transform: `translateZ(${thickness}px)`, backfaceVisibility: "hidden" }}
+          style={{
+            transform: `translateZ(${thickness}px)`,
+            backfaceVisibility: "hidden",
+            opacity: frontOpacity,
+          }}
         >
           {pin}
-        </div>
+        </motion.div>
 
         {/* The engraved reverse: what a real pin has stamped into its back plate. */}
-        <div
+        <motion.div
           className="absolute inset-0"
           style={{
             transform: `rotateY(180deg) translateZ(${thickness}px)`,
             backfaceVisibility: "hidden",
+            opacity: backOpacity,
           }}
         >
           <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden>
@@ -220,7 +236,7 @@ const Medal3D = ({ tier, iconKey, Icon, locked, isActive, pct, size, back }: Med
               {back.line}
             </p>
           </div>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );

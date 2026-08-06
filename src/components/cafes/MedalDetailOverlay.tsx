@@ -125,7 +125,10 @@ const MedalDetailOverlay = ({ achievements, openIndex, onClose }: MedalDetailOve
           // No drag-to-dismiss here: a dragging parent captures the pointer and
           // would starve both the carousel swipe and the medal's own spin.
           // Escape, the backdrop, and the close button carry dismissal instead.
-          className="fixed inset-0 z-50 flex flex-col bg-background/85 backdrop-blur-xl outline-none"
+          // Opaque, not a blurred scrim: Safari drops backdrop-filter here, which
+          // left the page ghosting through behind the medal. This is a full detail
+          // view, so it earns the whole canvas.
+          className="fixed inset-0 z-50 flex select-none flex-col bg-background outline-none"
         >
           {/* Backdrop click target — sits behind the content, above the blur. */}
           <button
