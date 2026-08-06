@@ -42,6 +42,17 @@ export type AdminSettings = {
   couponOrder?: string[];
 };
 
+export const WRAPPED_SLIDE_ICONS = ["trophy", "heart", "star", "camera", "sparkles"] as const;
+export type WrappedSlideIcon = (typeof WRAPPED_SLIDE_ICONS)[number];
 
-
-
+export type CustomWrappedSlide = {
+  id: string;
+  eyebrow: string;
+  icon?: WrappedSlideIcon;
+  heading: string;
+  emphasis?: string;
+  body: string;
+  order: number;
+  createdAt: number;
+  updatedAt: number;
+};
