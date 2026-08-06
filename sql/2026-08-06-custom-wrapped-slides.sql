@@ -4,7 +4,7 @@
 -- Run this once in the Supabase SQL editor.
 
 create table if not exists custom_wrapped_slides (
-  id          uuid primary key default gen_random_uuid(),
+  id          text primary key,
   user_id     uuid not null references auth.users(id) on delete cascade,
   eyebrow     text not null,
   icon        text,
