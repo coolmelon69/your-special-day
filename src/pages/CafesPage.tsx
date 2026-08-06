@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eyebrow, DisplayHeading } from "@/components/editorial";
 import CategoryCard from "@/components/cafes/CategoryCard";
+import CafeStats from "@/components/cafes/CafeStats";
 import { useAllCafePlaces, useCafeCategories, useCreateCategory } from "@/hooks/useCafes";
 
 const CafesPage = () => {
@@ -91,7 +92,9 @@ const CafesPage = () => {
           {!isPending && !error && (
             <>
               {categories.data && categories.data.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <>
+                  <CafeStats categories={categories.data} places={places.data ?? []} />
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {categories.data.map((category) => (
                     <CategoryCard
                       key={category.id}
@@ -101,7 +104,8 @@ const CafesPage = () => {
                       )}
                     />
                   ))}
-                </div>
+                  </div>
+                </>
               ) : (
                 <div className="rounded-lg border border-dashed border-border bg-card/60 p-10 text-center">
                   <p className="font-serif text-2xl italic text-muted-foreground">
