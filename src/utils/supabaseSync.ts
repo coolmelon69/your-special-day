@@ -3,6 +3,7 @@ import { getCurrentUser } from "./auth";
 import type { ItineraryItem } from "@/components/TimelineSection";
 import type { Photo } from "@/components/TimelineSection";
 import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
+import type { CustomWrappedSlide } from "@/types/admin";
 
 export interface AchievementData {
   redeemedCouponIds: number[];
@@ -1224,6 +1225,139 @@ export const loadGlobalAdminSettings = async (): Promise<{
   } catch (error) {
     console.error("Error in loadGlobalAdminSettings:", error);
     return null;
+  }
+};
+
+// Custom Wrapped Slides Sync Functions
+
+/**
+ * Sync custom wrapped slides to Supabase.
+ */
+export const syncCustomWrappedSlides = async (
+  slides: CustomWrappedSlide[]
+): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to sync custom wrapped slides");
+    return false;
+  }
+
+  try {
+    const slideRecords = slides.map((slide) => ({
+      id: slide.id,
+      user_id: user.id,
+      eyebrow: slide.eyebrow,
+      icon: slide.icon || null,
+      heading: slide.heading,
+      emphasis: slide.emphasis || null,
+      body: slide.body,
+      sort_order: slide.order,
+      updated_at: new Date(slide.updatedAt).toISOString(),
+    }));
+
+    const { data, error } = await supabase
+      .from("custom_wrapped_slides")
+      .upsert(slideRecords, {
+        onConflict: "user_id,id",
+      })
+      .select();
+
+    if (error) {
+      console.error("Error syncing custom wrapped slides:", error);
+      return false;
+    }
+
+    console.log("Custom wrapped slides synced successfully:", data?.length || 0, "records");
+    return true;
+  } catch (error) {
+    console.error("Error in syncCustomWrappedSlides:", error);
+    return false;
+  }
+};
+
+/**
+ * Load custom wrapped slides from Supabase.
+ */
+export const loadCustomWrappedSlides = async (): Promise<CustomWrappedSlide[]> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return [];
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to load custom wrapped slides");
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("custom_wrapped_slides")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error("Error loading custom wrapped slides:", error);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    const slides: CustomWrappedSlide[] = data.map((record) => ({
+      id: record.id,
+      eyebrow: record.eyebrow,
+      icon: record.icon || undefined,
+      heading: record.heading,
+      emphasis: record.emphasis || undefined,
+      body: record.body,
+      order: record.sort_order,
+      createdAt: new Date(record.created_at).getTime(),
+      updatedAt: new Date(record.updated_at).getTime(),
+    }));
+
+    return slides;
+  } catch (error) {
+    console.error("Error in loadCustomWrappedSlides:", error);
+    return [];
+  }
+};
+
+/**
+ * Delete a custom wrapped slide from Supabase.
+ */
+export const deleteCustomWrappedSlideFromSupabase = async (slideId: string): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to delete custom wrapped slides");
+    return false;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("custom_wrapped_slides")
+      .delete()
+      .eq("id", slideId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Error deleting custom wrapped slide:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in deleteCustomWrappedSlideFromSupabase:", error);
+    return false;
   }
 };
 
