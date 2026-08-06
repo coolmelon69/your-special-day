@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Eyebrow, DisplayHeading, StatBlock } from "@/components/editorial";
 import AchievementCard from "@/components/cafes/AchievementCard";
+import MedalDetailOverlay from "@/components/cafes/MedalDetailOverlay";
 import { useCafeCategories, useAllCafePlaces } from "@/hooks/useCafes";
 import { computeAchievements, type AchievementTierProgress } from "@/utils/cafeAchievements";
 import { burstConfetti } from "@/utils/particles";
@@ -38,6 +39,8 @@ const CafeAchievementsPage = () => {
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   const [newlyUnlockedIds, setNewlyUnlockedIds] = useState<Set<string>>(new Set());
+  /** Index into the flat `achievements` list, so the overlay can swipe the whole set. */
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isPending || error) return;
@@ -118,6 +121,9 @@ const CafeAchievementsPage = () => {
                             achievement={tier}
                             isActive={tier.id === activeId}
                             justUnlocked={newlyUnlockedIds.has(tier.id)}
+                            // The grid is grouped by track, so each card carries its
+                            // position in the flat list rather than its position here.
+                            onOpen={() => setOpenIndex(achievements.findIndex((a) => a.id === tier.id))}
                           />
                         ))}
                       </div>
@@ -125,6 +131,11 @@ const CafeAchievementsPage = () => {
                   );
                 })}
               </div>
+              <MedalDetailOverlay
+                achievements={achievements}
+                openIndex={openIndex}
+                onClose={() => setOpenIndex(null)}
+              />
             </>
           )}
         </div>
