@@ -1262,7 +1262,7 @@ export const syncCustomWrappedSlides = async (
     const { data, error } = await supabase
       .from("custom_wrapped_slides")
       .upsert(slideRecords, {
-        onConflict: "user_id,id",
+        onConflict: "id",
       })
       .select();
 
