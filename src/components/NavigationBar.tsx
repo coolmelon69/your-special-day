@@ -15,7 +15,7 @@ import {
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { NavLink } from "./NavLink";
-import { isAuthenticated } from "@/utils/adminAuth";
+import { isAuthenticated, isSiteUnlocked } from "@/utils/adminAuth";
 import AuthModal from "./AuthModal";
 import { getCurrentUser, signOut, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -46,6 +46,7 @@ const NavigationBar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const authenticated = isAuthenticated();
+  const siteUnlocked = isSiteUnlocked();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
@@ -74,7 +75,10 @@ const NavigationBar = () => {
     }
   };
 
-  const navItems = [
+  // Locked out of the private site? The café list is all there is to navigate.
+  const navItems = !siteUnlocked
+    ? [{ path: "/cafes", label: "Cafés", icon: Coffee }]
+    : [
     { path: "/", label: "Home", icon: Home },
     { path: "/stamps", label: "Stamps", icon: CheckSquare },
     { path: "/coupons", label: "Coupons", icon: Gift },
@@ -90,7 +94,7 @@ const NavigationBar = () => {
         <div className="flex h-16 items-center justify-between gap-6 md:h-20">
           {/* ── Masthead ── */}
           <Link
-            to="/"
+            to={siteUnlocked ? "/" : "/cafes"}
             className="font-serif text-lg font-bold tracking-tight text-foreground transition-gentle hover:text-primary md:text-xl"
           >
             Hehe<span className="dot-accent">.</span>
