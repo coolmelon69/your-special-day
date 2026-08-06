@@ -7,18 +7,19 @@ import RouteMapSlide from "@/components/wrapped/RouteMapSlide";
 import ReceiptSlide from "@/components/wrapped/ReceiptSlide";
 import ShareCardSlide from "@/components/wrapped/ShareCardSlide";
 import {
-  AwardSlide,
+  CustomSlide,
   IntroSlide,
   NumbersSlide,
   PhotoStatsSlide,
   TimeSlide,
   TopMomentSlide,
 } from "@/components/wrapped/slides";
-import { AWARDS } from "@/components/wrapped/copy";
+import { useCustomWrappedSlides } from "@/hooks/useCustomWrappedSlides";
 
 const WrappedPage = () => {
   const navigate = useNavigate();
   const stats = useWrappedStats();
+  const customSlides = useCustomWrappedSlides();
 
   // Bumping the key remounts StoryShell, which resets it to slide one.
   const [runKey, setRunKey] = useState(0);
@@ -34,8 +35,11 @@ const WrappedPage = () => {
       { id: "photo-stats", duration: 8000, render: () => <PhotoStatsSlide stats={stats} /> },
       // Longer: this slide carries more reading than the others.
       { id: "receipt", duration: 12000, render: () => <ReceiptSlide stats={stats} /> },
-      { id: "award-1", duration: 7000, render: () => <AwardSlide award={AWARDS[0]} /> },
-      { id: "award-2", duration: 7000, render: () => <AwardSlide award={AWARDS[1]} /> },
+      ...customSlides.map((slide) => ({
+        id: `custom-${slide.id}`,
+        duration: 7000,
+        render: () => <CustomSlide slide={slide} />,
+      })),
       // Long enough that the story does not close itself while the user is
       // deciding whether to save the card.
       {
@@ -44,7 +48,7 @@ const WrappedPage = () => {
         render: () => <ShareCardSlide stats={stats} onReplay={replay} />,
       },
     ],
-    [stats, replay],
+    [stats, replay, customSlides],
   );
 
   return (
