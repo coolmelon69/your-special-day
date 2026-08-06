@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { ExternalLink, MapPin, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/editorial";
@@ -98,9 +98,10 @@ interface PlaceRowProps {
   /** The current Nº1 gets the rose treatment. */
   isTop: boolean;
   onEdit: (place: CafePlace) => void;
+  onView: (ranked: RankedPlace) => void;
 }
 
-const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
+const PlaceRow = ({ ranked, isTop, onEdit, onView }: PlaceRowProps) => {
   const { place, average, rank } = ranked;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const deletePlace = useDeletePlace();
@@ -112,8 +113,17 @@ const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
 
   return (
     <article
+      role="button"
+      tabIndex={0}
+      onClick={() => onView(ranked)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onView(ranked);
+        }
+      }}
       className={cn(
-        "group grid grid-cols-[3rem_1fr] gap-x-4 gap-y-3 rounded-lg border bg-card p-4 transition-gentle md:grid-cols-[4.5rem_1fr_9rem] md:p-6",
+        "group grid cursor-pointer grid-cols-[3rem_1fr] gap-x-4 gap-y-3 rounded-lg border bg-card p-4 transition-gentle md:grid-cols-[4.5rem_1fr_9rem] md:p-6",
         isTop ? "border-rose/40 shadow-romantic" : "border-border"
       )}
     >
@@ -147,6 +157,7 @@ const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
                   href={mapsUrlForPlace(place.gmaps_place_id)}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={(event) => event.stopPropagation()}
                   className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
                 >
                   Maps
@@ -160,7 +171,10 @@ const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
           <div className="flex shrink-0 gap-1 opacity-0 transition-gentle focus-within:opacity-100 group-hover:opacity-100 max-md:opacity-100">
             <button
               type="button"
-              onClick={() => onEdit(place)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(place);
+              }}
               aria-label={`Edit ${place.name}`}
               className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-primary"
             >
@@ -168,7 +182,10 @@ const PlaceRow = ({ ranked, isTop, onEdit }: PlaceRowProps) => {
             </button>
             <button
               type="button"
-              onClick={() => setConfirmOpen(true)}
+              onClick={(event) => {
+                event.stopPropagation();
+                setConfirmOpen(true);
+              }}
               aria-label={`Delete ${place.name}`}
               className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             >
@@ -251,29 +268,35 @@ interface WishlistRowProps {
 }
 
 export const WishlistRow = ({ place, onEdit, onMarkVisited }: WishlistRowProps) => (
-  <article className="flex items-center gap-4 rounded-lg border border-dashed border-border bg-card/60 p-4 opacity-60 transition-gentle hover:opacity-100">
-    <button
-      type="button"
-      onClick={() => onMarkVisited(place)}
-      aria-label={`Mark ${place.name} as visited`}
-      className="h-5 w-5 shrink-0 rounded-[4px] border border-muted-foreground/50 transition-gentle hover:border-rose hover:bg-rose/10"
-    />
-    <div className="min-w-0 flex-1">
-      <h3 className="truncate font-serif text-lg font-semibold leading-tight">{place.name}</h3>
-      {place.note && (
-        <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-          {place.note}
-        </p>
-      )}
+  <article className="group flex flex-col gap-3 rounded-lg border border-dashed border-border bg-card/60 p-4 opacity-75 transition-gentle hover:opacity-100 hover:border-rose/40">
+    <div className="flex items-start gap-3">
+      <button
+        type="button"
+        onClick={() => onMarkVisited(place)}
+        aria-label={`Mark ${place.name} as visited`}
+        className="mt-1 h-5 w-5 shrink-0 rounded-[4px] border border-muted-foreground/50 transition-gentle hover:border-rose hover:bg-rose/10"
+      />
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate font-serif text-lg font-semibold leading-tight">{place.name}</h3>
+        {place.area && (
+          <p className="mt-1 flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="truncate">{place.area}</span>
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onEdit(place)}
+        aria-label={`Edit ${place.name}`}
+        className="shrink-0 rounded-md p-2 text-muted-foreground opacity-0 transition-gentle hover:bg-accent hover:text-primary group-hover:opacity-100 max-md:opacity-100"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
     </div>
-    <button
-      type="button"
-      onClick={() => onEdit(place)}
-      aria-label={`Edit ${place.name}`}
-      className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-primary"
-    >
-      <Pencil className="h-4 w-4" />
-    </button>
+    {place.note && (
+      <p className="font-serif text-sm italic text-muted-foreground">“{place.note}”</p>
+    )}
   </article>
 );
 

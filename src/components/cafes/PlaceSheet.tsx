@@ -186,7 +186,10 @@ const PlaceSheet = ({
           value={form.name}
           onChange={(event) => set("name", event.target.value)}
           placeholder="The Codfather"
-          autoFocus
+          autoComplete="off"
+          autoCorrect="off"
+          name="cafe-name-field"
+          autoFocus={!isMobile}
         />
       </div>
 
@@ -273,12 +276,15 @@ const PlaceSheet = ({
             <Label htmlFor="cafe-date" className="font-mono text-[10px] uppercase tracking-[0.18em]">
               When
             </Label>
-            <Input
-              id="cafe-date"
-              type="date"
-              value={form.visited_on}
-              onChange={(event) => set("visited_on", event.target.value)}
-            />
+            <div className="w-full overflow-hidden rounded-md border border-input bg-background">
+              <Input
+                id="cafe-date"
+                type="date"
+                value={form.visited_on}
+                onChange={(event) => set("visited_on", event.target.value)}
+                className="w-full min-w-0 border-0 bg-transparent"
+              />
+            </div>
           </div>
 
           <label className="flex items-center gap-3 text-sm">
@@ -376,7 +382,7 @@ const PlaceSheet = ({
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
+      <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
         <DrawerContent className="max-h-[92vh]">
           <DrawerHeader className="shrink-0 px-5 pb-2 text-left">
             <DrawerTitle className="font-serif text-2xl">{title}</DrawerTitle>

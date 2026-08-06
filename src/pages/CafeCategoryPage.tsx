@@ -18,8 +18,9 @@ import {
 import { Eyebrow, DisplayHeading } from "@/components/editorial";
 import PlaceRow, { WishlistRow } from "@/components/cafes/PlaceRow";
 import PlaceSheet from "@/components/cafes/PlaceSheet";
+import PlaceDetailSheet from "@/components/cafes/PlaceDetailSheet";
 import { useCafeCategoryBySlug, useCafePlaces, useDeleteCategory } from "@/hooks/useCafes";
-import { rankPlaces, splitByStatus } from "@/utils/cafeRanking";
+import { rankPlaces, splitByStatus, type RankedPlace } from "@/utils/cafeRanking";
 import type { CafePlace, PlaceStatus } from "@/types/cafes";
 
 const CafeCategoryPage = () => {
@@ -33,6 +34,8 @@ const CafeCategoryPage = () => {
   const [editing, setEditing] = useState<CafePlace | undefined>(undefined);
   const [initialStatus, setInitialStatus] = useState<PlaceStatus>("wishlist");
   const [confirmDeleteCategory, setConfirmDeleteCategory] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [viewing, setViewing] = useState<RankedPlace | null>(null);
 
   const openAdd = (status: PlaceStatus) => {
     setEditing(undefined);
@@ -41,8 +44,14 @@ const CafeCategoryPage = () => {
   };
 
   const openEdit = (place: CafePlace) => {
+    setDetailOpen(false);
     setEditing(place);
     setSheetOpen(true);
+  };
+
+  const openDetail = (ranked: RankedPlace) => {
+    setViewing(ranked);
+    setDetailOpen(true);
   };
 
   const openMarkVisited = (place: CafePlace) => {
@@ -130,6 +139,7 @@ const CafeCategoryPage = () => {
                       ranked={entry}
                       isTop={entry.rank === 1 && entry.average !== null}
                       onEdit={openEdit}
+                      onView={openDetail}
                     />
                   ))}
                 </section>
@@ -143,7 +153,7 @@ const CafeCategoryPage = () => {
                 <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Still to try — {wishlist.length}
                 </h2>
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {wishlist.map((place) => (
                     <WishlistRow
                       key={place.id}
@@ -177,6 +187,13 @@ const CafeCategoryPage = () => {
                 categoryId={category.id}
                 place={editing}
                 initialStatus={initialStatus}
+              />
+
+              <PlaceDetailSheet
+                open={detailOpen}
+                onOpenChange={setDetailOpen}
+                ranked={viewing}
+                onEdit={openEdit}
               />
 
               <AlertDialog open={confirmDeleteCategory} onOpenChange={setConfirmDeleteCategory}>
