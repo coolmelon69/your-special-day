@@ -1,8 +1,9 @@
-import { Camera, Clock, Sticker, Trophy } from "lucide-react";
+import { Camera, Clock, Heart, Sparkles, Sticker, Star, Trophy } from "lucide-react";
 import { DisplayHeading, EditorialFigure, Eyebrow, Pill, StatBlock } from "@/components/editorial";
 import { formatClock, formatDuration } from "@/utils/wrappedStats";
 import type { WrappedStats } from "@/types/wrapped";
-import { INTRO, type Award } from "./copy";
+import type { CustomWrappedSlide, WrappedSlideIcon } from "@/types/admin";
+import { INTRO } from "./copy";
 
 interface SlideProps {
   stats: WrappedStats;
@@ -111,14 +112,27 @@ export const PhotoStatsSlide = ({ stats }: SlideProps) => (
   </Frame>
 );
 
-export const AwardSlide = ({ award }: { award: Award }) => (
-  <Frame center>
-    <Eyebrow className="mb-6">{award.eyebrow}</Eyebrow>
-    <Trophy className="w-4 h-4 text-rose mb-6" />
-    <DisplayHeading as="h2" className="mb-8">
-      {award.title}
-    </DisplayHeading>
-    <p className="font-serif text-2xl text-rose italic mb-4">{award.recipient}</p>
-    <p className="text-muted-foreground max-w-[36ch]">{award.note}</p>
-  </Frame>
-);
+const WRAPPED_SLIDE_ICON_MAP: Record<WrappedSlideIcon, React.ComponentType<{ className?: string }>> = {
+  trophy: Trophy,
+  heart: Heart,
+  star: Star,
+  camera: Camera,
+  sparkles: Sparkles,
+};
+
+export const CustomSlide = ({ slide }: { slide: CustomWrappedSlide }) => {
+  const Icon = slide.icon ? WRAPPED_SLIDE_ICON_MAP[slide.icon] : null;
+  return (
+    <Frame center>
+      <Eyebrow className="mb-6">{slide.eyebrow}</Eyebrow>
+      {Icon && <Icon className="w-4 h-4 text-rose mb-6" />}
+      <DisplayHeading as="h2" className="mb-8">
+        {slide.heading}
+      </DisplayHeading>
+      {slide.emphasis && (
+        <p className="font-serif text-2xl text-rose italic mb-4">{slide.emphasis}</p>
+      )}
+      <p className="text-muted-foreground max-w-[36ch]">{slide.body}</p>
+    </Frame>
+  );
+};

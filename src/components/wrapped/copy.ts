@@ -5,13 +5,6 @@ import type { WrappedStats } from "@/types/wrapped";
  * Edit this file to change the wording; no need to touch the slides.
  */
 
-export interface Award {
-  eyebrow: string;
-  title: string;
-  recipient: string;
-  note: string;
-}
-
 export const INTRO = {
   eyebrow: "Year in Review · 2025",
   headingBefore: "Ready to review ",
@@ -19,42 +12,6 @@ export const INTRO = {
   hint: "Tap right to turn the page",
   mockHint: "Nothing collected yet — here's a preview",
 } as const;
-
-/**
- * TODO(user): write the real award copy. These are placeholders, carried over
- * from the joke list in the old slideData.ts. Two awards render, in order.
- */
-export const AWARDS: Award[] = [
-  {
-    eyebrow: "Award Nº 01",
-    title: "Most Likely To Cari Pintu",
-    recipient: "TODO(user): who won this one",
-    note: "TODO(user): one line on why",
-  },
-  {
-    eyebrow: "Award Nº 02",
-    title: "Most Quoted Line Of The Year",
-    recipient: "Wa wa wa, nyenyenye, kucukucu",
-    note: "TODO(user): one line on why",
-  },
-];
-
-/**
- * Archive only — nothing renders this. Carried over from the deleted
- * slideData.ts as raw material for writing the AWARDS copy above. Delete it
- * once the awards are written.
- */
-export const GENRES = [
-  "choc waffle",
-  "Most Random Couple",
-  "Late night Emart",
-  "Kene pressure tunang",
-  "strawberry and melon",
-  "non-celen",
-  "minecrafter",
-  "acah2 software engineer",
-  "ayammm",
-] as const;
 
 /**
  * Shown when nothing at all has been collected, so the page is never empty.
