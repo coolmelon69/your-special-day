@@ -1,11 +1,16 @@
+import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import { Eyebrow, DisplayHeading, StatBlock } from "@/components/editorial";
 import AchievementCard from "@/components/cafes/AchievementCard";
 import { useCafeCategories, useAllCafePlaces } from "@/hooks/useCafes";
 import { computeAchievements, type AchievementTierProgress } from "@/utils/cafeAchievements";
+import { burstConfetti } from "@/utils/particles";
+import { playStampSound } from "@/utils/sound";
+import { getSeenAchievementIds, markAchievementIdsSeen } from "@/utils/achievementUnlockStorage";
 
 /** Groups the flat 21-entry list back into tracks, preserving computeAchievements' order. */
 const groupByTrack = (achievements: AchievementTierProgress[]): AchievementTierProgress[][] => {
@@ -31,6 +36,28 @@ const CafeAchievementsPage = () => {
   const achievements = computeAchievements(categories.data ?? [], places.data ?? []);
   const tracks = groupByTrack(achievements);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
+
+  const [newlyUnlockedIds, setNewlyUnlockedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (isPending || error) return;
+    const seen = getSeenAchievementIds();
+    const fresh = achievements.filter((a) => a.unlocked && !seen.has(a.id));
+    if (fresh.length === 0) return;
+
+    setNewlyUnlockedIds(new Set(fresh.map((a) => a.id)));
+    playStampSound();
+    fresh.forEach((achievement, index) => {
+      setTimeout(() => {
+        burstConfetti();
+        toast.success(`🏆 Badge unlocked — ${achievement.title}`);
+      }, index * 400);
+    });
+    markAchievementIdsSeen(fresh.map((a) => a.id));
+    // Runs once achievements finish loading; achievements is recomputed every
+    // render from stable query data, so it isn't a dependency here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPending, error]);
 
   return (
     <>
@@ -90,7 +117,7 @@ const CafeAchievementsPage = () => {
                             key={tier.id}
                             achievement={tier}
                             isActive={tier.id === activeId}
-                            justUnlocked={false}
+                            justUnlocked={newlyUnlockedIds.has(tier.id)}
                           />
                         ))}
                       </div>
