@@ -1,16 +1,28 @@
 // IndexedDB storage for admin data (custom stamps, coupons, settings)
 
-import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
-import { syncCustomStamps, deleteCustomStampFromSupabase, syncCustomCoupons, deleteCustomCouponFromSupabase, syncAdminSettings, loadAdminSettings, syncGlobalAdminSettings, loadGlobalAdminSettings } from "./supabaseSync";
+import type { CustomStamp, CustomCoupon, AdminSettings, CustomWrappedSlide } from "@/types/admin";
+import {
+  syncCustomStamps,
+  deleteCustomStampFromSupabase,
+  syncCustomCoupons,
+  deleteCustomCouponFromSupabase,
+  syncAdminSettings,
+  loadAdminSettings,
+  syncGlobalAdminSettings,
+  loadGlobalAdminSettings,
+  syncCustomWrappedSlides,
+  deleteCustomWrappedSlideFromSupabase,
+} from "./supabaseSync";
 import { getCurrentUser } from "./auth";
 
 const DB_NAME = "admin-data-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORES = {
   STAMPS: "customStamps",
   COUPONS: "customCoupons",
   SETTINGS: "adminSettings",
   PHOTOS: "cameraPhotos",
+  WRAPPED_SLIDES: "customWrappedSlides",
 };
 
 let db: IDBDatabase | null = null;
@@ -60,6 +72,11 @@ const initDB = (): Promise<IDBDatabase> => {
       if (!database.objectStoreNames.contains(STORES.PHOTOS)) {
         const photoStore = database.createObjectStore(STORES.PHOTOS, { keyPath: "id" });
         photoStore.createIndex("timestamp", "timestamp", { unique: false });
+      }
+
+      if (!database.objectStoreNames.contains(STORES.WRAPPED_SLIDES)) {
+        const wrappedSlidesStore = database.createObjectStore(STORES.WRAPPED_SLIDES, { keyPath: "id" });
+        wrappedSlidesStore.createIndex("order", "order", { unique: false });
       }
     };
   });
@@ -655,7 +672,7 @@ export const getUndevelopedPhotosCount = async (): Promise<number> => {
     const database = await getDB();
     const transaction = database.transaction([STORES.PHOTOS], "readonly");
     const store = transaction.objectStore(STORES.PHOTOS);
-    
+
     return new Promise<number>((resolve, reject) => {
       const request = store.getAll();
       request.onsuccess = () => {
@@ -667,5 +684,187 @@ export const getUndevelopedPhotosCount = async (): Promise<number> => {
   } catch (error) {
     console.error("Error getting photos count:", error);
     return 0;
+  }
+};
+
+// ========== Custom Wrapped Slides ==========
+
+export const saveCustomWrappedSlidesToIndexedDB = async (slides: CustomWrappedSlide[]): Promise<void> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.WRAPPED_SLIDES], "readwrite");
+    const store = transaction.objectStore(STORES.WRAPPED_SLIDES);
+
+    await new Promise<void>((resolve, reject) => {
+      const clearRequest = store.clear();
+      clearRequest.onsuccess = () => resolve();
+      clearRequest.onerror = () => reject(new Error("Failed to clear custom wrapped slides"));
+    });
+
+    for (const slide of slides) {
+      await new Promise<void>((resolve, reject) => {
+        const request = store.add(slide);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(new Error(`Failed to save wrapped slide ${slide.id}`));
+      });
+    }
+  } catch (error) {
+    console.error("Error saving custom wrapped slides to IndexedDB:", error);
+    throw error;
+  }
+};
+
+export const getAllCustomWrappedSlides = async (): Promise<CustomWrappedSlide[]> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.WRAPPED_SLIDES], "readonly");
+    const store = transaction.objectStore(STORES.WRAPPED_SLIDES);
+    return new Promise<CustomWrappedSlide[]>((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const slides = request.result.sort((a, b) => a.order - b.order);
+        resolve(slides);
+      };
+      request.onerror = () => reject(new Error("Failed to get custom wrapped slides"));
+    });
+  } catch (error) {
+    console.error("Error getting custom wrapped slides:", error);
+    return [];
+  }
+};
+
+export const addCustomWrappedSlide = async (
+  slide: Omit<CustomWrappedSlide, "id" | "createdAt" | "updatedAt">
+): Promise<string> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.WRAPPED_SLIDES], "readwrite");
+    const store = transaction.objectStore(STORES.WRAPPED_SLIDES);
+
+    const newSlide: CustomWrappedSlide = {
+      ...slide,
+      id: `wrapped-slide-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    return new Promise<string>(async (resolve, reject) => {
+      const request = store.add(newSlide);
+      request.onsuccess = async () => {
+        const user = await getCurrentUser();
+        if (user) {
+          try {
+            const allSlides = await getAllCustomWrappedSlides();
+            await syncCustomWrappedSlides(allSlides);
+          } catch (syncError) {
+            console.error("Error syncing custom wrapped slides to Supabase:", syncError);
+          }
+        }
+        resolve(newSlide.id);
+      };
+      request.onerror = () => reject(new Error("Failed to add custom wrapped slide"));
+    });
+  } catch (error) {
+    console.error("Error adding custom wrapped slide:", error);
+    throw error;
+  }
+};
+
+export const updateCustomWrappedSlide = async (slide: CustomWrappedSlide): Promise<void> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.WRAPPED_SLIDES], "readwrite");
+    const store = transaction.objectStore(STORES.WRAPPED_SLIDES);
+
+    const updatedSlide: CustomWrappedSlide = {
+      ...slide,
+      updatedAt: Date.now(),
+    };
+
+    return new Promise<void>(async (resolve, reject) => {
+      const request = store.put(updatedSlide);
+      request.onsuccess = async () => {
+        const user = await getCurrentUser();
+        if (user) {
+          try {
+            const allSlides = await getAllCustomWrappedSlides();
+            await syncCustomWrappedSlides(allSlides);
+          } catch (syncError) {
+            console.error("Error syncing custom wrapped slides to Supabase:", syncError);
+          }
+        }
+        resolve();
+      };
+      request.onerror = () => reject(new Error("Failed to update custom wrapped slide"));
+    });
+  } catch (error) {
+    console.error("Error updating custom wrapped slide:", error);
+    throw error;
+  }
+};
+
+export const deleteCustomWrappedSlide = async (slideId: string): Promise<void> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.WRAPPED_SLIDES], "readwrite");
+    const store = transaction.objectStore(STORES.WRAPPED_SLIDES);
+
+    return new Promise<void>(async (resolve, reject) => {
+      const request = store.delete(slideId);
+      request.onsuccess = async () => {
+        const user = await getCurrentUser();
+        if (user) {
+          try {
+            await deleteCustomWrappedSlideFromSupabase(slideId);
+            const remainingSlides = await getAllCustomWrappedSlides();
+            await syncCustomWrappedSlides(remainingSlides);
+          } catch (syncError) {
+            console.error("Error deleting custom wrapped slide from Supabase:", syncError);
+          }
+        }
+        resolve();
+      };
+      request.onerror = () => reject(new Error("Failed to delete custom wrapped slide"));
+    });
+  } catch (error) {
+    console.error("Error deleting custom wrapped slide:", error);
+    throw error;
+  }
+};
+
+export const reorderCustomWrappedSlides = async (orderedIds: string[]): Promise<void> => {
+  try {
+    const slides = await getAllCustomWrappedSlides();
+    const byId = new Map(slides.map((s) => [s.id, s]));
+    const reordered = orderedIds
+      .map((id, index) => {
+        const slide = byId.get(id);
+        return slide ? { ...slide, order: index, updatedAt: Date.now() } : null;
+      })
+      .filter((s): s is CustomWrappedSlide => s !== null);
+
+    const database = await getDB();
+    const transaction = database.transaction([STORES.WRAPPED_SLIDES], "readwrite");
+    const store = transaction.objectStore(STORES.WRAPPED_SLIDES);
+
+    for (const slide of reordered) {
+      await new Promise<void>((resolve, reject) => {
+        const request = store.put(slide);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(new Error(`Failed to reorder wrapped slide ${slide.id}`));
+      });
+    }
+
+    const user = await getCurrentUser();
+    if (user) {
+      try {
+        await syncCustomWrappedSlides(reordered);
+      } catch (syncError) {
+        console.error("Error syncing reordered wrapped slides to Supabase:", syncError);
+      }
+    }
+  } catch (error) {
+    console.error("Error reordering custom wrapped slides:", error);
+    throw error;
   }
 };
