@@ -4,6 +4,7 @@ import type { ItineraryItem } from "@/components/TimelineSection";
 import type { Photo } from "@/components/TimelineSection";
 import type { CustomStamp, CustomCoupon, AdminSettings } from "@/types/admin";
 import type { CustomWrappedSlide, WrappedTemplateCopy } from "@/types/admin";
+import type { TrainerCardConfig } from "./trainerCard";
 
 export interface AchievementData {
   redeemedCouponIds: number[];
@@ -1171,7 +1172,8 @@ export const loadAdminSettings = async (): Promise<AdminSettings | null> => {
  */
 export const syncGlobalAdminSettings = async (
   disabledDefaultStamps: string[],
-  disabledDefaultCoupons: number[]
+  disabledDefaultCoupons: number[],
+  trainerCardEnabled = true
 ): Promise<boolean> => {
   if (!isSupabaseAvailable() || !supabase) {
     return false;
@@ -1192,6 +1194,7 @@ export const syncGlobalAdminSettings = async (
           id: "global",
           disabled_default_stamps: disabledDefaultStamps,
           disabled_default_coupons: disabledDefaultCoupons,
+          trainer_card_enabled: trainerCardEnabled,
           last_modified: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -1233,6 +1236,7 @@ export const syncGlobalAdminSettings = async (
 export const loadGlobalAdminSettings = async (): Promise<{
   disabledDefaultStamps: string[];
   disabledDefaultCoupons: number[];
+  trainerCardEnabled: boolean;
   lastModified: number;
 } | null> => {
   if (!isSupabaseAvailable() || !supabase) {
@@ -1267,6 +1271,8 @@ export const loadGlobalAdminSettings = async (): Promise<{
     return {
       disabledDefaultStamps: data.disabled_default_stamps || [],
       disabledDefaultCoupons: data.disabled_default_coupons || [],
+      // Column may not exist yet (migration not run) — default to enabled.
+      trainerCardEnabled: data.trainer_card_enabled ?? true,
       lastModified: new Date(data.last_modified).getTime(),
     };
   } catch (error) {
@@ -1360,6 +1366,88 @@ export const loadWrappedTemplateCopy = async (): Promise<WrappedTemplateCopy | n
     return data.content as WrappedTemplateCopy;
   } catch (error) {
     console.error("Error in loadWrappedTemplateCopy:", error);
+    return null;
+  }
+};
+
+// Trainer Card Config Sync Functions (single global row, public read)
+
+/**
+ * Save the admin-tuned trainer levelling config (XP weights + rank ladder).
+ * Requires an authenticated admin session; mirrors syncWrappedTemplateCopy.
+ */
+export const syncTrainerCardConfig = async (config: TrainerCardConfig): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return false;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn("User must be authenticated to sync trainer card config");
+    return false;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("trainer_card_config")
+      .upsert(
+        {
+          id: "global",
+          content: config,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      )
+      .select();
+
+    if (error) {
+      if (error.code === "PGRST205") {
+        console.warn("trainer_card_config table doesn't exist yet. Please run sql/2026-08-07-trainer-card-config.sql in Supabase.");
+        return false;
+      }
+      console.error("Error syncing trainer card config:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in syncTrainerCardConfig:", error);
+    return false;
+  }
+};
+
+/**
+ * Load the global trainer levelling config. No auth required — every logged-in
+ * user levels by the same ladder. Returns null if unset or the table is missing.
+ */
+export const loadTrainerCardConfig = async (): Promise<TrainerCardConfig | null> => {
+  if (!isSupabaseAvailable() || !supabase) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("trainer_card_config")
+      .select("*")
+      .eq("id", "global")
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === "PGRST205") {
+        console.warn("trainer_card_config table doesn't exist yet. Please run sql/2026-08-07-trainer-card-config.sql in Supabase.");
+        return null;
+      }
+      console.error("Error loading trainer card config:", error);
+      return null;
+    }
+
+    if (!data?.content?.tiers?.length) {
+      return null;
+    }
+
+    return data.content as TrainerCardConfig;
+  } catch (error) {
+    console.error("Error in loadTrainerCardConfig:", error);
     return null;
   }
 };

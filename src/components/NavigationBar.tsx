@@ -11,6 +11,7 @@ import {
   QrCode,
   Coffee,
   Menu,
+  IdCard,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
@@ -18,6 +19,7 @@ import { NavLink } from "./NavLink";
 import { isAuthenticated, isSiteUnlocked } from "@/utils/adminAuth";
 import AuthModal from "./AuthModal";
 import { getCurrentUser, signOut, onAuthStateChange } from "@/utils/auth";
+import { useAdventure } from "@/contexts/AdventureContext";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import {
   DropdownMenu,
@@ -51,6 +53,7 @@ const NavigationBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { trainerCardEnabled } = useAdventure();
 
   // Listen to auth state changes
   useEffect(() => {
@@ -84,6 +87,7 @@ const NavigationBar = () => {
     { path: "/coupons", label: "Coupons", icon: Gift },
     { path: "/scan-qr", label: "Scan QR", icon: QrCode },
     { path: "/memory-book", label: "Memory Book", icon: BookOpen },
+    ...(trainerCardEnabled ? [{ path: "/trainer-card", label: "Profile", icon: IdCard }] : []),
     { path: "/cafes", label: "Cafés", icon: Coffee },
     ...(authenticated ? [{ path: "/admin", label: "Admin", icon: Shield }] : []),
   ];

@@ -1,8 +1,10 @@
-import { AlertCircle, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, IdCard, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
+import { Switch } from "@/components/ui/switch";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { syncCouponAchievements, syncStampsProgress } from "@/utils/supabaseSync";
-import { getAllCustomStamps, getAdminSettings } from "@/utils/adminStorage";
+import { getAllCustomStamps, getAdminSettings, updateAdminSettings } from "@/utils/adminStorage";
 import { initialItinerary, type ItineraryItem } from "@/components/TimelineSection";
 import * as photoStorage from "@/utils/photoStorage";
 
@@ -10,7 +12,23 @@ const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
 const STORAGE_KEY = "birthday-adventure-progress";
 
 const AdminSettings = () => {
-  const { setItineraryState, refreshPhotos, user } = useAdventure();
+  const { setItineraryState, refreshPhotos, user, trainerCardEnabled, setTrainerCardEnabled } = useAdventure();
+  const [savingTrainerCard, setSavingTrainerCard] = useState(false);
+
+  const handleToggleTrainerCard = async () => {
+    const next = !trainerCardEnabled;
+    setSavingTrainerCard(true);
+    setTrainerCardEnabled(next); // optimistic — revert on failure
+    try {
+      await updateAdminSettings({ trainerCardEnabled: next });
+    } catch (error) {
+      console.error("Error saving trainer card setting:", error);
+      setTrainerCardEnabled(!next);
+      alert("Could not save that setting. Please try again.");
+    } finally {
+      setSavingTrainerCard(false);
+    }
+  };
 
   const handleResetAllProgress = async () => {
     if (
@@ -135,6 +153,26 @@ const AdminSettings = () => {
           <strong className="font-semibold">Note:</strong> Custom stamps and coupons are automatically
           shown together with default items. They appear after the default items in the list.
         </p>
+      </div>
+
+      {/* Feature toggles */}
+      <div className="flex items-start justify-between gap-4 rounded-xl border border-border p-4">
+        <div className="flex items-start gap-3">
+          <IdCard className={`w-4 h-4 mt-0.5 flex-shrink-0 ${trainerCardEnabled ? "text-primary" : "text-muted-foreground"}`} />
+          <div>
+            <p className="text-sm font-medium text-foreground">Trainer card setup</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              When on, logged-in users are asked to set up a trainer card on first login and get the
+              Profile page. When off, the setup is skipped and the page is hidden for everyone.
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={trainerCardEnabled}
+          onCheckedChange={handleToggleTrainerCard}
+          disabled={savingTrainerCard}
+          aria-label="Enable trainer card setup for logged-in users"
+        />
       </div>
 
       {/* Reset Progress Button */}

@@ -21,6 +21,10 @@ import PhotoEditor from "@/components/PhotoEditor";
 import { syncCheckpointPhoto, syncSingleStamp } from "@/utils/supabaseSync";
 import { uploadPhotoToStorage } from "@/utils/photoUpload";
 import DistanceIndicator from "@/components/DistanceIndicator";
+import { XP_WEIGHTS } from "@/utils/trainerCard";
+import { getItemSlugForCheckpoint, fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
+import PokeStopRevealModal from "@/components/PokeStopRevealModal";
+import PokeStopMarker from "@/components/PokeStopMarker";
 
 const StampsPage = () => {
   const location = useLocation();
@@ -35,6 +39,7 @@ const StampsPage = () => {
   const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: ItemDetails | null } | null>(null);
 
   // Reload stamps data from Supabase when navigating to this page
   // This ensures fresh data every time the user visits the Stamps page
@@ -89,54 +94,47 @@ const StampsPage = () => {
     }
   }, [selectedEvent, getPhotosByCheckpoint]);
 
-  const handleMarkAsDone = async (eventIndex: number) => {
+  const commitCheckpointDone = async (eventIndex: number) => {
     const item = itineraryState[eventIndex];
-    
-    // Helper function to update state and sync
-    const updateStampAndSync = async (updatedItem: ItineraryItem) => {
-      // Update local state first
-      setItineraryState(prev => {
-        const updated = [...prev];
-        const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
-        updated[eventIndex] = updatedItem;
-        // If this was the active event, activate the next one
-        if (wasActive) {
-          const nextIndex = eventIndex + 1;
-          if (nextIndex < updated.length) {
-            updated[nextIndex] = { ...updated[nextIndex], isActive: true };
-          }
-        }
-        return updated;
-      });
+    const now = new Date().toISOString();
+    const updatedItem: ItineraryItem = { ...item, isPast: true, isActive: false, checkedAt: now };
 
-      // Immediately sync to Supabase (like coupons do)
-      try {
-        const success = await syncSingleStamp(updatedItem);
-        if (success) {
-          console.log(`Stamp ${updatedItem.title} synced successfully to Supabase`);
-        } else {
-          console.warn(`Failed to sync stamp ${updatedItem.title} to Supabase`);
+    setItineraryState(prev => {
+      const updated = [...prev];
+      const wasActive = prev[eventIndex].isActive;
+      updated[eventIndex] = updatedItem;
+      if (wasActive) {
+        const nextIndex = eventIndex + 1;
+        if (nextIndex < updated.length) {
+          updated[nextIndex] = { ...updated[nextIndex], isActive: true };
         }
-      } catch (error) {
-        console.error(`Error syncing stamp ${updatedItem.title}:`, error);
-        // Non-blocking: continue even if sync fails (the debounced sync in context will retry)
       }
-    };
+      return updated;
+    });
+
+    try {
+      const success = await syncSingleStamp(updatedItem);
+      if (success) {
+        console.log(`Stamp ${updatedItem.title} synced successfully to Supabase`);
+      } else {
+        console.warn(`Failed to sync stamp ${updatedItem.title} to Supabase`);
+      }
+    } catch (error) {
+      console.error(`Error syncing stamp ${updatedItem.title}:`, error);
+    }
+
+    playStampSound();
+  };
+
+  const handleMarkAsDone = (eventIndex: number) => {
+    const item = itineraryState[eventIndex];
 
     // If no location is set for this item, allow marking as done without location check
+    // and without the PokéStop reveal — there's nothing to "activate."
     if (!item.location) {
-      const now = new Date().toISOString();
-      const updatedItem = { 
-        ...item, 
-        isPast: true, 
-        isActive: false,
-        checkedAt: now // Set timestamp immediately so it shows in UI right away
-      };
-      await updateStampAndSync(updatedItem);
+      commitCheckpointDone(eventIndex);
       setSelectedEvent(null);
       setLocationError(null);
-      // Play stamp sound on successful check-in
-      playStampSound();
       return;
     }
 
@@ -145,8 +143,7 @@ const StampsPage = () => {
     setIsCheckingLocation(true);
     setLocationError(null);
 
-    // Call checkLocation synchronously to preserve user gesture for permission prompt
-    checkLocation(item.location).then(async (locationResult) => {
+    checkLocation(item.location).then((locationResult) => {
       if (!locationResult.isAtLocation) {
         setIsCheckingLocation(false);
         if (locationResult.distance !== undefined) {
@@ -159,20 +156,15 @@ const StampsPage = () => {
         return;
       }
 
-      // Location check passed, mark as done and sync
+      // Location check passed — open the PokéStop reveal instead of committing immediately.
       setIsCheckingLocation(false);
       setLocationError(null);
-      const now = new Date().toISOString();
-      const updatedItem = { 
-        ...item, 
-        isPast: true, 
-        isActive: false,
-        checkedAt: now // Set timestamp immediately so it shows in UI right away
-      };
-      await updateStampAndSync(updatedItem);
-      setSelectedEvent(null);
-      // Play stamp sound on successful check-in
-      playStampSound();
+      setPendingReveal({ eventIndex, item: null });
+
+      const slug = getItemSlugForCheckpoint(item.title, eventIndex);
+      fetchItemDetails(slug).then((details) => {
+        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, item: details } : prev));
+      });
     });
   };
 
@@ -510,7 +502,7 @@ const StampsPage = () => {
                           {/* Sprite preview or Evidence Image */}
                           {(() => {
                             const showImage = currentItem.isPast && currentItem.imageUrl;
-                            const SpriteComponent = sprites[selectedEvent.sprite];
+                            const markerState = currentItem.isPast ? "captured" : currentItem.isActive ? "active" : "locked";
 
                       return (
                         <div className={cn(
@@ -529,7 +521,7 @@ const StampsPage = () => {
                             />
                           ) : (
                             <div className="w-12 h-12">
-                              <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />
+                              <PokeStopMarker state={markerState} />
                             </div>
                           )}
                         </div>
@@ -731,6 +723,20 @@ const StampsPage = () => {
             onClose={() => {
               setShowPhotoEditor(false);
               setCapturedPhotoSrc("");
+            }}
+          />
+        )}
+
+        {pendingReveal && (
+          <PokeStopRevealModal
+            isOpen={!!pendingReveal}
+            checkpointTitle={itineraryState[pendingReveal.eventIndex]?.title ?? ""}
+            xpAwarded={XP_WEIGHTS.stamp}
+            item={pendingReveal.item}
+            onContinue={() => {
+              commitCheckpointDone(pendingReveal.eventIndex);
+              setPendingReveal(null);
+              setSelectedEvent(null);
             }}
           />
         )}

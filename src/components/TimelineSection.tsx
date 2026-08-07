@@ -4,8 +4,12 @@ import { X, Camera, Trash2 } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
 import PhotoCaptureModal from "./PhotoCaptureModal";
 import PhotoEditor from "./PhotoEditor";
+import PokeStopMarker from "./PokeStopMarker";
 import type { Photo as PhotoType } from "./TimelineSection";
 import { sparkleBurst } from "../utils/particles";
+import { XP_WEIGHTS } from "@/utils/trainerCard";
+import { getItemSlugForCheckpoint, fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
+import PokeStopRevealModal from "./PokeStopRevealModal";
 
 // Utility function to calculate distance between two coordinates (Haversine formula)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -871,6 +875,7 @@ const TimelineSection = ({
   const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: ItemDetails | null } | null>(null);
   
   const { addPhoto, getPhotosByCheckpoint, deletePhoto } = useAdventure();
 
@@ -1008,24 +1013,29 @@ const TimelineSection = ({
     }
   };
 
+  const commitCheckpointDone = (eventIndex: number) => {
+    setItineraryState(prev => {
+      const updated = [...prev];
+      const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
+      updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
+      // If this was the active event, activate the next one
+      if (wasActive) {
+        const nextIndex = eventIndex + 1;
+        if (nextIndex < updated.length) {
+          updated[nextIndex] = { ...updated[nextIndex], isActive: true };
+        }
+      }
+      return updated;
+    });
+  };
+
   const handleMarkAsDone = (eventIndex: number) => {
     const item = itineraryState[eventIndex];
-    
+
     // If no location is set for this item, allow marking as done without location check
+    // and without the PokéStop reveal — there's nothing to "activate."
     if (!item.location) {
-      setItineraryState(prev => {
-        const updated = [...prev];
-        const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
-        updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
-        // If this was the active event, activate the next one
-        if (wasActive) {
-          const nextIndex = eventIndex + 1;
-          if (nextIndex < updated.length) {
-            updated[nextIndex] = { ...updated[nextIndex], isActive: true };
-          }
-        }
-        return updated;
-      });
+      commitCheckpointDone(eventIndex);
       setSelectedEvent(null);
       setLocationError(null);
       return;
@@ -1050,23 +1060,16 @@ const TimelineSection = ({
         return;
       }
 
-      // Location check passed, mark as done
+      // Location check passed — open the PokéStop reveal instead of committing immediately.
+      // The item fetch runs in the background; the modal shows a loading state until it resolves.
       setIsCheckingLocation(false);
       setLocationError(null);
-      setItineraryState(prev => {
-        const updated = [...prev];
-        const wasActive = prev[eventIndex].isActive; // Check state BEFORE modification
-        updated[eventIndex] = { ...updated[eventIndex], isPast: true, isActive: false };
-        // If this was the active event, activate the next one
-        if (wasActive) {
-          const nextIndex = eventIndex + 1;
-          if (nextIndex < updated.length) {
-            updated[nextIndex] = { ...updated[nextIndex], isActive: true };
-          }
-        }
-        return updated;
+      setPendingReveal({ eventIndex, item: null });
+
+      const slug = getItemSlugForCheckpoint(item.title, eventIndex);
+      fetchItemDetails(slug).then((details) => {
+        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, item: details } : prev));
       });
-      setSelectedEvent(null);
     });
   };
 
@@ -1348,7 +1351,7 @@ const TimelineSection = ({
 
             {/* Checkpoint sprites */}
             {itineraryState.map((item, index) => {
-              const SpriteComponent = sprites[item.sprite];
+              const markerState = item.isPast ? "captured" : item.isActive ? "active" : "locked";
               const pos = pathPoints[index];
               
               // Skip if position doesn't exist
@@ -1387,7 +1390,7 @@ const TimelineSection = ({
                       style={{ filter: "blur(8px)" }}
                     />
                   )}
-                  <SpriteComponent isActive={item.isActive} isPast={item.isPast} />
+                  <PokeStopMarker state={markerState} />
                 </motion.button>
               );
             })}
@@ -1483,8 +1486,8 @@ const TimelineSection = ({
                           item.title === selectedEvent.title
                         );
                         const currentItem = eventIndex >= 0 ? itineraryState[eventIndex] : selectedEvent;
-                        const SpriteComponent = sprites[selectedEvent.sprite];
-                        return <SpriteComponent isActive={currentItem.isActive} isPast={currentItem.isPast} />;
+                        const markerState = currentItem.isPast ? "captured" : currentItem.isActive ? "active" : "locked";
+                        return <PokeStopMarker state={markerState} />;
                       })()}
                     </div>
 
@@ -1664,6 +1667,20 @@ const TimelineSection = ({
           onClose={() => {
             setShowPhotoEditor(false);
             setCapturedPhotoSrc("");
+          }}
+        />
+      )}
+
+      {pendingReveal && (
+        <PokeStopRevealModal
+          isOpen={!!pendingReveal}
+          checkpointTitle={itineraryState[pendingReveal.eventIndex]?.title ?? ""}
+          xpAwarded={XP_WEIGHTS.stamp}
+          item={pendingReveal.item}
+          onContinue={() => {
+            commitCheckpointDone(pendingReveal.eventIndex);
+            setPendingReveal(null);
+            setSelectedEvent(null);
           }}
         />
       )}

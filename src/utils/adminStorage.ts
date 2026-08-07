@@ -425,6 +425,7 @@ const DEFAULT_SETTINGS: AdminSettings = {
   disabledDefaultCoupons: [],
   stampOrder: [],
   couponOrder: [],
+  trainerCardEnabled: true,
 };
 
 export const getAdminSettings = async (): Promise<AdminSettings> => {
@@ -447,6 +448,7 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
             disabledDefaultCoupons: settings.disabledDefaultCoupons || [],
             stampOrder: settings.stampOrder ?? [],
             couponOrder: settings.couponOrder ?? [],
+            trainerCardEnabled: settings.trainerCardEnabled ?? true,
           };
           resolve(mergedSettings);
         } else {
@@ -458,13 +460,14 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
 
     // Load global visibility settings from Supabase (no auth required)
     // This applies to ALL users, not just the current user
-    let globalVisibilitySettings: { disabledDefaultStamps: string[]; disabledDefaultCoupons: number[] } | null = null;
+    let globalVisibilitySettings: { disabledDefaultStamps: string[]; disabledDefaultCoupons: number[]; trainerCardEnabled: boolean } | null = null;
     try {
       const globalSettings = await loadGlobalAdminSettings();
       if (globalSettings) {
         globalVisibilitySettings = {
           disabledDefaultStamps: globalSettings.disabledDefaultStamps,
           disabledDefaultCoupons: globalSettings.disabledDefaultCoupons,
+          trainerCardEnabled: globalSettings.trainerCardEnabled,
         };
         
         // Update IndexedDB with global settings for faster access next time
@@ -475,6 +478,7 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
             ...localSettings,
             disabledDefaultStamps: globalSettings.disabledDefaultStamps,
             disabledDefaultCoupons: globalSettings.disabledDefaultCoupons,
+            trainerCardEnabled: globalSettings.trainerCardEnabled,
             lastModified: Math.max(localSettings.lastModified, globalSettings.lastModified),
           };
           writeStore.put({ id: "settings", ...updatedLocalSettings });
@@ -493,6 +497,7 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
       ...localSettings,
       disabledDefaultStamps: globalVisibilitySettings?.disabledDefaultStamps ?? localSettings.disabledDefaultStamps,
       disabledDefaultCoupons: globalVisibilitySettings?.disabledDefaultCoupons ?? localSettings.disabledDefaultCoupons,
+      trainerCardEnabled: globalVisibilitySettings?.trainerCardEnabled ?? localSettings.trainerCardEnabled,
     };
 
     // Sync user-specific settings from Supabase in the background (non-blocking)
@@ -514,6 +519,7 @@ export const getAdminSettings = async (): Promise<AdminSettings> => {
                 // Keep global visibility settings, not user-specific ones
                 disabledDefaultStamps: globalVisibilitySettings?.disabledDefaultStamps ?? supabaseSettings.disabledDefaultStamps,
                 disabledDefaultCoupons: globalVisibilitySettings?.disabledDefaultCoupons ?? supabaseSettings.disabledDefaultCoupons,
+                trainerCardEnabled: globalVisibilitySettings?.trainerCardEnabled ?? mergedSettings.trainerCardEnabled,
               };
               writeStore.put({ id: "settings", ...userSpecificSettings });
             }).catch((err) => {
@@ -557,6 +563,7 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
           disabledDefaultCoupons: baseSettings.disabledDefaultCoupons || [],
           stampOrder: baseSettings.stampOrder ?? [],
           couponOrder: baseSettings.couponOrder ?? [],
+          trainerCardEnabled: baseSettings.trainerCardEnabled ?? true,
         };
         
         const updatedSettings: AdminSettings = {
@@ -572,10 +579,15 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
           if (user) {
             try {
               // If visibility settings are being updated, sync to global table
-              if (settings.disabledDefaultStamps !== undefined || settings.disabledDefaultCoupons !== undefined) {
+              if (
+                settings.disabledDefaultStamps !== undefined ||
+                settings.disabledDefaultCoupons !== undefined ||
+                settings.trainerCardEnabled !== undefined
+              ) {
                 await syncGlobalAdminSettings(
                   updatedSettings.disabledDefaultStamps,
-                  updatedSettings.disabledDefaultCoupons
+                  updatedSettings.disabledDefaultCoupons,
+                  updatedSettings.trainerCardEnabled
                 );
               }
               

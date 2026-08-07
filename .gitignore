@@ -45,5 +45,6 @@ DESIGN_SYSTEM.md
 docs/superpowers/*
 .superpowers
 .playwright-mcp
+sql/*
 .serena
 CLAUDE.md

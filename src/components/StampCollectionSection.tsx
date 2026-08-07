@@ -5,6 +5,7 @@ import type { ItineraryItem } from "./TimelineSection";
 import { burstConfetti, sparkleBurst } from "../utils/particles";
 import { Eyebrow, DisplayHeading, Pill } from "@/components/editorial";
 import { cn } from "@/lib/utils";
+import PokeStopMarker from "./PokeStopMarker";
 
 // Helper function to format the checked timestamp nicely
 const formatCheckedDate = (checkedAt: string | null | undefined): string => {
@@ -134,7 +135,7 @@ const StampCollectionSection = ({
         {/* Stamp Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 max-w-6xl mx-auto items-stretch">
           {itineraryState.map((item, index) => {
-            const SpriteComponent = sprites[item.sprite];
+            const markerState = item.isPast ? "captured" : item.isActive ? "active" : "locked";
             const isCompleted = item.isPast;
             const isActive = item.isActive && !item.isPast;
             const isJustCompleted = justCompletedIndex === index;
@@ -201,11 +202,11 @@ const StampCollectionSection = ({
                        {isCompleted && item.imageUrl ? (
                          <EvidenceImage
                            imageUrl={item.imageUrl}
-                           fallback={<div className="w-14 h-14 grid place-items-center p-3"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>}
+                           fallback={<div className="w-14 h-14 grid place-items-center p-3"><PokeStopMarker state={markerState} /></div>}
                            alt={item.title}
                          />
                        ) : (
-                         <div className="w-14 h-14"><SpriteComponent isActive={item.isActive} isPast={item.isPast} /></div>
+                         <div className="w-14 h-14"><PokeStopMarker state={markerState} /></div>
                        )}
                      </div>
 

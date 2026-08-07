@@ -7,6 +7,10 @@ import { syncStampsProgress, loadStampsProgress, loadCustomStampsResult, loadCus
 import { getCurrentUser, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { deletePhotoFromStorage } from "@/utils/photoUpload";
+import { loadProfile, saveProfile, type Profile } from "@/utils/profile";
+import { DEFAULT_TRAINER_CONFIG, type TrainerCardConfig } from "@/utils/trainerCard";
+import { loadTrainerCardConfig } from "@/utils/supabaseSync";
+import TrainerOnboarding from "@/components/TrainerOnboarding";
 
 // localStorage key for saving progress
 const STORAGE_KEY = "birthday-adventure-progress";
@@ -85,6 +89,15 @@ interface AdventureContextType {
   reloadStampsFromCloud: () => Promise<void>;
   reloadPhotosFromCloud: () => Promise<void>;
   user: SupabaseUser | null;
+  profile: Profile | null;
+  /** Patch the signed-in trainer's profile (team, photo, …). Resolves false if the write failed. */
+  updateProfile: (patch: Partial<Omit<Profile, "userId" | "createdAt">>) => Promise<boolean>;
+  /** Global admin switch: trainer card onboarding + /trainer-card page. */
+  trainerCardEnabled: boolean;
+  setTrainerCardEnabled: (enabled: boolean) => void;
+  /** Global admin-tuned XP weights + rank ladder. */
+  trainerConfig: TrainerCardConfig;
+  setTrainerConfig: (config: TrainerCardConfig) => void;
 }
 
 const AdventureContext = createContext<AdventureContextType | undefined>(undefined);
@@ -141,6 +154,33 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   // User auth state
   const [user, setUser] = useState<SupabaseUser | null>(null);
 
+  // Trainer profile state (drives first-login onboarding gate)
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileChecked, setProfileChecked] = useState(false);
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+
+  // Global admin switch for the trainer card feature. Starts null (unknown) so
+  // the onboarding gate never flashes before the setting has loaded.
+  const [trainerCardEnabled, setTrainerCardEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getAdminSettings()
+      .then((settings) => setTrainerCardEnabled(settings.trainerCardEnabled ?? true))
+      .catch(() => setTrainerCardEnabled(true));
+  }, []);
+
+  // Global levelling config (XP weights + rank ladder). Falls back to the
+  // built-in ladder when unset or the Supabase table isn't there yet.
+  const [trainerConfig, setTrainerConfig] = useState<TrainerCardConfig>(DEFAULT_TRAINER_CONFIG);
+
+  useEffect(() => {
+    loadTrainerCardConfig()
+      .then((config) => {
+        if (config) setTrainerConfig(config);
+      })
+      .catch((error) => console.warn("Failed to load trainer card config:", error));
+  }, []);
+
   // Track if initial load from Supabase has completed to prevent infinite loops
   const hasLoadedFromSupabase = useRef(false);
   // Track the initial state to detect if changes are from user actions vs initial load
@@ -196,6 +236,29 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       unsubscribe();
     };
   }, []);
+
+  // Load trainer profile whenever the signed-in user changes.
+  // Presence of a `profiles` row (not localStorage) gates first-login onboarding,
+  // so this works correctly across devices/browsers for the same account.
+  useEffect(() => {
+    if (!user) {
+      setProfile(null);
+      setProfileChecked(false);
+      return;
+    }
+
+    let cancelled = false;
+    setProfileChecked(false);
+    loadProfile(user.id).then((result) => {
+      if (cancelled) return;
+      setProfile(result);
+      setProfileChecked(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Load custom stamps, merge with defaults, then sync from Supabase
   // Only run once when user becomes available, not on every user change
@@ -1034,6 +1097,39 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
+  // Submit handler for first-login trainer onboarding
+  const handleOnboardingSubmit = useCallback(async (data: { displayName: string; birthday: string; trainerName: string; avatarId: string; teamId: string }) => {
+    if (!user) return;
+    setIsSubmittingProfile(true);
+    try {
+      const newProfile: Profile = { userId: user.id, ...data, photoUrl: null, createdAt: null };
+      const success = await saveProfile(newProfile);
+      if (success) {
+        // Re-read so the row's server-side `created_at` (the card's joined date) is present.
+        setProfile((await loadProfile(user.id)) ?? newProfile);
+      } else {
+        console.error("Failed to save trainer profile");
+      }
+    } finally {
+      setIsSubmittingProfile(false);
+    }
+  }, [user]);
+
+  // Patch an existing profile — the trainer card edits team and portrait this way.
+  const updateProfile = useCallback(
+    async (patch: Partial<Omit<Profile, "userId" | "createdAt">>): Promise<boolean> => {
+      if (!user || !profile) return false;
+      const next: Profile = { ...profile, ...patch };
+      const success = await saveProfile(next);
+      if (success) setProfile(next);
+      else console.error("Failed to update trainer profile");
+      return success;
+    },
+    [user, profile]
+  );
+
+  const needsOnboarding = trainerCardEnabled === true && !!user && profileChecked && !profile;
+
   return (
     <AdventureContext.Provider
       value={{
@@ -1052,9 +1148,19 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         reloadStampsFromCloud,
         reloadPhotosFromCloud,
         user,
+        profile,
+        updateProfile,
+        trainerCardEnabled: trainerCardEnabled ?? true,
+        setTrainerCardEnabled,
+        trainerConfig,
+        setTrainerConfig,
       }}
     >
-      {children}
+      {needsOnboarding ? (
+        <TrainerOnboarding onSubmit={handleOnboardingSubmit} isSubmitting={isSubmittingProfile} />
+      ) : (
+        children
+      )}
     </AdventureContext.Provider>
   );
 };

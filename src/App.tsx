@@ -25,6 +25,7 @@ import CafesPage from "./pages/CafesPage";
 import CafeCategoryPage from "./pages/CafeCategoryPage";
 import CafeAchievementsPage from "./pages/CafeAchievementsPage";
 import LockscreenPage from "./pages/LockscreenPage";
+import TrainerCardPage from "./pages/TrainerCardPage";
 import { isSiteUnlocked } from "@/utils/adminAuth";
 
 
@@ -73,6 +74,7 @@ const AnimatedRoutes = () => {
         <Route path="/cafes" element={<PageWrapper><CafesPage /></PageWrapper>} />
         <Route path="/cafes/achievements" element={<PageWrapper><CafeAchievementsPage /></PageWrapper>} />
         <Route path="/cafes/:slug" element={<PageWrapper><CafeCategoryPage /></PageWrapper>} />
+        <Route path="/trainer-card" element={<PageWrapper><TrainerCardPage /></PageWrapper>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>

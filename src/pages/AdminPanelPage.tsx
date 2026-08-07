@@ -2,17 +2,18 @@ import { Helmet } from "react-helmet-async";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Settings, CheckSquare, Gift, LogOut, Shield, Sparkles } from "lucide-react";
+import { Settings, CheckSquare, Gift, IdCard, LogOut, Shield, Sparkles } from "lucide-react";
 import ProtectedRoute from "@/components/admin/ProtectedRoute";
 import StampsManager from "@/components/admin/StampsManager";
 import CouponsManager from "@/components/admin/CouponsManager";
 import AdminSettings from "@/components/admin/AdminSettings";
+import TrainerLevelsManager from "@/components/admin/TrainerLevelsManager";
 import WrappedSlidesManager from "@/components/admin/WrappedSlidesManager";
 import WrappedTemplateEditor from "@/components/admin/WrappedTemplateEditor";
 import { DisplayHeading } from "@/components/editorial";
 import { logout } from "@/utils/adminAuth";
 
-type Tab = "stamps" | "coupons" | "wrapped" | "settings";
+type Tab = "stamps" | "coupons" | "wrapped" | "trainer" | "settings";
 
 const AdminPanelPage = () => {
   const [activeTab, setActiveTab] = useState<Tab>("stamps");
@@ -27,6 +28,7 @@ const AdminPanelPage = () => {
     { id: "stamps", label: "Stamps", icon: CheckSquare },
     { id: "coupons", label: "Coupons", icon: Gift },
     { id: "wrapped", label: "Wrapped", icon: Sparkles },
+    { id: "trainer", label: "Trainer", icon: IdCard },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -102,6 +104,7 @@ const AdminPanelPage = () => {
                     </div>
                   </div>
                 )}
+                {activeTab === "trainer" && <TrainerLevelsManager />}
                 {activeTab === "settings" && <AdminSettings />}
               </motion.div>
             </AnimatePresence>
