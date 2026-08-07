@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
@@ -145,7 +146,8 @@ const ScanQRPage = () => {
       <Helmet>
         <title>Scan QR Code - Your Special Day</title>
       </Helmet>
-      <div className="fixed inset-0 z-50 bg-black">
+      {createPortal(
+        <div className="fixed inset-0 z-50 bg-black">
         {/* Camera Video */}
         <video
           ref={videoRef}
@@ -204,7 +206,9 @@ const ScanQRPage = () => {
         >
           <X className="w-6 h-6" />
         </button>
-      </div>
+      </div>,
+        document.body
+      )}
     </>
   );
 };

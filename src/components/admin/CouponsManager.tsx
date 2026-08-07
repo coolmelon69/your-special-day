@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, GripVertical } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, GripVertical, RotateCcw } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -32,6 +32,7 @@ import {
 } from "@/utils/adminStorage";
 import { loadCustomCouponsResult, loadGlobalAdminSettings } from "@/utils/supabaseSync";
 import { getCurrentUser } from "@/utils/auth";
+import { resetCoupon, resetAllCoupons, convertCouponId } from "@/utils/redeemCoupon";
 import { Pill } from "@/components/editorial";
 
 // Shared editorial field styles
@@ -129,11 +130,13 @@ function SortableCouponRow({
   onToggleDefault,
   onEdit,
   onDelete,
+  onReset,
 }: {
   item: CouponListItem;
   onToggleDefault: (e: React.MouseEvent, id: number) => void;
   onEdit: (coupon: CustomCoupon) => void;
   onDelete: (id: string) => void;
+  onReset: (coupon: DefaultCoupon | CustomCoupon) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -170,6 +173,14 @@ function SortableCouponRow({
             <Pill variant={isDefault ? "accent" : "done"}>{isDefault ? "Default" : "Custom"}</Pill>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => onReset(coupon)}
+              className={iconBtnCls}
+              title="Reset coupon (mark as unused)"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
             {isDefault && (
               <button
                 type="button"
@@ -388,6 +399,40 @@ const CouponsManager = () => {
     }
   };
 
+  const handleReset = async (coupon: DefaultCoupon | CustomCoupon) => {
+    if (!window.confirm(`Reset "${coupon.title}" so it's marked as never used?`)) {
+      return;
+    }
+    try {
+      const result = await resetCoupon(convertCouponId(coupon.id));
+      if (result.status === "error") {
+        alert("Failed to reset coupon. Please try again.");
+      } else if (result.status === "already") {
+        alert("This coupon hasn't been used yet.");
+      }
+    } catch (error) {
+      console.error("Error resetting coupon:", error);
+      alert("Failed to reset coupon. Please try again.");
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (!window.confirm("Reset all coupons so none of them are marked as used?")) {
+      return;
+    }
+    try {
+      const result = await resetAllCoupons();
+      if (result.status === "error") {
+        alert("Failed to reset coupons. Please try again.");
+      } else if (result.status === "already") {
+        alert("No coupons have been used yet.");
+      }
+    } catch (error) {
+      console.error("Error resetting all coupons:", error);
+      alert("Failed to reset coupons. Please try again.");
+    }
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -514,6 +559,7 @@ const CouponsManager = () => {
                     onToggleDefault={handleToggleDefaultCoupon}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onReset={handleReset}
                   />
                 ))}
               </div>
@@ -541,6 +587,19 @@ const CouponsManager = () => {
           </DndContext>
         )}
       </div>
+
+      {orderedItems.length > 0 && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={handleResetAll}
+            className="px-4 py-2 text-sm font-medium rounded-[10px] border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors flex items-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset all coupons
+          </button>
+        </div>
+      )}
 
       {/* Form modal */}
       <AnimatePresence>

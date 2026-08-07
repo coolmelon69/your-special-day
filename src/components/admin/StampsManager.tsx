@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, MapPin, GripVertical } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, MapPin, GripVertical, RotateCcw } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -31,7 +31,7 @@ import {
 } from "@/utils/adminStorage";
 import { sprites, initialItinerary } from "@/components/TimelineSection";
 import type { ItineraryItem } from "@/components/TimelineSection";
-import { loadCustomStampsResult, loadGlobalAdminSettings } from "@/utils/supabaseSync";
+import { loadCustomStampsResult, loadGlobalAdminSettings, resetStamp, resetAllStamps } from "@/utils/supabaseSync";
 import { saveCustomStampsToIndexedDB } from "@/utils/adminStorage";
 import { getCurrentUser } from "@/utils/auth";
 import { Pill } from "@/components/editorial";
@@ -101,11 +101,13 @@ function SortableStampRow({
   onDeleteDefault,
   onEdit,
   onDelete,
+  onReset,
 }: {
   item: StampListItem;
   onDeleteDefault: (e: React.MouseEvent, title: string) => void;
   onEdit: (stamp: CustomStamp) => void;
   onDelete: (stampId: string) => void;
+  onReset: (item: StampListItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -160,6 +162,14 @@ function SortableStampRow({
           </div>
         )}
       </div>
+      <button
+        type="button"
+        onClick={() => onReset(item)}
+        className={iconBtnCls}
+        title="Reset stamp (mark as uncollected)"
+      >
+        <RotateCcw className="w-4 h-4" />
+      </button>
       {isDefault && itineraryStamp && (
         <button
           type="button"
@@ -351,6 +361,23 @@ const StampsManager = () => {
     }
   };
 
+  const handleReset = async (item: StampListItem) => {
+    const stampKey = `${item.stamp.time}-${item.stamp.title}`;
+    if (!window.confirm(`Reset "${item.stamp.title}" so it's marked as uncollected?`)) {
+      return;
+    }
+    const ok = await resetStamp(stampKey);
+    if (!ok) alert("Failed to reset stamp. Please try again.");
+  };
+
+  const handleResetAll = async () => {
+    if (!window.confirm("Reset all stamps so none of them are marked as collected?")) {
+      return;
+    }
+    const ok = await resetAllStamps();
+    if (!ok) alert("Failed to reset stamps. Please try again.");
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -473,6 +500,7 @@ const StampsManager = () => {
                     onDeleteDefault={handleDeleteDefaultStamp}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onReset={handleReset}
                   />
                 ))}
               </div>
@@ -506,6 +534,19 @@ const StampsManager = () => {
           </DndContext>
         )}
       </div>
+
+      {orderedItems.length > 0 && (
+        <div className="flex justify-center mb-6">
+          <button
+            type="button"
+            onClick={handleResetAll}
+            className="px-4 py-2 text-sm font-medium rounded-[10px] border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors flex items-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset all stamps
+          </button>
+        </div>
+      )}
 
       {/* Form modal */}
       <AnimatePresence>

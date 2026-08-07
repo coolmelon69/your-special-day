@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
+import { Tag } from "lucide-react";
 import { Eyebrow } from "@/components/editorial";
+import pkg from "../../package.json";
 
 const Footer = () => {
   const year = new Date().getFullYear();
@@ -27,6 +29,9 @@ const Footer = () => {
             <p>Built by Melon</p>
             <p>Set in Cormorant Garamond &amp; DM Sans</p>
             <p>{year} · no rights reserved, all of it yours</p>
+            <p className="flex items-center gap-2 md:justify-end">
+              <Tag className="h-4 w-4 text-muted-foreground" />v{pkg.version}
+            </p>
           </div>
         </motion.div>
       </div>

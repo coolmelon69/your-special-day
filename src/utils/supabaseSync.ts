@@ -444,6 +444,53 @@ export const loadStampsProgress = async (
   }
 };
 
+/** Un-collect a single stamp, as if never checked. */
+export const resetStamp = async (stampKey: string): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) return false;
+  const user = await getCurrentUser();
+  if (!user) return false;
+
+  try {
+    const { error } = await supabase
+      .from("stamps_progress")
+      .update({ is_past: false, checked_at: null, image_url: null, updated_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .eq("stamp_key", stampKey);
+
+    if (error) {
+      console.error("Error resetting stamp:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error in resetStamp:", error);
+    return false;
+  }
+};
+
+/** Un-collect every stamp for the current user. */
+export const resetAllStamps = async (): Promise<boolean> => {
+  if (!isSupabaseAvailable() || !supabase) return false;
+  const user = await getCurrentUser();
+  if (!user) return false;
+
+  try {
+    const { error } = await supabase
+      .from("stamps_progress")
+      .update({ is_past: false, checked_at: null, image_url: null, updated_at: new Date().toISOString() })
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Error resetting all stamps:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error in resetAllStamps:", error);
+    return false;
+  }
+};
+
 // Coupon Achievements Sync Functions
 
 /**

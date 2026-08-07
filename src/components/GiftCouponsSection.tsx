@@ -12,7 +12,7 @@ import {
   subscribeToCouponAchievements,
   type AchievementData as AchievementDataType,
 } from "@/utils/supabaseSync";
-import { redeemCoupon } from "@/utils/redeemCoupon";
+import { redeemCoupon, convertCouponId } from "@/utils/redeemCoupon";
 
 export interface Coupon {
   id: number;
@@ -186,24 +186,6 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
   const unsubscribeCouponsRef = useRef<(() => void) | null>(null);
   // Track previous unlocked achievements to animate newly unlocked (DB-driven)
   const prevUnlockedRef = useRef<string[]>([]);
-
-  // Helper function to convert string IDs to unique numeric IDs
-  // Maps custom coupon string IDs to a range starting from 10000 to avoid collisions with default coupon IDs (1-3)
-  const convertCouponId = (id: number | string): number => {
-    if (typeof id === 'number') {
-      return id;
-    }
-    // For string IDs, create a hash-based numeric ID starting from 10000
-    // This ensures no collisions with default coupon IDs (1-3)
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      const char = id.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    // Map to range 10000+ to avoid collisions with default IDs
-    return 10000 + Math.abs(hash);
-  };
 
   // Use coupons from context, fallback to defaults
   const coupons: Coupon[] = contextCoupons.length > 0 
@@ -415,8 +397,8 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
             </DisplayHeading>
 
             <p className="mt-5 max-w-[52ch] text-lg leading-relaxed text-muted-foreground">
-              Every stamp you collect unlocks one. Each ticket is a promise I'll keep — so
-              jangan malu-malu, pull them out whenever you like.
+              Every stamp you collect unlocks one. Each ticket is a promise I'll keep.
+              jangan malu-malu, guna je tau tau TAU!!!
             </p>
 
             <p className="mt-7 border-t border-dashed border-[hsl(var(--stock-shade))] pt-4 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">

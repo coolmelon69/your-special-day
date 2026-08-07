@@ -145,7 +145,7 @@ const CameraPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] bg-black text-white px-4 pb-4 pt-20 md:pt-24">
+    <div className="flex flex-col h-[calc(100dvh-64px)] md:h-[calc(100dvh-80px)] bg-black text-white px-4 pb-4 pt-20 md:pt-24">
       <div className="flex justify-between items-center mb-8 mt-4">
         <h1 className="text-2xl font-bold">Disposable Camera</h1>
         <button
