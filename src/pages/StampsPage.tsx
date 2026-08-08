@@ -22,13 +22,13 @@ import { syncCheckpointPhoto, syncSingleStamp } from "@/utils/supabaseSync";
 import { uploadPhotoToStorage } from "@/utils/photoUpload";
 import DistanceIndicator from "@/components/DistanceIndicator";
 import { XP_WEIGHTS } from "@/utils/trainerCard";
-import { getItemSlugForCheckpoint, fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
+import { fetchItemDetails, type ItemDetails, type Drop } from "@/utils/pokeItems";
 import PokeStopRevealModal from "@/components/PokeStopRevealModal";
 import PokeStopMarker from "@/components/PokeStopMarker";
 
 const StampsPage = () => {
   const location = useLocation();
-  const { itineraryState, resetProgress, setItineraryState, addPhoto, upsertPhoto, getPhotosByCheckpoint, deletePhoto, reloadStampsFromCloud, user } = useAdventure();
+  const { itineraryState, resetProgress, setItineraryState, addPhoto, upsertPhoto, getPhotosByCheckpoint, deletePhoto, reloadStampsFromCloud, user, claimDrop } = useAdventure();
   const [isLoadingStamps, setIsLoadingStamps] = useState(false);
   const hasLoadedOnMountRef = useRef(false);
   const [selectedEvent, setSelectedEvent] = useState<ItineraryItem | null>(null);
@@ -39,7 +39,7 @@ const StampsPage = () => {
   const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
-  const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: ItemDetails | null } | null>(null);
+  const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: ItemDetails | null; drop: Drop | null } | null>(null);
 
   // Reload stamps data from Supabase when navigating to this page
   // This ensures fresh data every time the user visits the Stamps page
@@ -159,11 +159,15 @@ const StampsPage = () => {
       // Location check passed — open the PokéStop reveal instead of committing immediately.
       setIsCheckingLocation(false);
       setLocationError(null);
-      setPendingReveal({ eventIndex, item: null });
+      setPendingReveal({ eventIndex, item: null, drop: null });
 
-      const slug = getItemSlugForCheckpoint(item.title, eventIndex);
-      fetchItemDetails(slug).then((details) => {
-        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, item: details } : prev));
+      // The last checkpoint of the journey always drops a rare — see rollDrop.
+      const isFinale = eventIndex === itineraryState.length - 1;
+      claimDrop(`${item.time}-${item.title}`, item.title, eventIndex, isFinale).then((drop) => {
+        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, drop } : prev));
+        fetchItemDetails(drop.slug).then((details) => {
+          setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, item: details } : prev));
+        });
       });
     });
   };
@@ -731,8 +735,10 @@ const StampsPage = () => {
           <PokeStopRevealModal
             isOpen={!!pendingReveal}
             checkpointTitle={itineraryState[pendingReveal.eventIndex]?.title ?? ""}
-            xpAwarded={XP_WEIGHTS.stamp}
+            xpAwarded={XP_WEIGHTS.stamp + (pendingReveal.drop?.rarity === "rare" ? XP_WEIGHTS.rareItem : 0)}
             item={pendingReveal.item}
+            rarity={pendingReveal.drop?.rarity ?? null}
+            coinsAwarded={pendingReveal.drop?.coins ?? 0}
             onContinue={() => {
               commitCheckpointDone(pendingReveal.eventIndex);
               setPendingReveal(null);

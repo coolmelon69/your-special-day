@@ -4,11 +4,14 @@
  * Node strips the TypeScript types natively.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   XP_WEIGHTS,
   computeXp,
   LEVEL_TIERS,
   AVATAR_PRESETS,
+  CARD_MATERIALS,
+  CARD_FRAMES,
   computeTrainerStats,
   validateTrainerConfig,
   TIER_COLOR_CLASSES,
@@ -22,11 +25,26 @@ assert.equal(computeXp(0, 0, 0), 0, "zero activity is zero XP");
 assert.equal(computeXp(1, 0, 0), XP_WEIGHTS.badge, "one badge");
 assert.equal(computeXp(0, 1, 0), XP_WEIGHTS.stamp, "one stamp");
 assert.equal(computeXp(0, 0, 1), XP_WEIGHTS.visit, "one visit");
+assert.equal(computeXp(0, 0, 0, 1), XP_WEIGHTS.rareItem, "one rare item");
 assert.equal(
   computeXp(2, 3, 1),
   2 * XP_WEIGHTS.badge + 3 * XP_WEIGHTS.stamp + 1 * XP_WEIGHTS.visit,
   "mixed counts sum correctly",
 );
+assert.equal(
+  computeXp(2, 3, 1, 2),
+  2 * XP_WEIGHTS.badge + 3 * XP_WEIGHTS.stamp + 1 * XP_WEIGHTS.visit + 2 * XP_WEIGHTS.rareItem,
+  "rare items add on top of the rest",
+);
+
+// Common drops are worth nothing — only rares move the bar, so a day of six
+// stamps with no rare earns exactly what the stamps alone earn.
+assert.equal(computeXp(0, 6, 0, 0), 6 * XP_WEIGHTS.stamp, "commons contribute no XP");
+
+// A config saved before rare items existed has no `rareItem` key — treat it as
+// zero rather than producing NaN and blanking the whole card.
+const legacyWeights = { badge: 5, stamp: 2, visit: 3 } as unknown as typeof XP_WEIGHTS;
+assert.equal(computeXp(1, 0, 0, 3, legacyWeights), 5, "missing rareItem weight counts as zero, not NaN");
 
 // computeTrainerStats — zero activity is Rookie, 0 XP, no progress into level
 const zeroStats = computeTrainerStats(0, 0, 0);
@@ -62,14 +80,14 @@ assert.equal(
 
 // Admin-tuned config drives XP and ranks, and out-of-order thresholds still work
 const customConfig: TrainerCardConfig = {
-  weights: { badge: 10, stamp: 1, visit: 0 },
+  weights: { badge: 10, stamp: 1, visit: 0, rareItem: 0 },
   tiers: [
     { name: "Legend", minXp: 60, color: "rose", icon: "👑" },
     { name: "Newbie", minXp: 0, color: "muted", icon: "🌱" },
     { name: "Regular", minXp: 30, color: "primary", icon: "⭐" },
   ],
 };
-assert.equal(computeXp(2, 5, 9, customConfig.weights), 25, "custom weights: visits worth nothing");
+assert.equal(computeXp(2, 5, 9, 0, customConfig.weights), 25, "custom weights: visits worth nothing");
 assert.equal(computeTrainerStats(2, 5, 9, customConfig).level, "Newbie", "25 XP is below Regular");
 assert.equal(computeTrainerStats(3, 0, 0, customConfig).level, "Regular", "30 XP lands on Regular");
 assert.equal(computeTrainerStats(3, 0, 0, customConfig).nextLevel, "Legend", "next rank after Regular");
@@ -121,5 +139,29 @@ assert.equal(
   LEVEL_TIERS.length,
   "max tier is the last level number",
 );
+
+// CARD_MATERIALS / CARD_FRAMES — unique ids, every entry unlockable, and every
+// unlockSku actually exists in the shop catalogue (a typo here would render a
+// picker option that can never be owned).
+const migration = readFileSync(new URL("../../sql/2026-08-08-items-shop.sql", import.meta.url), "utf8");
+const knownSkus = new Set(
+  [...migration.matchAll(/when\s+'([\w.]+)'\s+then\s+\d+/g)].map((m) => m[1]),
+);
+
+assert.equal(new Set(CARD_MATERIALS.map((m) => m.id)).size, CARD_MATERIALS.length, "material ids are unique");
+assert.equal(new Set(CARD_FRAMES.map((f) => f.id)).size, CARD_FRAMES.length, "frame ids are unique");
+for (const material of CARD_MATERIALS) {
+  assert.ok(material.unlockSku, `material "${material.id}" needs an unlockSku`);
+  assert.ok(knownSkus.has(material.unlockSku), `material "${material.id}" unlockSku "${material.unlockSku}" is not a real sku`);
+}
+for (const frame of CARD_FRAMES) {
+  assert.ok(frame.unlockSku, `frame "${frame.id}" needs an unlockSku`);
+  assert.ok(knownSkus.has(frame.unlockSku), `frame "${frame.id}" unlockSku "${frame.unlockSku}" is not a real sku`);
+}
+
+// AVATAR_PRESETS.unlockSku — every preset shipped before the shop stays free.
+for (const preset of AVATAR_PRESETS) {
+  assert.equal(preset.unlockSku, undefined, `preset "${preset.id}" was free before the shop and must stay free`);
+}
 
 console.log("trainerCard.check.ts: all assertions passed");

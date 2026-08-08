@@ -1,12 +1,15 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { X, Save, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { X, Save, Sparkles, Lock } from "lucide-react";
 import type { Photo, Sticker } from "@/components/TimelineSection";
 import { applyFilter, type FilterPreset, getAllFilters, getFilterName } from "@/utils/pixelFilters";
 import { applyFrame, type FramePreset, getAllFrames, getFrameName } from "@/utils/pixelFrames";
 import { createCanvasFromImage, canvasToDataURL } from "@/utils/photoProcessing";
 import StickerPicker, { type StickerType, stickerComponents } from "./StickerPicker";
 import { Slider } from "@/components/ui/slider";
+import { useAdventure } from "@/contexts/AdventureContext";
+import { isOwned, priceOf } from "@/utils/shop";
 
 interface PhotoEditorProps {
   photoSrc: string;
@@ -15,8 +18,146 @@ interface PhotoEditorProps {
   onClose: () => void;
 }
 
+/** Shop-gated filters. Implemented locally (canvas passes, same shape as
+ *  `pixelFilters.ts`) rather than added to that shared module, since this
+ *  gating work is scoped to the editor only. */
+type ShopFilterId = "polaroid" | "disposable";
+type EditorFilter = FilterPreset | ShopFilterId;
+
+const SHOP_FILTERS: { id: ShopFilterId; skuId: string; label: string }[] = [
+  { id: "polaroid", skuId: "filter.polaroid", label: "Polaroid" },
+  { id: "disposable", skuId: "filter.disposable", label: "Disposable Cam" },
+];
+
+const isShopFilter = (filter: EditorFilter): filter is ShopFilterId =>
+  filter === "polaroid" || filter === "disposable";
+
+/** Classic disposable-camera date stamp, e.g. "08 08 '26". PhotoEditor is
+ *  never given the photo's own capture timestamp (Photo.timestamp is only
+ *  assigned later, in AdventureContext.addPhoto, once the photo is saved) —
+ *  so this uses today's date at the moment of editing, the closest available
+ *  proxy. */
+const formatDisposableDate = (date: Date): string => {
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${mm} ${dd} '${yy}`;
+};
+
+/** White polaroid stock with a soft bloom over the photo window. Draws in
+ *  place (same canvas dimensions) so stickers and the frame pass still line
+ *  up, matching how `pixelFrames.ts` draws its borders. */
+const applyPolaroidFilter = (canvas: HTMLCanvasElement): HTMLCanvasElement => {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const original = document.createElement("canvas");
+  original.width = width;
+  original.height = height;
+  const originalCtx = original.getContext("2d");
+  if (!originalCtx) return canvas;
+  originalCtx.drawImage(canvas, 0, 0);
+
+  const borderSide = Math.round(Math.min(width, height) * 0.06);
+  const borderTop = borderSide;
+  const borderBottom = Math.round(Math.min(width, height) * 0.16);
+  const innerWidth = width - borderSide * 2;
+  const innerHeight = height - borderTop - borderBottom;
+
+  // Polaroid stock
+  ctx.fillStyle = "#faf7f0";
+  ctx.fillRect(0, 0, width, height);
+
+  // Photo, scaled to cover the inner window
+  const scale = Math.max(innerWidth / width, innerHeight / height);
+  const drawW = width * scale;
+  const drawH = height * scale;
+  const dx = borderSide + (innerWidth - drawW) / 2;
+  const dy = borderTop + (innerHeight - drawH) / 2;
+  ctx.drawImage(original, dx, dy, drawW, drawH);
+
+  // Soft bloom, clipped to the photo window only
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(borderSide, borderTop, innerWidth, innerHeight);
+  ctx.clip();
+  const gradient = ctx.createRadialGradient(
+    borderSide + innerWidth / 2,
+    borderTop + innerHeight / 2,
+    0,
+    borderSide + innerWidth / 2,
+    borderTop + innerHeight / 2,
+    Math.max(innerWidth, innerHeight) * 0.7
+  );
+  gradient.addColorStop(0, "rgba(255, 255, 255, 0.3)");
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.globalCompositeOperation = "screen";
+  ctx.fillStyle = gradient;
+  ctx.fillRect(borderSide, borderTop, innerWidth, innerHeight);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.restore();
+
+  return canvas;
+};
+
+/** Grain, a bright-center flash falloff, and an orange date stamp — a
+ *  disposable camera. Draws in place, same as `applyPolaroidFilter`. */
+const applyDisposableFilter = (canvas: HTMLCanvasElement, dateLabel: string): HTMLCanvasElement => {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Grain
+  const grainPass = ctx.getImageData(0, 0, width, height);
+  const grainData = grainPass.data;
+  for (let i = 0; i < grainData.length; i += 4) {
+    const grain = (Math.random() - 0.5) * 35;
+    grainData[i] = Math.min(255, Math.max(0, grainData[i] + grain));
+    grainData[i + 1] = Math.min(255, Math.max(0, grainData[i + 1] + grain));
+    grainData[i + 2] = Math.min(255, Math.max(0, grainData[i + 2] + grain));
+  }
+  ctx.putImageData(grainPass, 0, 0);
+
+  // Flash falloff — bright center fading to darker edges
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+  const flashPass = ctx.getImageData(0, 0, width, height);
+  const flashData = flashPass.data;
+  for (let i = 0; i < flashData.length; i += 4) {
+    const x = (i / 4) % width;
+    const y = Math.floor(i / 4 / width);
+    const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2) / maxDist;
+    const falloff = 1 - dist * 0.6;
+    flashData[i] = Math.min(255, flashData[i] * falloff * 1.15);
+    flashData[i + 1] = Math.min(255, flashData[i + 1] * falloff * 1.1);
+    flashData[i + 2] = Math.min(255, flashData[i + 2] * falloff * 1.02);
+  }
+  ctx.putImageData(flashPass, 0, 0);
+
+  // Orange date stamp, bottom-right
+  const fontSize = Math.max(14, Math.round(height * 0.035));
+  ctx.font = `${fontSize}px monospace`;
+  ctx.fillStyle = "rgba(255, 140, 40, 0.85)";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  const pad = Math.round(height * 0.025);
+  ctx.fillText(dateLabel, width - pad, height - pad);
+
+  return canvas;
+};
+
 const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorProps) => {
-  const [selectedFilter, setSelectedFilter] = useState<FilterPreset>("none");
+  const { profile } = useAdventure();
+  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
+  const purchases = profile?.purchases ?? [];
+  const dateStampLabel = useMemo(() => formatDisposableDate(new Date()), []);
+
+  const [selectedFilter, setSelectedFilter] = useState<EditorFilter>("none");
   const [filterIntensity, setFilterIntensity] = useState<number>(100);
   const [selectedFrame, setSelectedFrame] = useState<FramePreset>("none");
   const [stickers, setStickers] = useState<Sticker[]>([]);
@@ -85,9 +226,13 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
     try {
       setIsProcessing(true);
       let canvas = await createCanvasFromImage(photoSrc);
-      
+
       // Apply filter with intensity
-      if (selectedFilter !== "none") {
+      if (selectedFilter === "polaroid") {
+        canvas = applyPolaroidFilter(canvas);
+      } else if (selectedFilter === "disposable") {
+        canvas = applyDisposableFilter(canvas, dateStampLabel);
+      } else if (selectedFilter !== "none") {
         canvas = applyFilter(canvas, selectedFilter, filterIntensity);
       }
 
@@ -463,11 +608,15 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
     try {
       setIsProcessing(true);
       let canvas = await createCanvasFromImage(photoSrc);
-      
-      if (selectedFilter !== "none") {
+
+      if (selectedFilter === "polaroid") {
+        canvas = applyPolaroidFilter(canvas);
+      } else if (selectedFilter === "disposable") {
+        canvas = applyDisposableFilter(canvas, dateStampLabel);
+      } else if (selectedFilter !== "none") {
         canvas = applyFilter(canvas, selectedFilter, filterIntensity);
       }
-      
+
       if (selectedFrame !== "none") {
         canvas = applyFrame(canvas, selectedFrame);
       }
@@ -770,9 +919,41 @@ const PhotoEditor = ({ photoSrc, checkpointId, onSave, onClose }: PhotoEditorPro
                   {getFilterName(filter)}
                 </button>
               ))}
+              {SHOP_FILTERS.map(({ id, skuId, label }) => {
+                const owned = isOwned(purchases, skuId);
+                if (owned) {
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setSelectedFilter(id)}
+                      className={`px-3 py-1.5 font-medium text-xs md:text-sm rounded-md border transition-all ${
+                        selectedFilter === id
+                          ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                          : "bg-surface border-border text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                }
+                return (
+                  <motion.button
+                    key={id}
+                    type="button"
+                    onClick={() => navigate("/trainer-card?tab=shop")}
+                    whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                    className="flex items-center gap-2 px-3 py-1.5 font-medium text-xs md:text-sm rounded-md border border-border bg-surface text-muted-foreground opacity-60 hover:opacity-90 transition-all"
+                    aria-label={`${label} — locked, buy in the shop`}
+                  >
+                    <Lock className="w-4 h-4 text-muted-foreground" />
+                    {label}
+                    <span className="text-[11px] text-muted-foreground">{priceOf(skuId)}c</span>
+                  </motion.button>
+                );
+              })}
             </div>
-            {/* Filter Intensity Slider */}
-            {selectedFilter !== "none" && (
+            {/* Filter Intensity Slider — shop filters are fixed-strength, no blend */}
+            {selectedFilter !== "none" && !isShopFilter(selectedFilter) && (
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
                   <label className="font-medium text-sm text-foreground/80">

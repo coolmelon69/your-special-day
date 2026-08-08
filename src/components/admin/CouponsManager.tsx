@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, GripVertical, RotateCcw } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, GripVertical, RotateCcw, Coins } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -206,9 +206,17 @@ function SortableCouponRow({
         <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
           {coupon.description}
         </p>
-        <span className="font-mono text-[11px] text-muted-foreground">
-          Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
-        </span>
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="font-mono text-[11px] text-muted-foreground">
+            Requires {coupon.requiredStamps} stamp{coupon.requiredStamps !== 1 ? "s" : ""}
+          </span>
+          {!isDefault && (coupon as CustomCoupon).priceCoins ? (
+            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-primary">
+              <Coins className="w-4 h-4" />
+              {(coupon as CustomCoupon).priceCoins} coins
+            </span>
+          ) : null}
+        </div>
       </div>
     </motion.div>
   );
@@ -244,6 +252,7 @@ const CouponsManager = () => {
     color: "from-pink-400 to-rose-500",
     requiredStamps: "1",
     category: "",
+    priceCoins: "",
   });
 
   useEffect(() => {
@@ -368,6 +377,7 @@ const CouponsManager = () => {
       color: "from-pink-400 to-rose-500",
       requiredStamps: "1",
       category: "",
+      priceCoins: "",
     });
     setShowForm(true);
   };
@@ -381,6 +391,7 @@ const CouponsManager = () => {
       color: coupon.color,
       requiredStamps: coupon.requiredStamps.toString(),
       category: coupon.category || "",
+      priceCoins: coupon.priceCoins ? coupon.priceCoins.toString() : "",
     });
     setShowForm(true);
   };
@@ -472,6 +483,16 @@ const CouponsManager = () => {
       return;
     }
 
+    let priceCoins: number | undefined;
+    if (formData.priceCoins.trim() !== "") {
+      const parsedPrice = parseInt(formData.priceCoins);
+      if (isNaN(parsedPrice) || parsedPrice < 0) {
+        alert("Coin price must be a number 0 or greater (leave blank for free).");
+        return;
+      }
+      priceCoins = parsedPrice > 0 ? parsedPrice : undefined;
+    }
+
     try {
       const couponData: Omit<CustomCoupon, "id" | "createdAt" | "updatedAt"> = {
         title: formData.title,
@@ -480,6 +501,7 @@ const CouponsManager = () => {
         color: formData.color,
         requiredStamps,
         category: formData.category || undefined,
+        priceCoins,
       };
 
       if (editingCoupon) {
@@ -501,6 +523,7 @@ const CouponsManager = () => {
         color: "from-pink-400 to-rose-500",
         requiredStamps: "1",
         category: "",
+        priceCoins: "",
       });
       await loadData();
     } catch (error) {
@@ -731,6 +754,24 @@ const CouponsManager = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Coin price */}
+                <div>
+                  <label className={labelCls}>
+                    <span className="inline-flex items-center gap-2">
+                      <Coins className="w-4 h-4" />
+                      Coin price (optional — blank means free)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.priceCoins}
+                    onChange={(e) => setFormData({ ...formData, priceCoins: e.target.value })}
+                    placeholder="Leave blank for free"
+                    className={inputCls}
+                  />
                 </div>
 
                 {/* Submit button */}

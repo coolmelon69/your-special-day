@@ -32,6 +32,17 @@ export const convertCouponId = (id: number | string): number => {
  * Always re-reads the DB first so two devices redeeming at once don't clobber
  * each other's list.
  */
+/**
+ * NOT SPENDING COINS HERE. A coupon can now carry `priceCoins`
+ * (see `CustomCoupon.priceCoins` in src/types/admin.ts) and the UI shows it
+ * locked when the wallet is short, but redemption below never debits the
+ * balance. Coupons aren't in the `buy_sku` SQL catalogue
+ * (sql/2026-08-08-items-shop.sql), so there is no server-side function that
+ * can safely charge for one yet — and deducting coins client-side here would
+ * be trivially forgeable (nothing stops a call straight to `redeemCoupon`
+ * bypassing any client-side check). Wiring this up for real needs a coupon
+ * branch added to `buy_sku` and a call to it before/at redemption.
+ */
 export const redeemCoupon = async (
   couponId: number,
   totalCoupons: number,

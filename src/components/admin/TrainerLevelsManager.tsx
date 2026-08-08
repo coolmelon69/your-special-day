@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Award, Check, Coffee, RotateCcw, Save, Stamp, TriangleAlert } from "lucide-react";
+import { Award, Check, Coffee, RotateCcw, Save, Sparkles, Stamp, TriangleAlert } from "lucide-react";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { useAllCafePlaces, useCafeCategories } from "@/hooks/useCafes";
 import { computeAchievements } from "@/utils/cafeAchievements";
@@ -24,10 +24,11 @@ const WEIGHT_FIELDS: { key: keyof TrainerCardConfig["weights"]; label: string; h
   { key: "badge", label: "Per badge", hint: "café achievement", icon: Award },
   { key: "stamp", label: "Per stamp", hint: "itinerary checkpoint", icon: Stamp },
   { key: "visit", label: "Per visit", hint: "café marked visited", icon: Coffee },
+  { key: "rareItem", label: "Per rare item", hint: "rare checkpoint drop", icon: Sparkles },
 ];
 
 const TrainerLevelsManager = () => {
-  const { trainerConfig, setTrainerConfig, itineraryState } = useAdventure();
+  const { trainerConfig, setTrainerConfig, itineraryState, profile } = useAdventure();
   const [draft, setDraft] = useState<TrainerCardConfig>(() => structuredClone(trainerConfig));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -46,11 +47,12 @@ const TrainerLevelsManager = () => {
   const badges = computeAchievements(categories.data ?? [], places.data ?? []).filter((a) => a.unlocked).length;
   const stamps = itineraryState.filter((i) => i.isPast).length;
   const visits = (places.data ?? []).filter((p) => p.status === "visited").length;
+  const rareItems = (profile?.items ?? []).filter((item) => item.rarity === "rare").length;
 
   const error = validateTrainerConfig(draft);
   const preview = useMemo(
-    () => computeTrainerStats(badges, stamps, visits, draft),
-    [badges, stamps, visits, draft],
+    () => computeTrainerStats(badges, stamps, visits, draft, rareItems),
+    [badges, stamps, visits, draft, rareItems],
   );
   const sortedTiers = useMemo(() => [...draft.tiers].sort((a, b) => a.minXp - b.minXp), [draft.tiers]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(trainerConfig);
@@ -215,7 +217,7 @@ const TrainerLevelsManager = () => {
           Preview — your progress
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          {badges} badges · {stamps} stamps · {visits} visits ={" "}
+          {badges} badges · {stamps} stamps · {visits} visits · {rareItems} rare ={" "}
           <span className="text-foreground font-medium">{preview.xp} XP</span>
         </p>
         <div className="mt-3 flex items-center justify-between">

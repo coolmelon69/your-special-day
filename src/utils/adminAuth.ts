@@ -18,7 +18,7 @@ export const isAuthenticated = (): boolean => {
   try {
     const { timestamp } = JSON.parse(sessionData);
     const now = Date.now();
-    
+
     // Check if session has expired
     if (now - timestamp > SESSION_TIMEOUT) {
       sessionStorage.removeItem(SESSION_KEY);
@@ -34,17 +34,43 @@ export const isAuthenticated = (): boolean => {
 
 // Login with password
 export const login = (password: string): boolean => {
-  if (password === ADMIN_PASSWORD) {
-    if (typeof window !== "undefined" && window.sessionStorage) {
-      sessionStorage.setItem(
-        SESSION_KEY,
-        JSON.stringify({ timestamp: Date.now() })
-      );
-      return true;
-    }
+  if (password !== ADMIN_PASSWORD) {
+    return false;
   }
-  return false;
+  if (typeof window === "undefined" || !window.sessionStorage) {
+    return false;
+  }
+  try {
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ timestamp: Date.now() })
+    );
+  } catch (error) {
+    // Safari private mode throws on setItem. Report a failed login rather than
+    // letting the exception escape the submit handler.
+    console.error("Could not persist admin session:", error);
+    return false;
+  }
+  return true;
 };
+
+export const ADMIN_LOGIN_PATH = "/admin/login";
+
+/**
+ * Whether a guarded route should emit a redirect to the login page.
+ *
+ * Returns false when we are already sitting on the login path, even though the
+ * guarded page is unauthenticated. That case is real: `AnimatePresence
+ * mode="wait"` keeps the outgoing route mounted through its exit animation, so
+ * the guarded page survives past the URL change. React Router's `<Navigate>`
+ * re-runs its effect on every render, so redirecting again from there pushes a
+ * `replaceState` per render until the browser throws
+ * `SecurityError: Attempt to use history.replaceState() more than 100 times`.
+ */
+export const shouldRedirectToLogin = (
+  pathname: string,
+  authenticated: boolean
+): boolean => !authenticated && pathname !== ADMIN_LOGIN_PATH;
 
 // Logout
 export const logout = (): void => {

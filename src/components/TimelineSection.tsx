@@ -8,7 +8,7 @@ import PokeStopMarker from "./PokeStopMarker";
 import type { Photo as PhotoType } from "./TimelineSection";
 import { sparkleBurst } from "../utils/particles";
 import { XP_WEIGHTS } from "@/utils/trainerCard";
-import { getItemSlugForCheckpoint, fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
+import { fetchItemDetails, type ItemDetails, type Drop } from "@/utils/pokeItems";
 import PokeStopRevealModal from "./PokeStopRevealModal";
 
 // Utility function to calculate distance between two coordinates (Haversine formula)
@@ -875,9 +875,9 @@ const TimelineSection = ({
   const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
-const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: ItemDetails | null } | null>(null);
-  
-  const { addPhoto, getPhotosByCheckpoint, deletePhoto } = useAdventure();
+const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: ItemDetails | null; drop: Drop | null } | null>(null);
+
+  const { addPhoto, getPhotosByCheckpoint, deletePhoto, claimDrop } = useAdventure();
 
   // Load photos for selected checkpoint
   useEffect(() => {
@@ -1064,11 +1064,15 @@ const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: I
       // The item fetch runs in the background; the modal shows a loading state until it resolves.
       setIsCheckingLocation(false);
       setLocationError(null);
-      setPendingReveal({ eventIndex, item: null });
+      setPendingReveal({ eventIndex, item: null, drop: null });
 
-      const slug = getItemSlugForCheckpoint(item.title, eventIndex);
-      fetchItemDetails(slug).then((details) => {
-        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, item: details } : prev));
+      // The last checkpoint of the journey always drops a rare — see rollDrop.
+      const isFinale = eventIndex === itineraryState.length - 1;
+      claimDrop(`${item.time}-${item.title}`, item.title, eventIndex, isFinale).then((drop) => {
+        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, drop } : prev));
+        fetchItemDetails(drop.slug).then((details) => {
+          setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, item: details } : prev));
+        });
       });
     });
   };
@@ -1675,8 +1679,10 @@ const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: I
         <PokeStopRevealModal
           isOpen={!!pendingReveal}
           checkpointTitle={itineraryState[pendingReveal.eventIndex]?.title ?? ""}
-          xpAwarded={XP_WEIGHTS.stamp}
+          xpAwarded={XP_WEIGHTS.stamp + (pendingReveal.drop?.rarity === "rare" ? XP_WEIGHTS.rareItem : 0)}
           item={pendingReveal.item}
+          rarity={pendingReveal.drop?.rarity ?? null}
+          coinsAwarded={pendingReveal.drop?.coins ?? 0}
           onContinue={() => {
             commitCheckpointDone(pendingReveal.eventIndex);
             setPendingReveal(null);

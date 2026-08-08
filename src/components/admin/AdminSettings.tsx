@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, IdCard, RotateCcw } from "lucide-react";
+import { AlertCircle, Coins, IdCard, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
 import { Switch } from "@/components/ui/switch";
 import { useAdventure } from "@/contexts/AdventureContext";
@@ -12,8 +12,10 @@ const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
 const STORAGE_KEY = "birthday-adventure-progress";
 
 const AdminSettings = () => {
-  const { setItineraryState, refreshPhotos, user, trainerCardEnabled, setTrainerCardEnabled } = useAdventure();
+  const { setItineraryState, refreshPhotos, user, trainerCardEnabled, setTrainerCardEnabled, profile, grantCoins } = useAdventure();
   const [savingTrainerCard, setSavingTrainerCard] = useState(false);
+  const [coinAmount, setCoinAmount] = useState("50");
+  const [grantingCoins, setGrantingCoins] = useState(false);
 
   const handleToggleTrainerCard = async () => {
     const next = !trainerCardEnabled;
@@ -142,6 +144,42 @@ const AdminSettings = () => {
     }
   };
 
+  const handleGrantCoins = async () => {
+    const amount = parseInt(coinAmount, 10);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert("Enter a coin amount greater than 0.");
+      return;
+    }
+    if (amount > 500) {
+      alert("A single grant is capped at 500 coins.");
+      return;
+    }
+    if (!profile) {
+      alert("No trainer profile is signed in to grant coins to.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Grant ${amount} coins? This cannot be undone from the UI.`
+      )
+    ) {
+      return;
+    }
+
+    setGrantingCoins(true);
+    try {
+      const granted = await grantCoins(amount);
+      if (!granted) {
+        alert("Could not grant coins. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error granting coins:", error);
+      alert("Could not grant coins. Please try again.");
+    } finally {
+      setGrantingCoins(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="font-serif text-2xl font-bold text-foreground">Settings</h2>
@@ -173,6 +211,43 @@ const AdminSettings = () => {
           disabled={savingTrainerCard}
           aria-label="Enable trainer card setup for logged-in users"
         />
+      </div>
+
+      {/* Coin grant escape hatch */}
+      <div className="rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <Coins className="w-4 h-4 mt-0.5 flex-shrink-0 text-rose" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Grant coins</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              The shop budget is deliberately tight. Use this if a rare-item roll or a tight day
+              locked her out of something that matters — one grant, up to 500 coins at a time.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={500}
+            value={coinAmount}
+            onChange={(e) => setCoinAmount(e.target.value)}
+            className="w-28 rounded-[10px] border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            aria-label="Coin amount to grant"
+          />
+          <motion.button
+            onClick={handleGrantCoins}
+            disabled={grantingCoins || !profile}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[10px] border border-primary bg-primary text-primary-foreground transition-all hover:brightness-95 disabled:opacity-50"
+            whileTap={{ scale: 0.97 }}
+          >
+            <Coins className="w-4 h-4" />
+            <span>{grantingCoins ? "Granting…" : "Grant coins"}</span>
+          </motion.button>
+        </div>
+        {!profile && (
+          <p className="text-xs text-muted-foreground">No trainer profile is signed in right now.</p>
+        )}
       </div>
 
       {/* Reset Progress Button */}

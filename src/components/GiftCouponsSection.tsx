@@ -22,6 +22,8 @@ export interface Coupon {
   color: string;
   requiredStamps: number;
   category?: string;
+  /** Coin price to unlock this coupon. Undefined/0 means free. */
+  priceCoins?: number;
 }
 
 // Default coupons (fallback if custom coupons not enabled)
@@ -167,7 +169,7 @@ interface GiftCouponsSectionProps {
 }
 
 const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
-  const { coupons: contextCoupons, refreshCoupons, user } = useAdventure();
+  const { coupons: contextCoupons, refreshCoupons, user, profile } = useAdventure();
   const [redeemedCoupons, setRedeemedCoupons] = useState<number[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -188,7 +190,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
   const prevUnlockedRef = useRef<string[]>([]);
 
   // Use coupons from context, fallback to defaults
-  const coupons: Coupon[] = contextCoupons.length > 0 
+  const coupons: Coupon[] = contextCoupons.length > 0
     ? contextCoupons.map(c => ({
         id: convertCouponId(c.id),
         title: c.title,
@@ -197,8 +199,11 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
         color: c.color,
         requiredStamps: c.requiredStamps,
         category: c.category,
+        priceCoins: c.priceCoins,
       }))
     : defaultCoupons;
+
+  const walletCoins = profile?.coins ?? 0;
 
   // Refresh coupons when component mounts
   useEffect(() => {
@@ -453,6 +458,11 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
               const isUnlocked = isCouponUnlocked(coupon);
               const isLocked = !isUnlocked && !isRedeemed;
               const isProcessing = processingCouponId === coupon.id;
+              // Priced coupons show a Coins badge; if the wallet is short they
+              // read as locked too, even once the stamp requirement is met.
+              // No spend happens here — see the "not spending" note near
+              // isCouponUnlocked below.
+              const coinsShort = !!coupon.priceCoins && walletCoins < coupon.priceCoins;
 
               return (
                 <motion.div
@@ -467,6 +477,7 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
                     serial={index + 1}
                     isRedeemed={isRedeemed}
                     isLocked={isLocked}
+                    coinsShort={coinsShort}
                     isProcessing={isProcessing}
                     completedStamps={completedStamps}
                     onOpen={() => handleCouponClick(coupon)}

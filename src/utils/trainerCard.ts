@@ -11,13 +11,16 @@ export const TIER_COLOR_CLASSES: Record<TierColor, { text: string; bg: string; b
   rose: { text: "text-rose", bg: "bg-rose", border: "border-rose", label: "Rose" },
 };
 
-export type XpWeights = { badge: number; stamp: number; visit: number };
+/** `rareItem` is per rare drop. Common drops are worth zero on purpose: a stamp
+ *  already earns XP and items are one-per-checkpoint, so paying for a common
+ *  would be paying twice for the same event. Only rarity moves the bar. */
+export type XpWeights = { badge: number; stamp: number; visit: number; rareItem: number };
 export type LevelTier = { name: string; minXp: number; color: TierColor; icon: string };
 
 /** Everything the admin can tune about levelling. */
 export type TrainerCardConfig = { weights: XpWeights; tiers: LevelTier[] };
 
-export const XP_WEIGHTS: XpWeights = { badge: 5, stamp: 2, visit: 3 };
+export const XP_WEIGHTS: XpWeights = { badge: 5, stamp: 2, visit: 3, rareItem: 10 };
 
 export const LEVEL_TIERS: LevelTier[] = [
   { name: "Rookie", minXp: 0, color: "muted", icon: "🌱" },
@@ -36,10 +39,17 @@ export const computeXp = (
   badges: number,
   stamps: number,
   visits: number,
+  rareItems: number = 0,
   weights: XpWeights = XP_WEIGHTS,
-): number => badges * weights.badge + stamps * weights.stamp + visits * weights.visit;
+): number =>
+  badges * weights.badge +
+  stamps * weights.stamp +
+  visits * weights.visit +
+  // A config saved before rare items existed has no `rareItem` key.
+  rareItems * (weights.rareItem ?? 0);
 
-export type AvatarPreset = { id: string; icon: string; label: string };
+/** `unlockSku` absent means free — every preset shipped before the shop stays free. */
+export type AvatarPreset = { id: string; icon: string; label: string; unlockSku?: string };
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
   { id: "pikachu", icon: "⚡", label: "Sparky" },
@@ -50,6 +60,37 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
   { id: "jigglypuff", icon: "🎈", label: "Puff" },
   { id: "psyduck", icon: "🦆", label: "Quack" },
   { id: "meowth", icon: "🐱", label: "Whiskers" },
+];
+
+/**
+ * Trainer card cosmetics — worn on `TrainerCard.tsx`, unlocked from `SHOP_CATALOGUE`.
+ * `id` is the value stored in `profile.cardMaterial` / `profile.cardFrame`; `unlockSku`
+ * is the SKU in `shop.ts` that must appear in `profile.purchases` before it applies.
+ * No "none" entry here on purpose — the unset/default state is simply absent from the
+ * table, which is what keeps an unowned card looking exactly like it does today.
+ */
+export interface CardMaterial {
+  id: "foil" | "holo";
+  label: string;
+  blurb: string;
+  unlockSku: string;
+}
+
+export const CARD_MATERIALS: CardMaterial[] = [
+  { id: "foil", label: "Foil", blurb: "Etched metal, whole card. Tilt it and the glints move.", unlockSku: "card.material.foil" },
+  { id: "holo", label: "Holo", blurb: "Rainbow across the whole card, brightest over your photo.", unlockSku: "card.material.holo" },
+];
+
+export interface CardFrame {
+  id: "sakura" | "starfield";
+  label: string;
+  blurb: string;
+  unlockSku: string;
+}
+
+export const CARD_FRAMES: CardFrame[] = [
+  { id: "sakura", label: "Sakura", blurb: "Petals along the card rim.", unlockSku: "card.frame.sakura" },
+  { id: "starfield", label: "Starfield", blurb: "Slow stars drifting behind the portrait.", unlockSku: "card.frame.starfield" },
 ];
 
 export type TeamId = "blossom" | "dusk" | "lumen";
@@ -124,6 +165,8 @@ export interface TrainerStats {
   levelNumber: number;
   levelColor: TierColor;
   levelIcon: string;
+  /** Rare checkpoint drops. Commons are worth no XP — see `XpWeights`. */
+  rareItems: number;
   xpIntoLevel: number;
   xpForNextLevel: number | null;
   nextLevel: string | null;
@@ -134,11 +177,12 @@ export const computeTrainerStats = (
   stamps: number,
   visits: number,
   config: TrainerCardConfig = DEFAULT_TRAINER_CONFIG,
+  rareItems: number = 0,
 ): TrainerStats => {
   const weights = config.weights ?? XP_WEIGHTS;
   // Thresholds are authored in the admin panel, so never trust the order.
   const tiers = (config.tiers?.length ? [...config.tiers] : LEVEL_TIERS).sort((a, b) => a.minXp - b.minXp);
-  const xp = computeXp(badges, stamps, visits, weights);
+  const xp = computeXp(badges, stamps, visits, rareItems, weights);
 
   let currentTierIndex = 0;
   for (let i = 0; i < tiers.length; i++) {
@@ -151,6 +195,7 @@ export const computeTrainerStats = (
     badges,
     stamps,
     visits,
+    rareItems,
     xp,
     level: currentTier.name,
     levelNumber: currentTierIndex + 1,

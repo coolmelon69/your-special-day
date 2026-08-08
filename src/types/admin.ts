@@ -26,6 +26,8 @@ export type CustomCoupon = {
   color: string; // Tailwind gradient class
   requiredStamps: number;
   category?: string;
+  /** Coin price to unlock this coupon. Optional — undefined/0 means free, as today. */
+  priceCoins?: number;
   createdAt: number;
   updatedAt: number;
 };

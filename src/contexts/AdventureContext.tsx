@@ -7,7 +7,8 @@ import { syncStampsProgress, loadStampsProgress, loadCustomStampsResult, loadCus
 import { getCurrentUser, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { deletePhotoFromStorage } from "@/utils/photoUpload";
-import { loadProfile, saveProfile, type Profile } from "@/utils/profile";
+import { loadProfile, saveProfile, recordDrop, buySku, buyItem, grantCoins, type Profile } from "@/utils/profile";
+import { rollDrop, COINS_BY_RARITY, type Drop } from "@/utils/pokeItems";
 import { DEFAULT_TRAINER_CONFIG, type TrainerCardConfig } from "@/utils/trainerCard";
 import { loadTrainerCardConfig } from "@/utils/supabaseSync";
 import TrainerOnboarding from "@/components/TrainerOnboarding";
@@ -84,14 +85,22 @@ interface AdventureContextType {
   getAllPhotos: () => Promise<Photo[]>;
   deletePhoto: (photoId: string) => Promise<void>;
   refreshPhotos: () => Promise<void>;
-  coupons: Array<{ id: number | string; title: string; description: string; emoji: string; color: string; requiredStamps: number; category?: string }>;
+  coupons: Array<{ id: number | string; title: string; description: string; emoji: string; color: string; requiredStamps: number; category?: string; priceCoins?: number }>;
   refreshCoupons: () => Promise<void>;
   reloadStampsFromCloud: () => Promise<void>;
   reloadPhotosFromCloud: () => Promise<void>;
   user: SupabaseUser | null;
   profile: Profile | null;
   /** Patch the signed-in trainer's profile (team, photo, …). Resolves false if the write failed. */
-  updateProfile: (patch: Partial<Omit<Profile, "userId" | "createdAt">>) => Promise<boolean>;
+  updateProfile: (patch: Partial<Omit<Profile, "userId" | "createdAt" | "items" | "coins" | "purchases">>) => Promise<boolean>;
+  /** Roll and bank a checkpoint's item + coins. Idempotent per `source`. */
+  claimDrop: (source: string, title: string, index: number, isFinale: boolean) => Promise<Drop>;
+  /** Buy a shop cosmetic. False means unaffordable or already owned — nothing charged. */
+  purchase: (sku: string) => Promise<boolean>;
+  /** Buy a Poké item off the shop shelf. False = short on coins, or already in the bag. */
+  purchaseItem: (slug: string) => Promise<boolean>;
+  /** Admin escape hatch: grant coins to the signed-in trainer's balance. False means nothing changed. */
+  grantCoins: (amount: number) => Promise<boolean>;
   /** Global admin switch: trainer card onboarding + /trainer-card page. */
   trainerCardEnabled: boolean;
   setTrainerCardEnabled: (enabled: boolean) => void;
@@ -110,6 +119,7 @@ type CouponType = {
   color: string;
   requiredStamps: number;
   category?: string;
+  priceCoins?: number;
 };
 
 export const AdventureProvider = ({ children }: { children: ReactNode }) => {
@@ -827,6 +837,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         color: coupon.color,
         requiredStamps: coupon.requiredStamps,
         category: coupon.category,
+        priceCoins: coupon.priceCoins,
       }));
 
       let mergedCoupons: CouponType[];
@@ -1102,7 +1113,18 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return;
     setIsSubmittingProfile(true);
     try {
-      const newProfile: Profile = { userId: user.id, ...data, photoUrl: null, createdAt: null };
+      const newProfile: Profile = {
+        userId: user.id,
+        ...data,
+        photoUrl: null,
+        createdAt: null,
+        items: [],
+        coins: 0,
+        purchases: [],
+        cardMaterial: null,
+        cardFrame: null,
+        cardTitle: null,
+      };
       const success = await saveProfile(newProfile);
       if (success) {
         // Re-read so the row's server-side `created_at` (the card's joined date) is present.
@@ -1117,7 +1139,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
 
   // Patch an existing profile — the trainer card edits team and portrait this way.
   const updateProfile = useCallback(
-    async (patch: Partial<Omit<Profile, "userId" | "createdAt">>): Promise<boolean> => {
+    async (patch: Partial<Omit<Profile, "userId" | "createdAt" | "items" | "coins" | "purchases">>): Promise<boolean> => {
       if (!user || !profile) return false;
       const next: Profile = { ...profile, ...patch };
       const success = await saveProfile(next);
@@ -1126,6 +1148,64 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       return success;
     },
     [user, profile]
+  );
+
+  /**
+   * Roll a checkpoint's drop, bank it, and hand it back for the reveal.
+   *
+   * Idempotent per `source`: an item already in the bag is returned as-is
+   * rather than re-rolled, so re-opening a reveal shows the same thing she got
+   * the first time. The database enforces the same rule independently — this
+   * check only saves a pointless round trip.
+   *
+   * Signed out there is nowhere to bank it, so the drop is still rolled and
+   * shown. The reveal is the point; the bookkeeping is what needs an account.
+   */
+  const claimDrop = useCallback(
+    async (source: string, title: string, index: number, isFinale: boolean): Promise<Drop> => {
+      const existing = profile?.items.find((item) => item.source === source);
+      if (existing) {
+        return { slug: existing.slug, rarity: existing.rarity, coins: COINS_BY_RARITY[existing.rarity] };
+      }
+
+      const drop = rollDrop(title, index, isFinale);
+      if (!user) return drop;
+
+      await recordDrop(source, drop.slug, drop.rarity);
+      setProfile(await loadProfile(user.id));
+      return drop;
+    },
+    [user, profile]
+  );
+
+  const purchase = useCallback(
+    async (sku: string): Promise<boolean> => {
+      if (!user) return false;
+      const bought = await buySku(sku);
+      if (bought) setProfile(await loadProfile(user.id));
+      return bought;
+    },
+    [user]
+  );
+
+  const purchaseItem = useCallback(
+    async (slug: string): Promise<boolean> => {
+      if (!user) return false;
+      const bought = await buyItem(slug);
+      if (bought) setProfile(await loadProfile(user.id));
+      return bought;
+    },
+    [user]
+  );
+
+  const grantCoinsToProfile = useCallback(
+    async (amount: number): Promise<boolean> => {
+      if (!user) return false;
+      const granted = await grantCoins(amount);
+      if (granted) setProfile(await loadProfile(user.id));
+      return granted;
+    },
+    [user]
   );
 
   const needsOnboarding = trainerCardEnabled === true && !!user && profileChecked && !profile;
@@ -1150,6 +1230,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         user,
         profile,
         updateProfile,
+        claimDrop,
+        purchase,
+        purchaseItem,
+        grantCoins: grantCoinsToProfile,
         trainerCardEnabled: trainerCardEnabled ?? true,
         setTrainerCardEnabled,
         trainerConfig,

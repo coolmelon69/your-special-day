@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "framer-motion";
 import { ArrowRight, Lock } from "lucide-react";
+import PokeCoin from "@/components/PokeCoin";
 import type { Coupon } from "./GiftCouponsSection";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,8 @@ interface TicketVoucherProps {
   serial: number;
   isRedeemed: boolean;
   isLocked: boolean;
+  /** True when the coupon has a coin price the wallet can't yet cover. Display-only — no spend happens on this app. */
+  coinsShort?: boolean;
   isProcessing?: boolean;
   completedStamps: number;
   redeemedAt?: number;
@@ -57,6 +60,7 @@ const TicketVoucher = ({
   serial,
   isRedeemed,
   isLocked,
+  coinsShort = false,
   isProcessing = false,
   completedStamps,
   redeemedAt,
@@ -145,13 +149,36 @@ const TicketVoucher = ({
           </div>
 
           {/* printed fields */}
-          <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-dashed border-[hsl(var(--stock-shade))] pt-3">
+          <dl
+            className={cn(
+              "mt-4 grid gap-3 border-t border-dashed border-[hsl(var(--stock-shade))] pt-3",
+              coupon.priceCoins ? "grid-cols-4" : "grid-cols-3"
+            )}
+          >
             <div>
               <dt className="ticket-field-key">Costs</dt>
               <dd className="ticket-field-val">
                 {coupon.requiredStamps} stamp{coupon.requiredStamps === 1 ? "" : "s"}
               </dd>
             </div>
+            {coupon.priceCoins ? (
+              <div>
+                <dt className="ticket-field-key">Price</dt>
+                <dd
+                  className={cn(
+                    "ticket-field-val inline-flex items-center gap-1",
+                    coinsShort ? "text-muted-foreground" : "text-rose"
+                  )}
+                >
+                  {coinsShort ? (
+                    <Lock className="h-3 w-3" />
+                  ) : (
+                    <PokeCoin size={12} />
+                  )}
+                  {coupon.priceCoins}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="ticket-field-key">Valid</dt>
               <dd className="ticket-field-val">forever</dd>
