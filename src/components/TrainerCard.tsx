@@ -31,11 +31,11 @@ import {
 import { toPng } from "html-to-image";
 import PinBadge, { TIER_LABEL, type Tier } from "@/components/cafes/PinBadge";
 import PokeCoin from "@/components/PokeCoin";
+import PokeSprite from "@/components/PokeSprite";
 import {
-  AVATAR_PRESETS,
+  avatarFor,
   CARD_FRAMES,
   CARD_MATERIALS,
-  TEAMS,
   type CardFrame,
   type CardMaterial,
   type Team,
@@ -174,7 +174,6 @@ interface TrainerCardProps {
   log: AdventureLog;
   favourites: FavouritePlace[];
   onPhotoSelected: (dataUrl: string) => void;
-  onTeamChange: (teamId: string) => void;
   isSaving: boolean;
 }
 
@@ -190,7 +189,6 @@ const TrainerCard = ({
   log,
   favourites,
   onPhotoSelected,
-  onTeamChange,
   isSaving,
 }: TrainerCardProps) => {
   const reduceMotion = useReducedMotion();
@@ -198,7 +196,6 @@ const TrainerCard = ({
   const fileRef = useRef<HTMLInputElement>(null);
   const [flipped, setFlipped] = useState(false);
   const [capturing, setCapturing] = useState(false);
-  const [teamOpen, setTeamOpen] = useState(false);
 
   // Pointer tilt. Mouse only — on touch the same gesture is a scroll, and stealing it
   // to spin a card is the kind of cleverness that gets a page closed.
@@ -339,7 +336,7 @@ const TrainerCard = ({
     if (materialLive) setHoloVars(REST_HOLO.x, REST_HOLO.y);
   };
 
-  const avatar = AVATAR_PRESETS.find((a) => a.id === profile.avatarId) ?? AVATAR_PRESETS[0];
+  const avatar = avatarFor(profile.avatarId);
   const isMaxLevel = stats.xpForNextLevel === null;
   const pct = isMaxLevel
     ? 100
@@ -474,7 +471,7 @@ const TrainerCard = ({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <span className="text-[34px] leading-none">{avatar.icon}</span>
+                        <PokeSprite dex={avatar.dex} fallback={avatar.icon} className="h-[52px] w-[52px] text-[34px]" />
                       )}
 
                       {/* Foil, art window — the same etch as the card body, but the
@@ -924,50 +921,17 @@ const TrainerCard = ({
           {capturing ? "Saving…" : "Save as image"}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setTeamOpen((o) => !o)}
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-foreground transition-colors hover:border-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          aria-expanded={teamOpen}
+        {/* Team is read-only here on purpose — it's changed from the admin panel,
+            which is also the only place it can be changed for a partner. */}
+        <span
+          className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide"
+          style={{ background: team.tint, borderColor: team.accent, color: team.ink }}
+          title="Your team is set in the admin panel"
         >
-          <span className="h-3 w-3 rounded-full" style={{ background: team.accent }} aria-hidden />
-          Change team
-        </button>
+          <PokeSprite dex={team.dex} fallback="✨" className="h-5 w-5" />
+          {team.name}
+        </span>
       </div>
-
-      {teamOpen && (
-        <motion.div
-          className="mt-3 grid gap-2 sm:grid-cols-3"
-          initial={reduceMotion ? false : { opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        >
-          {TEAMS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => {
-                onTeamChange(t.id);
-                setTeamOpen(false);
-              }}
-              className={cn(
-                "rounded-[14px] border p-3 text-left transition-colors",
-                t.id === team.id ? "border-transparent" : "border-border bg-card hover:border-foreground"
-              )}
-              style={t.id === team.id ? { background: t.tint, boxShadow: `inset 0 0 0 1.5px ${t.accent}` } : undefined}
-              aria-pressed={t.id === team.id}
-            >
-              <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full" style={{ background: t.accent }} aria-hidden />
-                <span className="font-mono text-[10px] uppercase tracking-wide" style={{ color: t.ink }}>
-                  {t.name}
-                </span>
-              </span>
-              <span className="mt-1 block font-serif text-[15px] italic text-foreground">{t.motto}</span>
-            </button>
-          ))}
-        </motion.div>
-      )}
 
       {/* cosmetics — owned options pick the active look, unowned stay visible but locked */}
       <div className="mt-6 space-y-4 rounded-[18px] border border-border bg-card p-4">

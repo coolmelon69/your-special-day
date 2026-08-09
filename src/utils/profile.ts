@@ -32,6 +32,9 @@ export interface Profile {
   cardFrame: string | null;
   /** Custom line under the trainer name, unlocked by `card.title`. Null until set. */
   cardTitle: string | null;
+  /** `couples.id` once linked, null while solo. Solo behaves exactly as before —
+   *  see docs/superpowers/specs/2026-08-09-couples-pairing-design.md. */
+  coupleId: string | null;
 }
 
 export interface OwnedItem {
@@ -65,7 +68,7 @@ export const loadProfile = async (userId: string): Promise<Profile | null> => {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "user_id, display_name, birthday, trainer_name, avatar_id, team_id, photo_url, created_at, items, coins, purchases, card_material, card_frame, card_title",
+        "user_id, display_name, birthday, trainer_name, avatar_id, team_id, photo_url, created_at, items, coins, purchases, card_material, card_frame, card_title, couple_id",
       )
       .eq("user_id", userId)
       .maybeSingle();
@@ -87,6 +90,8 @@ export const loadProfile = async (userId: string): Promise<Profile | null> => {
       cardMaterial: data.card_material ?? null,
       cardFrame: data.card_frame ?? null,
       cardTitle: data.card_title ?? null,
+      // Tolerant: a migration that hasn't landed yet must not blank the profile.
+      coupleId: data.couple_id ?? null,
     };
   } catch (error) {
     console.error("Error loading profile:", error);
@@ -199,27 +204,9 @@ export const buyItem = async (slug: string): Promise<boolean> => {
   }
 };
 
-/**
- * Admin escape hatch: grant coins to the signed-in trainer's own balance.
- * The amount is the only client input — the database rejects anything
- * non-positive or over the 500 cap. Returns false if the grant failed (or
- * there is no session), which the caller treats as "nothing changed".
- */
-export const grantCoins = async (amount: number): Promise<boolean> => {
-  if (!supabase) return false;
-
-  try {
-    const { data, error } = await supabase.rpc("grant_coins", { p_amount: amount });
-    if (error) {
-      console.error("Error granting coins:", error);
-      return false;
-    }
-    return data === true;
-  } catch (error) {
-    console.error("Error granting coins:", error);
-    return false;
-  }
-};
+// Granting coins moved to src/utils/couples.ts. The `grant_coins` RPC now takes
+// a target (the caller or their partner) and gates on `is_pair_owner()`, so the
+// self-only wrapper that used to live here had no callers left.
 
 /**
  * Upload a portrait for the trainer card. `dataURL` comes straight off a file input

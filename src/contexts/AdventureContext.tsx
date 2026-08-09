@@ -7,11 +7,13 @@ import { syncStampsProgress, loadStampsProgress, loadCustomStampsResult, loadCus
 import { getCurrentUser, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { deletePhotoFromStorage } from "@/utils/photoUpload";
-import { loadProfile, saveProfile, recordDrop, buySku, buyItem, grantCoins, type Profile } from "@/utils/profile";
+import { loadProfile, saveProfile, recordDrop, buySku, buyItem, type Profile } from "@/utils/profile";
+import { loadCouple, type Couple } from "@/utils/couples";
 import { rollDrop, COINS_BY_RARITY, type Drop } from "@/utils/pokeItems";
 import { DEFAULT_TRAINER_CONFIG, type TrainerCardConfig } from "@/utils/trainerCard";
 import { loadTrainerCardConfig } from "@/utils/supabaseSync";
 import TrainerOnboarding from "@/components/TrainerOnboarding";
+import LinkPartner from "@/components/LinkPartner";
 
 // localStorage key for saving progress
 const STORAGE_KEY = "birthday-adventure-progress";
@@ -91,6 +93,15 @@ interface AdventureContextType {
   reloadPhotosFromCloud: () => Promise<void>;
   user: SupabaseUser | null;
   profile: Profile | null;
+  /** The signed-in trainer's couple row, null while solo. Loaded alongside the
+   *  profile so `LinkPartner` and other consumers can react to link state. */
+  couple: Couple | null;
+  /** Convenience for `!!couple`. */
+  isLinked: boolean;
+  /** Re-read the couple row after linking. Every shared read resolves its own
+   *  scope from `profiles.couple_id`, so the data follows on the next fetch —
+   *  this is what tells the UI to stop offering the link form. */
+  refreshCouple: () => Promise<void>;
   /** Patch the signed-in trainer's profile (team, photo, …). Resolves false if the write failed. */
   updateProfile: (patch: Partial<Omit<Profile, "userId" | "createdAt" | "items" | "coins" | "purchases">>) => Promise<boolean>;
   /** Roll and bank a checkpoint's item + coins. Idempotent per `source`. */
@@ -100,7 +111,6 @@ interface AdventureContextType {
   /** Buy a Poké item off the shop shelf. False = short on coins, or already in the bag. */
   purchaseItem: (slug: string) => Promise<boolean>;
   /** Admin escape hatch: grant coins to the signed-in trainer's balance. False means nothing changed. */
-  grantCoins: (amount: number) => Promise<boolean>;
   /** Global admin switch: trainer card onboarding + /trainer-card page. */
   trainerCardEnabled: boolean;
   setTrainerCardEnabled: (enabled: boolean) => void;
@@ -168,6 +178,14 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileChecked, setProfileChecked] = useState(false);
   const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+  /** Shown once, straight after the profile row is created — the earliest
+   *  point `redeem_invite` can succeed. Not persisted: skipping it is meant to
+   *  be free, and the trainer card page carries the same form afterwards. */
+  const [showPartnerPrompt, setShowPartnerPrompt] = useState(false);
+
+  // Couple state — null while solo. Read-only here; linking itself happens in
+  // LinkPartner via `redeemInvite`, this just reflects the result.
+  const [couple, setCouple] = useState<Couple | null>(null);
 
   // Global admin switch for the trainer card feature. Starts null (unknown) so
   // the onboarding gate never flashes before the setting has loaded.
@@ -254,6 +272,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     if (!user) {
       setProfile(null);
       setProfileChecked(false);
+      setCouple(null);
       return;
     }
 
@@ -264,11 +283,21 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       setProfile(result);
       setProfileChecked(true);
     });
+    loadCouple().then((result) => {
+      if (cancelled) return;
+      setCouple(result);
+    });
 
     return () => {
       cancelled = true;
     };
   }, [user]);
+
+  // Shared-table reads and writes resolve their own scope inside
+  // src/utils/supabaseSync.ts via `currentScope()` — couple-wide once linked,
+  // solo otherwise. This context deliberately doesn't pass an id down for them;
+  // see src/utils/coupleScope.ts for the single predicate both the client and
+  // the RLS policies follow.
 
   // Load custom stamps, merge with defaults, then sync from Supabase
   // Only run once when user becomes available, not on every user change
@@ -477,7 +506,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
 
     // Subscribe to realtime changes
     console.log("Setting up realtime subscription for stamps progress");
-    const unsubscribe = subscribeToStampsProgress(user.id, async () => {
+    // Scope the realtime filter the same way the read/write paths in
+    // supabaseSync.ts do: couple-wide once linked (a partner's write may
+    // carry their own user_id, not ours), user-scoped while solo.
+    const unsubscribe = subscribeToStampsProgress({ coupleId: couple?.id ?? null, userId: user.id }, async () => {
       console.log("Realtime stamps update received, reloading...");
       
       try {
@@ -570,7 +602,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         unsubscribeStampsRef.current = null;
       }
     };
-  }, [user]);
+    // `couple?.id` is included so linking re-establishes the subscription on
+    // the couple-scoped filter instead of staying pinned to the pre-link
+    // user-scoped one until a hard refresh.
+  }, [user, couple?.id]);
 
   // Save to localStorage and sync to Supabase whenever itineraryState changes
   // Note: Only saves default stamps progress, custom stamps state is managed separately
@@ -1118,6 +1153,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         ...data,
         photoUrl: null,
         createdAt: null,
+        coupleId: null,
         items: [],
         coins: 0,
         purchases: [],
@@ -1129,6 +1165,10 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       if (success) {
         // Re-read so the row's server-side `created_at` (the card's joined date) is present.
         setProfile((await loadProfile(user.id)) ?? newProfile);
+        // Offer the link step only now. `redeem_invite` returns 'no_profile'
+        // until the row above exists, because couple_id is stamped onto it —
+        // so asking for a code any earlier would reject every valid code.
+        setShowPartnerPrompt(true);
       } else {
         console.error("Failed to save trainer profile");
       }
@@ -1198,15 +1238,29 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     [user]
   );
 
-  const grantCoinsToProfile = useCallback(
-    async (amount: number): Promise<boolean> => {
-      if (!user) return false;
-      const granted = await grantCoins(amount);
-      if (granted) setProfile(await loadProfile(user.id));
-      return granted;
-    },
-    [user]
-  );
+  // Called after a successful link.
+  //
+  // ponytail: full reload rather than a targeted refetch. Linking does not
+  // change one value — it changes the scope of EVERY shared read at once
+  // (stamps, checkpoint photos, coupons, achievements, custom stamps and
+  // coupons, wrapped slides, admin settings), and the rows behind them were
+  // just rewritten server-side by `adopt_owner_journey`. Refreshing only the
+  // couple and the profile is what shipped first, and it left the UI showing
+  // the pre-link solo data until the next hard refresh — indistinguishable
+  // from the link having wiped everything. Re-running each loader by hand
+  // here would be re-implementing the mount sequence and would drift from it
+  // the first time a loader is added.
+  //
+  // Upgrade path if the reload ever feels heavy: extract the mount effect's
+  // body into a `loadEverything()` and call that instead.
+  const refreshCouple = useCallback(async (): Promise<void> => {
+    window.location.reload();
+  }, []);
+
+  // Granting coins lives in src/utils/couples.ts now, called straight from the
+  // admin panel: it needs a target (me / partner) that this context has no say
+  // in, and the RPC gates on `is_pair_owner()` server-side. A second wrapper
+  // here would only be a second thing to keep in step.
 
   const needsOnboarding = trainerCardEnabled === true && !!user && profileChecked && !profile;
 
@@ -1229,11 +1283,13 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         reloadPhotosFromCloud,
         user,
         profile,
+        couple,
+        isLinked: !!couple,
         updateProfile,
         claimDrop,
         purchase,
         purchaseItem,
-        grantCoins: grantCoinsToProfile,
+        refreshCouple,
         trainerCardEnabled: trainerCardEnabled ?? true,
         setTrainerCardEnabled,
         trainerConfig,
@@ -1241,7 +1297,23 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       }}
     >
       {needsOnboarding ? (
-        <TrainerOnboarding onSubmit={handleOnboardingSubmit} isSubmitting={isSubmittingProfile} />
+        <TrainerOnboarding
+          onSubmit={handleOnboardingSubmit}
+          isSubmitting={isSubmittingProfile}
+          userId={user?.id}
+        />
+      ) : showPartnerPrompt && !couple ? (
+        // One step past onboarding, never a gate: the profile row already
+        // exists by now, so skipping here costs nothing — the same form lives
+        // in the trainer card page for whenever a code actually arrives.
+        <LinkPartner
+          variant="onboarding"
+          onLinked={async () => {
+            await refreshCouple();
+            setShowPartnerPrompt(false);
+          }}
+          onSkip={() => setShowPartnerPrompt(false)}
+        />
       ) : (
         children
       )}

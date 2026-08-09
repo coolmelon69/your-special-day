@@ -87,17 +87,26 @@ const SiteGate = () => {
   const [unlocked, setUnlocked] = useState(isSiteUnlocked());
   const isPublicPath =
     location.pathname === "/cafes" || location.pathname.startsWith("/cafes/");
+  const locked = !isPublicPath && !unlocked;
 
-  if (!isPublicPath && !unlocked) {
-    return <LockscreenPage onUnlock={() => setUnlocked(true)} />;
-  }
-
+  // The provider wraps the lockscreen too, deliberately: it renders the
+  // first-login trainer onboarding and the partner-code step *instead of* its
+  // children, so a signed-in visitor who hasn't unlocked yet still gets to set
+  // their name/team and redeem an invite code. The lockscreen is what they fall
+  // through to afterwards — linking is not a way past the password.
+  //
+  // Kept as one tree rather than an early return so unlocking doesn't unmount
+  // and remount the provider (which would re-run every Supabase loader).
   return (
     <AdventureProvider>
-      <ErrorBoundary>
-        <NavigationBar />
-        <AnimatedRoutes />
-      </ErrorBoundary>
+      {locked ? (
+        <LockscreenPage onUnlock={() => setUnlocked(true)} />
+      ) : (
+        <ErrorBoundary>
+          <NavigationBar />
+          <AnimatedRoutes />
+        </ErrorBoundary>
+      )}
     </AdventureProvider>
   );
 };

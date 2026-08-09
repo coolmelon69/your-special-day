@@ -48,19 +48,31 @@ export const computeXp = (
   // A config saved before rare items existed has no `rareItem` key.
   rareItems * (weights.rareItem ?? 0);
 
-/** `unlockSku` absent means free — every preset shipped before the shop stays free. */
-export type AvatarPreset = { id: string; icon: string; label: string; unlockSku?: string };
+/** `unlockSku` absent means free — every preset shipped before the shop stays free.
+ *  `dex` is the National Dex number the sprite URL is built from (`pokeSprites.ts`);
+ *  `icon` stays as the fallback for when the sprite CDN can't be reached. */
+export type AvatarPreset = {
+  id: string;
+  dex: number;
+  icon: string;
+  label: string;
+  species: string;
+  unlockSku?: string;
+};
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
-  { id: "pikachu", icon: "⚡", label: "Sparky" },
-  { id: "eevee", icon: "🦊", label: "Evee" },
-  { id: "bulbasaur", icon: "🌱", label: "Sprout" },
-  { id: "squirtle", icon: "🐢", label: "Shellback" },
-  { id: "charmander", icon: "🔥", label: "Ember" },
-  { id: "jigglypuff", icon: "🎈", label: "Puff" },
-  { id: "psyduck", icon: "🦆", label: "Quack" },
-  { id: "meowth", icon: "🐱", label: "Whiskers" },
+  { id: "pikachu", dex: 25, icon: "⚡", label: "Sparky", species: "Pikachu" },
+  { id: "eevee", dex: 133, icon: "🦊", label: "Evee", species: "Eevee" },
+  { id: "bulbasaur", dex: 1, icon: "🌱", label: "Sprout", species: "Bulbasaur" },
+  { id: "squirtle", dex: 7, icon: "🐢", label: "Shellback", species: "Squirtle" },
+  { id: "charmander", dex: 4, icon: "🔥", label: "Ember", species: "Charmander" },
+  { id: "jigglypuff", dex: 39, icon: "🎈", label: "Puff", species: "Jigglypuff" },
+  { id: "psyduck", dex: 54, icon: "🦆", label: "Quack", species: "Psyduck" },
+  { id: "meowth", dex: 52, icon: "🐱", label: "Whiskers", species: "Meowth" },
 ];
+
+export const avatarFor = (avatarId: string | null | undefined): AvatarPreset =>
+  AVATAR_PRESETS.find((a) => a.id === avatarId) ?? AVATAR_PRESETS[0];
 
 /**
  * Trainer card cosmetics — worn on `TrainerCard.tsx`, unlocked from `SHOP_CATALOGUE`.
@@ -93,12 +105,16 @@ export const CARD_FRAMES: CardFrame[] = [
   { id: "starfield", label: "Starfield", blurb: "Slow stars drifting behind the portrait.", unlockSku: "card.frame.starfield" },
 ];
 
-export type TeamId = "blossom" | "dusk" | "lumen";
+export type TeamId = "valor" | "mystic" | "instinct";
 
 export interface Team {
   id: TeamId;
   name: string;
   motto: string;
+  /** National Dex number of the legendary bird the team is sworn to. */
+  dex: number;
+  /** That bird's name, for the label under the mascot. */
+  mascot: string;
   /** Light wash behind the card header. Text on it must be `ink`, never white. */
   tint: string;
   /** Mid-strength fill: level ring, XP bar, rim. */
@@ -109,40 +125,64 @@ export interface Team {
   glow: string;
 }
 
-/** Three teams, named for the palette this site already owns rather than borrowed from
- *  the games. Each is one hue at three strengths so a card reads as one material. */
+/** The three teams, each one hue at three strengths so a card reads as one material.
+ *  Hues are pulled toward this site's palette rather than the games' primaries —
+ *  Valor sits at a warm coral instead of pure red, Instinct at honey instead of
+ *  traffic-light yellow — so a card still belongs on a lilac page. */
 export const TEAMS: Team[] = [
   {
-    id: "blossom",
-    name: "Team Blossom",
-    motto: "Chase the sweet stops.",
-    tint: "hsl(330 60% 95%)",
-    accent: "hsl(330 60% 62%)",
-    ink: "hsl(330 55% 30%)",
-    glow: "216 100 158",
+    id: "valor",
+    name: "Team Valor",
+    motto: "Chase it with your whole heart.",
+    dex: 146,
+    mascot: "Moltres",
+    tint: "hsl(9 72% 95%)",
+    accent: "hsl(9 78% 57%)",
+    ink: "hsl(9 62% 32%)",
+    glow: "232 80 58",
   },
   {
-    id: "dusk",
-    name: "Team Dusk",
+    id: "mystic",
+    name: "Team Mystic",
     motto: "Chase the quiet hours.",
-    tint: "hsl(255 45% 95%)",
-    accent: "hsl(255 45% 63%)",
-    ink: "hsl(255 45% 31%)",
-    glow: "139 118 203",
+    dex: 144,
+    mascot: "Articuno",
+    tint: "hsl(215 62% 95%)",
+    accent: "hsl(215 66% 54%)",
+    ink: "hsl(215 60% 31%)",
+    glow: "62 124 214",
   },
   {
-    id: "lumen",
-    name: "Team Lumen",
+    id: "instinct",
+    name: "Team Instinct",
     motto: "Chase the golden light.",
-    tint: "hsl(42 85% 93%)",
-    accent: "hsl(42 82% 50%)",
-    ink: "hsl(35 70% 25%)",
-    glow: "233 182 34",
+    dex: 145,
+    mascot: "Zapdos",
+    tint: "hsl(45 80% 93%)",
+    accent: "hsl(45 82% 50%)",
+    ink: "hsl(38 70% 26%)",
+    glow: "232 180 23",
   },
 ];
 
-export const teamFor = (teamId: string | null | undefined): Team =>
-  TEAMS.find((t) => t.id === teamId) ?? TEAMS[0];
+/**
+ * Cards saved before the teams were renamed still hold the old ids.
+ *
+ * Without this the lookup below falls through to `TEAMS[0]` and every Dusk and
+ * Lumen card silently turns Valor — a colour change nobody asked for, on the one
+ * screen that is supposed to feel personal. Mapped at read time by hue, so no
+ * migration has to run and an old row keeps working if one ever comes back.
+ */
+const LEGACY_TEAM_IDS: Record<string, TeamId> = {
+  blossom: "valor",
+  dusk: "mystic",
+  lumen: "instinct",
+};
+
+export const teamFor = (teamId: string | null | undefined): Team => {
+  const id = teamId ? LEGACY_TEAM_IDS[teamId] ?? teamId : null;
+  return TEAMS.find((t) => t.id === id) ?? TEAMS[0];
+};
 
 /** A stable 12-digit trainer ID from the user's uuid, grouped 4-4-4 like a friend code.
  *  Cosmetic only — it identifies the card, never a record. */

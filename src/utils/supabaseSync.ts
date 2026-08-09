@@ -14,6 +14,76 @@ export interface AchievementData {
 
 export type LoadResult<T> = { ok: true; data: T } | { ok: false };
 
+// ---------------------------------------------------------------------------
+// Couple scope — see docs/superpowers/specs/2026-08-09-couples-pairing-design.md
+//
+// Every shared table (stamps_progress, checkpoint_photos, coupon_achievements,
+// custom_stamps, custom_coupons, custom_wrapped_slides, admin_settings) gains
+// a nullable `couple_id`. RLS permits exactly two read/write shapes:
+//   - linked:  couple_id = <the couple's id>
+//   - solo:    user_id = auth.uid() AND couple_id IS NULL
+// The helpers below make every query below match one of those shapes exactly
+// — drifting from them doesn't error, it just silently returns nothing.
+// Global tables (global_admin_settings, trainer_card_config,
+// wrapped_template_copy) and personal paths (profiles, record_drop, buy_sku,
+// buy_item) are untouched — they stay keyed by user_id / are singleton rows.
+// ---------------------------------------------------------------------------
+
+// The pure half of the scope rule lives in `coupleScope.ts` so its self-check
+// can import the real functions rather than a copy — see the note there.
+// Re-exported here because every call site in this file already reaches for
+// them through this module.
+export type { Scope } from "./coupleScope";
+export { applyScope, scopeColumns, scopeConflict } from "./coupleScope";
+
+import type { Scope } from "./coupleScope";
+import { applyScope, scopeColumns, scopeConflict } from "./coupleScope";
+
+/**
+ * Resolve the caller's scope for one shared-table call: couple-wide if their
+ * `profiles.couple_id` is set, solo otherwise. Returns null when signed out
+ * (or the profile read itself fails), so every caller's existing
+ * `if (!user) return ...` early-out keeps working unchanged.
+ *
+ * Deliberately NOT cached in a module-level variable. A cache that survives
+ * across calls would keep serving a freshly-linked user's old solo scope (or
+ * a stale scope after logout) until a hard refresh — exactly the
+ * "half-migrated" bug the fresh-start requirement in the design doc warns
+ * about. Re-resolving costs one extra `profiles` select per call, which is
+ * cheap next to that risk: these functions run on user actions and debounced
+ * syncs, not in a tight loop. A function that needs scope for several
+ * queries resolves it once into a local variable and reuses that local —
+ * fine, since a local can't outlive the call and go stale.
+ */
+export const currentScope = async (): Promise<Scope | null> => {
+  if (!isSupabaseAvailable() || !supabase) return null;
+
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("couple_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error resolving couple scope:", error);
+      // ponytail: ambiguous whether this is "no profile row yet" or a
+      // transient network error. Treating it as signed-out (null) is safer
+      // than guessing solo and reading/writing the wrong rows.
+      return null;
+    }
+
+    const coupleId = (data as { couple_id?: string | null } | null)?.couple_id ?? null;
+    return coupleId ? { coupleId, userId: user.id } : { coupleId: null, userId: user.id };
+  } catch (error) {
+    console.error("Error resolving couple scope:", error);
+    return null;
+  }
+};
+
 // Checkpoint Photos Sync Functions (Memory Book cross-device sync)
 
 /**
@@ -25,8 +95,8 @@ export const syncCheckpointPhoto = async (photo: Photo): Promise<boolean> => {
     return false;
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync checkpoint photo");
     return false;
   }
@@ -42,7 +112,7 @@ export const syncCheckpointPhoto = async (photo: Photo): Promise<boolean> => {
       typeof photo.timestamp === "number" ? new Date(photo.timestamp).toISOString() : new Date().toISOString();
 
     const record = {
-      user_id: user.id,
+      ...scopeColumns(scope),
       photo_id: photo.id,
       checkpoint_id: photo.checkpointId,
       storage_url: storageUrl,
@@ -55,7 +125,7 @@ export const syncCheckpointPhoto = async (photo: Photo): Promise<boolean> => {
 
     const { error } = await supabase
       .from("checkpoint_photos")
-      .upsert([record], { onConflict: "user_id,photo_id" });
+      .upsert([record], { onConflict: scopeConflict(scope, "photo_id") });
 
     if (error) {
       console.error("Error syncing checkpoint photo:", error);
@@ -78,17 +148,17 @@ export const loadCheckpointPhotos = async (): Promise<Photo[]> => {
     return [];
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to load checkpoint photos");
     return [];
   }
 
   try {
-    const { data, error } = await supabase
-      .from("checkpoint_photos")
-      .select("*")
-      .eq("user_id", user.id)
+    const { data, error } = await applyScope(
+      supabase.from("checkpoint_photos").select("*"),
+      scope
+    )
       .order("created_at", { ascending: false })
       .limit(2000);
 
@@ -133,16 +203,16 @@ export const loadCheckpointPhotosResult = async (): Promise<LoadResult<Photo[]>>
     return { ok: false };
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     return { ok: false };
   }
 
   try {
-    const { data, error } = await supabase
-      .from("checkpoint_photos")
-      .select("*")
-      .eq("user_id", user.id)
+    const { data, error } = await applyScope(
+      supabase.from("checkpoint_photos").select("*"),
+      scope
+    )
       .order("created_at", { ascending: false })
       .limit(2000);
 
@@ -186,18 +256,17 @@ export const deleteCheckpointPhoto = async (photoId: string): Promise<boolean> =
     return false;
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to delete checkpoint photo");
     return false;
   }
 
   try {
-    const { error } = await supabase
-      .from("checkpoint_photos")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("photo_id", photoId);
+    const { error } = await applyScope(
+      supabase.from("checkpoint_photos").delete().eq("photo_id", photoId),
+      scope
+    );
 
     if (error) {
       console.error("Error deleting checkpoint photo:", error);
@@ -225,9 +294,9 @@ export const syncSingleStamp = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync stamp");
     return false;
   }
@@ -236,12 +305,12 @@ export const syncSingleStamp = async (
     const now = new Date().toISOString();
     // If stamp is being checked and doesn't have a checked_at timestamp yet, set it to now
     // Otherwise preserve existing timestamp or set to null if unchecked
-    const checkedAt = stampItem.isPast 
+    const checkedAt = stampItem.isPast
       ? (stampItem.checkedAt || now) // Preserve existing timestamp or set to now if newly checked
       : null; // Set to null when unchecked
-    
+
     const stampRecord = {
-      user_id: user.id,
+      ...scopeColumns(scope),
       stamp_key: `${stampItem.time}-${stampItem.title}`,
       is_active: stampItem.isActive,
       is_past: stampItem.isPast,
@@ -256,7 +325,7 @@ export const syncSingleStamp = async (
     const { data, error } = await supabase
       .from("stamps_progress")
       .upsert([stampRecord], {
-        onConflict: "user_id,stamp_key",
+        onConflict: scopeConflict(scope, "stamp_key"),
       })
       .select();
 
@@ -291,9 +360,9 @@ export const syncStampsProgress = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync stamps");
     return false;
   }
@@ -302,7 +371,7 @@ export const syncStampsProgress = async (
     const now = new Date().toISOString();
     // Convert itineraryState to individual stamp records
     const stampRecords = itineraryState.map((item) => ({
-      user_id: user.id,
+      ...scopeColumns(scope),
       stamp_key: `${item.time}-${item.title}`,
       is_active: item.isActive,
       is_past: item.isPast,
@@ -327,7 +396,7 @@ export const syncStampsProgress = async (
     const { data, error } = await supabase
       .from("stamps_progress")
       .upsert(uniqueStampRecords, {
-        onConflict: "user_id,stamp_key",
+        onConflict: scopeConflict(scope, "stamp_key"),
       })
       .select();
 
@@ -370,21 +439,21 @@ export const loadStampsProgress = async (
     return baseItinerary;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to load stamps");
     return baseItinerary;
   }
 
   try {
-    // Load stamps from Supabase for this user
+    // Load stamps from Supabase for this scope
     // Add timestamp to query to prevent browser caching and ensure fresh data
     const timestamp = Date.now();
-    const { data, error } = await supabase
-      .from("stamps_progress")
-      .select("*")
-      .eq("user_id", user.id)
+    const { data, error } = await applyScope(
+      supabase.from("stamps_progress").select("*"),
+      scope
+    )
       .order("updated_at", { ascending: false })
       // Force fresh data by adding a timestamp parameter (Supabase ignores unknown params but browser won't cache)
       .limit(1000); // Explicit limit to ensure we get all records
@@ -448,15 +517,17 @@ export const loadStampsProgress = async (
 /** Un-collect a single stamp, as if never checked. */
 export const resetStamp = async (stampKey: string): Promise<boolean> => {
   if (!isSupabaseAvailable() || !supabase) return false;
-  const user = await getCurrentUser();
-  if (!user) return false;
+  const scope = await currentScope();
+  if (!scope) return false;
 
   try {
-    const { error } = await supabase
-      .from("stamps_progress")
-      .update({ is_past: false, checked_at: null, image_url: null, updated_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .eq("stamp_key", stampKey);
+    const { error } = await applyScope(
+      supabase
+        .from("stamps_progress")
+        .update({ is_past: false, checked_at: null, image_url: null, updated_at: new Date().toISOString() })
+        .eq("stamp_key", stampKey),
+      scope
+    );
 
     if (error) {
       console.error("Error resetting stamp:", error);
@@ -472,14 +543,16 @@ export const resetStamp = async (stampKey: string): Promise<boolean> => {
 /** Un-collect every stamp for the current user. */
 export const resetAllStamps = async (): Promise<boolean> => {
   if (!isSupabaseAvailable() || !supabase) return false;
-  const user = await getCurrentUser();
-  if (!user) return false;
+  const scope = await currentScope();
+  if (!scope) return false;
 
   try {
-    const { error } = await supabase
-      .from("stamps_progress")
-      .update({ is_past: false, checked_at: null, image_url: null, updated_at: new Date().toISOString() })
-      .eq("user_id", user.id);
+    const { error } = await applyScope(
+      supabase
+        .from("stamps_progress")
+        .update({ is_past: false, checked_at: null, image_url: null, updated_at: new Date().toISOString() }),
+      scope
+    );
 
     if (error) {
       console.error("Error resetting all stamps:", error);
@@ -505,9 +578,9 @@ export const syncCouponAchievements = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync coupon achievements");
     return false;
   }
@@ -517,14 +590,14 @@ export const syncCouponAchievements = async (
       .from("coupon_achievements")
       .upsert(
         {
-          user_id: user.id,
+          ...scopeColumns(scope),
           redeemed_coupon_ids: achievementData.redeemedCouponIds,
           achievements_unlocked: achievementData.achievementsUnlocked,
           achievement_timestamps: achievementData.achievementTimestamps,
           updated_at: new Date().toISOString(),
         },
         {
-          onConflict: "user_id",
+          onConflict: scopeConflict(scope),
         }
       )
       .select();
@@ -561,19 +634,18 @@ export const loadCouponAchievements = async (): Promise<{
     return null;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to load coupon achievements");
     return null;
   }
 
   try {
-    const { data, error } = await supabase
-      .from("coupon_achievements")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
+    const { data, error } = await applyScope(
+      supabase.from("coupon_achievements").select("*"),
+      scope
+    ).single();
 
     if (error) {
       if (error.code === "PGRST116") {
@@ -655,9 +727,9 @@ export const syncCustomStamps = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync custom stamps");
     return false;
   }
@@ -666,7 +738,7 @@ export const syncCustomStamps = async (
     // Convert custom stamps to database format
     const stampRecords = stamps.map((stamp) => ({
       id: stamp.id,
-      user_id: user.id,
+      ...scopeColumns(scope),
       time: stamp.time,
       title: stamp.title,
       description: stamp.description,
@@ -681,7 +753,7 @@ export const syncCustomStamps = async (
     const { data, error } = await supabase
       .from("custom_stamps")
       .upsert(stampRecords, {
-        onConflict: "user_id,id",
+        onConflict: scopeConflict(scope, "id"),
       })
       .select();
 
@@ -712,19 +784,18 @@ export const loadCustomStamps = async (): Promise<CustomStamp[]> => {
     return [];
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to load custom stamps");
     return [];
   }
 
   try {
-    const { data, error } = await supabase
-      .from("custom_stamps")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true });
+    const { data, error } = await applyScope(
+      supabase.from("custom_stamps").select("*"),
+      scope
+    ).order("created_at", { ascending: true });
 
     if (error) {
       console.error("Error loading custom stamps:", error);
@@ -765,17 +836,16 @@ export const loadCustomStampsResult = async (): Promise<LoadResult<CustomStamp[]
     return { ok: false };
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     return { ok: false };
   }
 
   try {
-    const { data, error } = await supabase
-      .from("custom_stamps")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true });
+    const { data, error } = await applyScope(
+      supabase.from("custom_stamps").select("*"),
+      scope
+    ).order("created_at", { ascending: true });
 
     if (error) {
       console.error("Error loading custom stamps:", error);
@@ -816,19 +886,18 @@ export const deleteCustomStampFromSupabase = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to delete custom stamps");
     return false;
   }
 
   try {
-    const { error } = await supabase
-      .from("custom_stamps")
-      .delete()
-      .eq("id", stampId)
-      .eq("user_id", user.id);
+    const { error } = await applyScope(
+      supabase.from("custom_stamps").delete().eq("id", stampId),
+      scope
+    );
 
     if (error) {
       console.error("Error deleting custom stamp from Supabase:", error);
@@ -856,9 +925,9 @@ export const syncCustomCoupons = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync custom coupons");
     return false;
   }
@@ -867,7 +936,7 @@ export const syncCustomCoupons = async (
     // Convert custom coupons to database format
     const couponRecords = coupons.map((coupon) => ({
       id: coupon.id,
-      user_id: user.id,
+      ...scopeColumns(scope),
       title: coupon.title,
       description: coupon.description,
       emoji: coupon.emoji,
@@ -881,7 +950,7 @@ export const syncCustomCoupons = async (
     const { data, error } = await supabase
       .from("custom_coupons")
       .upsert(couponRecords, {
-        onConflict: "user_id,id",
+        onConflict: scopeConflict(scope, "id"),
       })
       .select();
 
@@ -912,19 +981,18 @@ export const loadCustomCoupons = async (): Promise<CustomCoupon[]> => {
     return [];
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to load custom coupons");
     return [];
   }
 
   try {
-    const { data, error } = await supabase
-      .from("custom_coupons")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true });
+    const { data, error } = await applyScope(
+      supabase.from("custom_coupons").select("*"),
+      scope
+    ).order("created_at", { ascending: true });
 
     if (error) {
       console.error("Error loading custom coupons:", error);
@@ -964,17 +1032,16 @@ export const loadCustomCouponsResult = async (): Promise<LoadResult<CustomCoupon
     return { ok: false };
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     return { ok: false };
   }
 
   try {
-    const { data, error } = await supabase
-      .from("custom_coupons")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true });
+    const { data, error } = await applyScope(
+      supabase.from("custom_coupons").select("*"),
+      scope
+    ).order("created_at", { ascending: true });
 
     if (error) {
       console.error("Error loading custom coupons:", error);
@@ -1014,19 +1081,18 @@ export const deleteCustomCouponFromSupabase = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to delete custom coupons");
     return false;
   }
 
   try {
-    const { error } = await supabase
-      .from("custom_coupons")
-      .delete()
-      .eq("id", couponId)
-      .eq("user_id", user.id);
+    const { error } = await applyScope(
+      supabase.from("custom_coupons").delete().eq("id", couponId),
+      scope
+    );
 
     if (error) {
       console.error("Error deleting custom coupon from Supabase:", error);
@@ -1054,9 +1120,9 @@ export const syncAdminSettings = async (
     return false;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync admin settings");
     return false;
   }
@@ -1066,7 +1132,7 @@ export const syncAdminSettings = async (
       .from("admin_settings")
       .upsert(
         {
-          user_id: user.id,
+          ...scopeColumns(scope),
           use_custom_stamps: settings.useCustomStamps,
           use_custom_coupons: settings.useCustomCoupons,
           disabled_default_stamps: settings.disabledDefaultStamps,
@@ -1077,7 +1143,7 @@ export const syncAdminSettings = async (
           updated_at: new Date().toISOString(),
         },
         {
-          onConflict: "user_id",
+          onConflict: scopeConflict(scope),
         }
       )
       .select();
@@ -1114,19 +1180,18 @@ export const loadAdminSettings = async (): Promise<AdminSettings | null> => {
     return null;
   }
 
-  // Get current user
-  const user = await getCurrentUser();
-  if (!user) {
+  // Get current scope (couple-wide when linked, solo otherwise)
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to load admin settings");
     return null;
   }
 
   try {
-    const { data, error } = await supabase
-      .from("admin_settings")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
+    const { data, error } = await applyScope(
+      supabase.from("admin_settings").select("*"),
+      scope
+    ).single();
 
     if (error) {
       if (error.code === "PGRST116") {
@@ -1464,8 +1529,8 @@ export const syncCustomWrappedSlides = async (
     return false;
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to sync custom wrapped slides");
     return false;
   }
@@ -1473,7 +1538,7 @@ export const syncCustomWrappedSlides = async (
   try {
     const slideRecords = slides.map((slide) => ({
       id: slide.id,
-      user_id: user.id,
+      ...scopeColumns(scope),
       eyebrow: slide.eyebrow,
       icon: slide.icon || null,
       heading: slide.heading,
@@ -1511,18 +1576,17 @@ export const loadCustomWrappedSlides = async (): Promise<CustomWrappedSlide[]> =
     return [];
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to load custom wrapped slides");
     return [];
   }
 
   try {
-    const { data, error } = await supabase
-      .from("custom_wrapped_slides")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("sort_order", { ascending: true });
+    const { data, error } = await applyScope(
+      supabase.from("custom_wrapped_slides").select("*"),
+      scope
+    ).order("sort_order", { ascending: true });
 
     if (error) {
       console.error("Error loading custom wrapped slides:", error);
@@ -1560,18 +1624,17 @@ export const deleteCustomWrappedSlideFromSupabase = async (slideId: string): Pro
     return false;
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const scope = await currentScope();
+  if (!scope) {
     console.warn("User must be authenticated to delete custom wrapped slides");
     return false;
   }
 
   try {
-    const { error } = await supabase
-      .from("custom_wrapped_slides")
-      .delete()
-      .eq("id", slideId)
-      .eq("user_id", user.id);
+    const { error } = await applyScope(
+      supabase.from("custom_wrapped_slides").delete().eq("id", slideId),
+      scope
+    );
 
     if (error) {
       console.error("Error deleting custom wrapped slide:", error);
@@ -1588,14 +1651,17 @@ export const deleteCustomWrappedSlideFromSupabase = async (slideId: string): Pro
 // Real-time Subscription Functions
 
 /**
- * Subscribe to real-time changes in stamps_progress table for a specific user
- * @param userId - The user ID to listen for changes
+ * Subscribe to real-time changes in stamps_progress table for the caller's
+ * scope — couple-wide when linked, this user only when solo.
+ * @param scope - `{ coupleId, userId }` from `currentScope()`, or the
+ *                equivalent already held by the caller (e.g. AdventureContext's
+ *                `couple`/`user` state). `coupleId` null means solo.
  * @param callback - Callback function that will be called when changes are detected
  *                  The component should reload stamps progress using loadStampsProgress
  * @returns Unsubscribe function to stop listening
  */
 export const subscribeToStampsProgress = (
-  userId: string,
+  scope: { coupleId: string | null; userId: string },
   callback: () => void
 ): (() => void) => {
   if (!isSupabaseAvailable() || !supabase) {
@@ -1603,9 +1669,15 @@ export const subscribeToStampsProgress = (
     return () => {};
   }
 
-  // Subscribe to changes in stamps_progress table for this user
+  // Channel/filter key by couple when linked so both partners' writes (which
+  // may carry either partner's user_id) fire this subscription — filtering
+  // on user_id alone would silently miss the partner's rows.
+  const scopeKey = scope.coupleId ?? scope.userId;
+  const filter = scope.coupleId ? `couple_id=eq.${scope.coupleId}` : `user_id=eq.${scope.userId}`;
+
+  // Subscribe to changes in stamps_progress table for this scope
   const channel = supabase
-    .channel(`stamps-progress:${userId}`, {
+    .channel(`stamps-progress:${scopeKey}`, {
       config: {
         broadcast: { self: false },
       },
@@ -1616,7 +1688,7 @@ export const subscribeToStampsProgress = (
         event: "*", // Listen to INSERT, UPDATE, DELETE
         schema: "public",
         table: "stamps_progress",
-        filter: `user_id=eq.${userId}`,
+        filter,
       },
       async (payload) => {
         console.log("Realtime stamps_progress change detected:", payload.eventType);
@@ -1643,6 +1715,15 @@ export const subscribeToStampsProgress = (
     supabase.removeChannel(channel);
   };
 };
+
+// ponytail: unlike `subscribeToStampsProgress`, this one is still hardcoded
+// to `user_id=eq.<id>` and its only caller — `GiftCouponsSection.tsx` — still
+// passes plain `user.id`. Making it couple-aware needs that component to pass
+// `couple?.id` too, and `GiftCouponsSection.tsx` is out of this slice's file
+// scope (only supabaseSync.ts and AdventureContext.tsx's realtime filter are
+// in bounds here). `loadCouponAchievements` itself IS scope-aware above, so a
+// manual refresh/reload already picks up a linked partner's writes — only the
+// *live* push notification is still solo-only until that component is edited.
 
 /**
  * Subscribe to real-time changes in coupon_achievements table for a specific user

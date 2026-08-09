@@ -1,4 +1,14 @@
 // Admin authentication utilities
+//
+// IMPORTANT: `ADMIN_PASSWORD` and the session it gates are a UI lock only —
+// they keep the admin panel out of casual view, nothing more. Anyone
+// authenticated with Supabase can call the admin RPCs directly from the
+// browser console regardless of this password. The real enforcement lives
+// server-side: every admin RPC (`grant_coins`, config writes, resets) opens
+// with an `is_pair_owner()` guard in SQL and raises if the caller isn't the
+// couple's owner. Do not treat anything in this file as a security boundary.
+
+import { isPairOwner } from "@/utils/couples";
 
 const ADMIN_PASSWORD = "admin123";
 const SESSION_KEY = "admin-session";
@@ -53,6 +63,17 @@ export const login = (password: string): boolean => {
   }
   return true;
 };
+
+/**
+ * Composes the UI password gate with the real server-side check. Use this
+ * wherever an admin action is actually about to run (as opposed to just
+ * deciding whether to show the admin route) — `isAuthenticated()` alone only
+ * tells you the password session is live, not that this account is the
+ * couple's owner. The RPCs re-check `is_pair_owner()` themselves regardless,
+ * so this is a UX convenience, not a substitute for that guard.
+ */
+export const isAdminSession = async (): Promise<boolean> =>
+  isAuthenticated() && (await isPairOwner());
 
 export const ADMIN_LOGIN_PATH = "/admin/login";
 

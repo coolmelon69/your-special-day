@@ -9,6 +9,7 @@ import PokeCoin from "@/components/PokeCoin";
 import TrainerCard, { type BadgeSlot, type FavouritePlace } from "@/components/TrainerCard";
 import BagTab from "@/components/BagTab";
 import ShopTab from "@/components/ShopTab";
+import LinkPartner from "@/components/LinkPartner";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { useAllCafePlaces, useCafeCategories } from "@/hooks/useCafes";
 import { computeAchievements, type AchievementTier } from "@/utils/cafeAchievements";
@@ -48,7 +49,7 @@ const formatDate = (date: Date) =>
   date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 const TrainerCardPage = () => {
-  const { profile, itineraryState, trainerCardEnabled, trainerConfig, updateProfile, purchase, purchaseItem, user } = useAdventure();
+  const { profile, itineraryState, trainerCardEnabled, trainerConfig, updateProfile, purchase, purchaseItem, user, isLinked, refreshCouple } = useAdventure();
   const categories = useCafeCategories();
   const places = useAllCafePlaces();
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
@@ -332,18 +333,20 @@ const TrainerCardPage = () => {
                           purchaseItem={purchaseItem}
                         />
                       ) : (
-                        <TrainerCard
-                          profile={profile}
-                          team={team}
-                          stats={stats}
-                          trainerId={trainerIdFor(user?.id)}
-                          badges={badgeSlots}
-                          log={log}
-                          favourites={favourites}
-                          onPhotoSelected={handlePhoto}
-                          onTeamChange={(teamId) => updateProfile({ teamId })}
-                          isSaving={isSavingPhoto}
-                        />
+                        <div className="space-y-6">
+                          <TrainerCard
+                            profile={profile}
+                            team={team}
+                            stats={stats}
+                            trainerId={trainerIdFor(user?.id)}
+                            badges={badgeSlots}
+                            log={log}
+                            favourites={favourites}
+                            onPhotoSelected={handlePhoto}
+                            isSaving={isSavingPhoto}
+                          />
+                          {!isLinked && <LinkPartner variant="settings" onLinked={refreshCouple} />}
+                        </div>
                       )}
                     </motion.div>
                   </AnimatePresence>

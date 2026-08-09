@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/utils/supabaseClient";
 import { uniqueSlug } from "@/utils/cafeRanking";
+import { applyScope, scopeColumns, type Scope } from "@/utils/coupleScope";
+import { currentScope } from "@/utils/supabaseSync";
 import type { CafeCategory, CafePlace, NewCafePlace } from "@/types/cafes";
 
 export const cafeKeys = {
@@ -17,13 +19,38 @@ const db = () => {
   return supabase;
 };
 
+/**
+ * Cafés are part of the shared journey (sql/2026-08-09-cafes-couple-scope.sql),
+ * so every read and write here carries the same predicate as stamps and photos:
+ * couple-wide once linked, own rows while solo.
+ *
+ * Throwing when there's no scope is deliberate. Returning an empty list instead
+ * would render a signed-out visitor an empty café page that looks like their
+ * lists were wiped — the exact failure the couples spec calls out.
+ *
+ * ponytail: scope is resolved inside each queryFn rather than folded into the
+ * query key. Linking happens on the onboarding/trainer-card screens with the
+ * café pages unmounted, so the next visit refetches on mount anyway. Put the
+ * couple id in the key if a link ever becomes possible while a café list is
+ * on screen.
+ */
+const cafeScope = async (): Promise<Scope> => {
+  const scope = await currentScope();
+  if (!scope) {
+    throw new Error("Sign in first — the café lists are tied to your account.");
+  }
+  return scope;
+};
+
 export const useCafeCategories = () =>
   useQuery({
     queryKey: cafeKeys.categories,
     queryFn: async (): Promise<CafeCategory[]> => {
-      const { data, error } = await db()
-        .from("cafe_categories")
-        .select("*")
+      const scope = await cafeScope();
+      const { data, error } = await applyScope(
+        db().from("cafe_categories").select("*"),
+        scope
+      )
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw new Error(error.message);
@@ -50,7 +77,8 @@ export const useAllCafePlaces = () =>
   useQuery({
     queryKey: cafeKeys.places,
     queryFn: async (): Promise<CafePlace[]> => {
-      const { data, error } = await db().from("cafe_places").select("*");
+      const scope = await cafeScope();
+      const { data, error } = await applyScope(db().from("cafe_places").select("*"), scope);
       if (error) throw new Error(error.message);
       return data ?? [];
     },
@@ -68,7 +96,7 @@ export const useCafePlaces = (categoryId: string | undefined) => {
 };
 
 /**
- * Writes need a session — the RLS policies are `auth.role() = 'authenticated'`.
+ * Writes need a session — the RLS policies match on couple_id or auth.uid().
  * Signed out, Postgres answers with its own wording, which means nothing to
  * anyone standing in a chip shop. Translate it once, here.
  */
@@ -81,9 +109,16 @@ export const useCreateCategory = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ name, icon }: { name: string; icon: string }): Promise<CafeCategory> => {
-      const { data: existing, error: readError } = await db()
-        .from("cafe_categories")
-        .select("slug");
+      const scope = await cafeScope();
+
+      // Scoped, so the suffix is derived from this couple's slugs only — which
+      // is what the per-scope unique index on (couple_id, slug) enforces. An
+      // unscoped read here would invent "coffee-2" to dodge another couple's
+      // invisible row.
+      const { data: existing, error: readError } = await applyScope(
+        db().from("cafe_categories").select("slug"),
+        scope
+      );
       if (readError) throw new Error(readError.message);
 
       const slug = uniqueSlug(
@@ -93,7 +128,7 @@ export const useCreateCategory = () => {
 
       const { data, error } = await db()
         .from("cafe_categories")
-        .insert({ name: name.trim(), slug, icon })
+        .insert({ name: name.trim(), slug, icon, ...scopeColumns(scope) })
         .select()
         .single();
       if (error) throw writeError(error.message);
@@ -138,7 +173,7 @@ export const useSavePlace = () => {
 
       const { data, error } = await db()
         .from("cafe_places")
-        .insert(payload)
+        .insert({ ...payload, ...scopeColumns(await cafeScope()) })
         .select()
         .single();
       if (error) throw writeError(error.message);

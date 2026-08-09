@@ -12,7 +12,9 @@ import {
   Coffee,
   Menu,
   IdCard,
+  HeartHandshake,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { NavLink } from "./NavLink";
@@ -44,6 +46,15 @@ const MASTHEAD_LINK =
 const CHROME_BUTTON =
   "inline-flex items-center gap-2 rounded-[10px] border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground transition-gentle hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+interface NavItem {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+  /** Carries the rose accent — reserved for the pairing prompt, which is the
+   *  one nav entry asking for something rather than pointing somewhere. */
+  accent?: boolean;
+}
+
 const NavigationBar = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -53,7 +64,15 @@ const NavigationBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { trainerCardEnabled } = useAdventure();
+  const { trainerCardEnabled, profile, isLinked } = useAdventure();
+
+  /** The pairing form lives on /trainer-card, so the prompt is a route, not a
+   *  modal. Hidden once you're standing on that page — the form is already in
+   *  view there, and a second entry to the page you're on would light up the
+   *  active state twice. `profile` gates it because `redeem_invite` refuses a
+   *  code from an account with no profile row (`no_profile`). */
+  const showPairPrompt =
+    siteUnlocked && !!user && !!profile && !isLinked && location.pathname !== "/trainer-card";
 
   // Listen to auth state changes
   useEffect(() => {
@@ -79,7 +98,7 @@ const NavigationBar = () => {
   };
 
   // Locked out of the private site? The café list is all there is to navigate.
-  const navItems = !siteUnlocked
+  const navItems: NavItem[] = !siteUnlocked
     ? [{ path: "/cafes", label: "Cafés", icon: Coffee }]
     : [
     { path: "/", label: "Home", icon: Home },
@@ -90,6 +109,11 @@ const NavigationBar = () => {
     ...(trainerCardEnabled ? [{ path: "/trainer-card", label: "Profile", icon: IdCard }] : []),
     { path: "/cafes", label: "Cafés", icon: Coffee },
     ...(authenticated ? [{ path: "/admin", label: "Admin", icon: Shield }] : []),
+    // Last in the row so it reads as an invitation at the end of the set,
+    // not as another place the site expects you to already know about.
+    ...(showPairPrompt
+      ? [{ path: "/trainer-card", label: "Link partner", icon: HeartHandshake, accent: true }]
+      : []),
   ];
 
   return (
@@ -108,13 +132,20 @@ const NavigationBar = () => {
           <div className="hidden items-center gap-7 lg:flex">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
+              const Icon = item.icon;
               return (
                 <NavLink
-                  key={item.path}
+                  key={item.label}
                   to={item.path}
-                  className={MASTHEAD_LINK}
+                  className={`${MASTHEAD_LINK} ${
+                    item.accent ? "inline-flex items-center gap-2 !text-rose hover:!text-rose" : ""
+                  }`}
                   activeClassName="!text-foreground"
                 >
+                  {/* The masthead is words only; the pairing prompt is the sole
+                      entry that carries a mark, which is what sets it apart
+                      without a pill or a dot the rest of the row would answer. */}
+                  {item.accent && <Icon className="h-4 w-4" aria-hidden />}
                   {item.label}
                   {isActive && (
                     <motion.span
@@ -188,16 +219,18 @@ const NavigationBar = () => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.path;
                     return (
-                      <li key={item.path}>
+                      <li key={item.label}>
                         <SheetClose asChild>
                           <NavLink
                             to={item.path}
-                            className="flex items-center gap-3 py-4 font-serif text-xl text-muted-foreground transition-gentle hover:text-foreground"
+                            className={`flex items-center gap-3 py-4 font-serif text-xl transition-gentle hover:text-foreground ${
+                              item.accent ? "text-rose" : "text-muted-foreground"
+                            }`}
                             activeClassName="!text-foreground"
                           >
                             <Icon
                               className={`h-4 w-4 ${
-                                isActive ? "text-rose" : "text-muted-foreground"
+                                item.accent || isActive ? "text-rose" : "text-muted-foreground"
                               }`}
                             />
                             {item.label}

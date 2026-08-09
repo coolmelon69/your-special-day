@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AlertCircle, Coins, IdCard, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, Coins, IdCard, RotateCcw, User, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { Switch } from "@/components/ui/switch";
 import { useAdventure } from "@/contexts/AdventureContext";
@@ -7,15 +7,34 @@ import { syncCouponAchievements, syncStampsProgress } from "@/utils/supabaseSync
 import { getAllCustomStamps, getAdminSettings, updateAdminSettings } from "@/utils/adminStorage";
 import { initialItinerary, type ItineraryItem } from "@/components/TimelineSection";
 import * as photoStorage from "@/utils/photoStorage";
+import { grantCoins as grantCoinsToTarget, loadCouple } from "@/utils/couples";
+import PartnerLink from "@/components/admin/PartnerLink";
+import TeamControl from "@/components/admin/TeamControl";
 
 const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
 const STORAGE_KEY = "birthday-adventure-progress";
 
 const AdminSettings = () => {
-  const { setItineraryState, refreshPhotos, user, trainerCardEnabled, setTrainerCardEnabled, profile, grantCoins } = useAdventure();
+  const { setItineraryState, refreshPhotos, user, trainerCardEnabled, setTrainerCardEnabled, profile } = useAdventure();
   const [savingTrainerCard, setSavingTrainerCard] = useState(false);
   const [coinAmount, setCoinAmount] = useState("50");
   const [grantingCoins, setGrantingCoins] = useState(false);
+  const [grantTarget, setGrantTarget] = useState<"me" | "partner">("me");
+  const [hasPartner, setHasPartner] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCouple().then((couple) => {
+      if (!cancelled) setHasPartner(Boolean(couple?.partnerId));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasPartner) setGrantTarget("me");
+  }, [hasPartner]);
 
   const handleToggleTrainerCard = async () => {
     const next = !trainerCardEnabled;
@@ -168,7 +187,7 @@ const AdminSettings = () => {
 
     setGrantingCoins(true);
     try {
-      const granted = await grantCoins(amount);
+      const granted = await grantCoinsToTarget(amount, grantTarget);
       if (!granted) {
         alert("Could not grant coins. Please try again.");
       }
@@ -213,6 +232,12 @@ const AdminSettings = () => {
         />
       </div>
 
+      {/* Partner link */}
+      <PartnerLink />
+
+      {/* Teams — the only place a team changes after onboarding */}
+      <TeamControl />
+
       {/* Coin grant escape hatch */}
       <div className="rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-start gap-3">
@@ -225,6 +250,37 @@ const AdminSettings = () => {
             </p>
           </div>
         </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex items-center rounded-[10px] border border-border overflow-hidden" role="group" aria-label="Grant coins to">
+            <button
+              type="button"
+              onClick={() => setGrantTarget("me")}
+              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
+                grantTarget === "me" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+              }`}
+            >
+              <User className="w-4 h-4" />
+              Me
+            </button>
+            <button
+              type="button"
+              onClick={() => hasPartner && setGrantTarget("partner")}
+              disabled={!hasPartner}
+              title={hasPartner ? undefined : "No linked partner yet — link one in Partner link above."}
+              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border-l border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                grantTarget === "partner" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Partner
+            </button>
+          </div>
+        </div>
+        {!hasPartner && (
+          <p className="text-xs text-muted-foreground">
+            Partner isn't linked yet, so coins can only be granted to yourself.
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <input
             type="number"
