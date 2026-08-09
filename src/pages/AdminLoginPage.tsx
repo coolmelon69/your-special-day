@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
-import { login, isAuthenticated } from "@/utils/adminAuth";
+import { login, isAuthenticated, ADMIN_LOGIN_PATH } from "@/utils/adminAuth";
 
 const AdminLoginPage = () => {
   const [password, setPassword] = useState("");
@@ -13,12 +13,16 @@ const AdminLoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated. The pathname guard matters: after login
+  // navigates away, AnimatePresence mode="wait" keeps this page mounted through
+  // its exit animation, and `location` is already /admin. Without the guard the
+  // effect re-fires on every render and the browser throws
+  // "SecurityError: Attempt to use history.replaceState() more than 100 times".
   useEffect(() => {
-    if (isAuthenticated()) {
-      const from = (location.state as { from?: Location })?.from;
-      navigate(from?.pathname || "/admin", { replace: true });
-    }
+    if (location.pathname !== ADMIN_LOGIN_PATH) return;
+    if (!isAuthenticated()) return;
+    const from = (location.state as { from?: Location })?.from;
+    navigate(from?.pathname || "/admin", { replace: true });
   }, [navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
