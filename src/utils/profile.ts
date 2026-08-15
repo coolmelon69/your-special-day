@@ -44,7 +44,17 @@ export interface OwnedItem {
   source: string;
   /** ISO timestamp, set server-side by `record_drop`. */
   at: string;
+  /** How many are in the stack. Absent on everything written before the quantity
+   *  migration, which reads as one — use `qtyOf` rather than reading it raw. */
+  qty?: number;
+  /** ISO timestamp the last one was cashed in, set by `redeem_item`. Absent on
+   *  everything written before that migration, which reads as unspent. A stamped
+   *  entry is a spent one: kept so rare-drop XP survives, hidden from the bag. */
+  redeemedAt?: string | null;
 }
+
+/** Stack size, defaulting the pre-quantity rows to the one copy they represent. */
+export const qtyOf = (item: OwnedItem): number => (item.redeemedAt ? 0 : (item.qty ?? 1));
 
 /** Tolerant read of the `items` jsonb: a malformed row must not blank the bag. */
 const parseItems = (raw: unknown): OwnedItem[] => {
@@ -184,22 +194,54 @@ export const buySku = async (sku: string): Promise<boolean> => {
 };
 
 /**
- * Buy a Poké item off the shop shelf. Price comes from `buy_item`, never from
- * here. Returns false for "not enough coins" and for "already in the bag" — in
- * both cases nothing was charged.
+ * Why a purchase didn't happen. Worth distinguishing because the three cases
+ * need three different things from the reader: spend a coupon, wait, or run the
+ * migration. Lumping them into `false` sends her to check a balance that was
+ * never the problem.
  */
-export const buyItem = async (slug: string): Promise<boolean> => {
+export type BuyItemResult = "ok" | "refused" | "unknown-item" | "error";
+
+/**
+ * Buy `qty` of a Poké item off the shop shelf. Price comes from `buy_item`,
+ * never from here — the client sends how many, never how much. "refused" means
+ * the coins weren't there; nothing was charged.
+ */
+export const buyItem = async (slug: string, qty = 1): Promise<BuyItemResult> => {
+  if (!supabase) return "error";
+
+  try {
+    const { data, error } = await supabase.rpc("buy_item", { p_slug: slug, p_qty: qty });
+    if (error) {
+      console.error("Error buying item:", error);
+      // `buy_item` raises for a slug it holds no price for. That means the shelf
+      // in the client has grown past the migration the database is running — a
+      // deploy problem, not anything about this purchase.
+      return /unknown item/i.test(error.message ?? "") ? "unknown-item" : "error";
+    }
+    return data === true ? "ok" : "refused";
+  } catch (error) {
+    console.error("Error buying item:", error);
+    return "error";
+  }
+};
+
+/**
+ * Cash in an item's real-life coupon. Single-use: the database refuses a second
+ * redeem for the same `source`, so a double-tap or a stale tab returns false
+ * rather than spending it twice.
+ */
+export const redeemItem = async (source: string): Promise<boolean> => {
   if (!supabase) return false;
 
   try {
-    const { data, error } = await supabase.rpc("buy_item", { p_slug: slug });
+    const { data, error } = await supabase.rpc("redeem_item", { p_source: source });
     if (error) {
-      console.error("Error buying item:", error);
+      console.error("Error redeeming item:", error);
       return false;
     }
     return data === true;
   } catch (error) {
-    console.error("Error buying item:", error);
+    console.error("Error redeeming item:", error);
     return false;
   }
 };

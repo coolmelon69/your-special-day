@@ -2,18 +2,19 @@ import { Helmet } from "react-helmet-async";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Settings, CheckSquare, Gift, IdCard, LogOut, Shield, Sparkles } from "lucide-react";
+import { Settings, CheckSquare, Gift, IdCard, LogOut, Shield, Sparkles, Store } from "lucide-react";
 import ProtectedRoute from "@/components/admin/ProtectedRoute";
 import StampsManager from "@/components/admin/StampsManager";
 import CouponsManager from "@/components/admin/CouponsManager";
 import AdminSettings from "@/components/admin/AdminSettings";
 import TrainerLevelsManager from "@/components/admin/TrainerLevelsManager";
+import ShopManager from "@/components/admin/ShopManager";
 import WrappedSlidesManager from "@/components/admin/WrappedSlidesManager";
 import WrappedTemplateEditor from "@/components/admin/WrappedTemplateEditor";
 import { DisplayHeading } from "@/components/editorial";
 import { logout } from "@/utils/adminAuth";
 
-type Tab = "stamps" | "coupons" | "wrapped" | "trainer" | "settings";
+type Tab = "stamps" | "coupons" | "shop" | "wrapped" | "trainer" | "settings";
 
 const AdminPanelPage = () => {
   const [activeTab, setActiveTab] = useState<Tab>("stamps");
@@ -27,6 +28,7 @@ const AdminPanelPage = () => {
   const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "stamps", label: "Stamps", icon: CheckSquare },
     { id: "coupons", label: "Coupons", icon: Gift },
+    { id: "shop", label: "Shop", icon: Store },
     { id: "wrapped", label: "Wrapped", icon: Sparkles },
     { id: "trainer", label: "Trainer", icon: IdCard },
     { id: "settings", label: "Settings", icon: Settings },
@@ -96,6 +98,7 @@ const AdminPanelPage = () => {
               >
                 {activeTab === "stamps" && <StampsManager />}
                 {activeTab === "coupons" && <CouponsManager />}
+                {activeTab === "shop" && <ShopManager />}
                 {activeTab === "wrapped" && (
                   <div className="space-y-8">
                     <WrappedTemplateEditor />

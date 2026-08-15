@@ -188,8 +188,8 @@ const AdminSettings = () => {
     setGrantingCoins(true);
     try {
       const granted = await grantCoinsToTarget(amount, grantTarget);
-      if (!granted) {
-        alert("Could not grant coins. Please try again.");
+      if (!granted.ok) {
+        alert(granted.message);
       }
     } catch (error) {
       console.error("Error granting coins:", error);

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import {
   ADMIN_LOGIN_PATH,
+  currentPathname,
   isAuthenticated,
   shouldRedirectToLogin,
 } from "@/utils/adminAuth";
@@ -13,7 +14,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
   const authenticated = isAuthenticated();
 
-  if (shouldRedirectToLogin(location.pathname, authenticated)) {
+  if (shouldRedirectToLogin(currentPathname(), authenticated)) {
     return <Navigate to={ADMIN_LOGIN_PATH} state={{ from: location }} replace />;
   }
 

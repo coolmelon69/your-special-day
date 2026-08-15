@@ -14,7 +14,7 @@ import { useAdventure } from "@/contexts/AdventureContext";
 import { useAllCafePlaces, useCafeCategories } from "@/hooks/useCafes";
 import { computeAchievements, type AchievementTier } from "@/utils/cafeAchievements";
 import { uploadTrainerPhoto } from "@/utils/profile";
-import { computeTrainerStats, teamFor, trainerIdFor } from "@/utils/trainerCard";
+import { LEVEL_TIERS, computeTrainerStats, teamFor, trainerIdFor } from "@/utils/trainerCard";
 import { cn } from "@/lib/utils";
 
 /** Ordered tab list — appending an entry here is the whole job for a new tab.
@@ -49,7 +49,7 @@ const formatDate = (date: Date) =>
   date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 const TrainerCardPage = () => {
-  const { profile, itineraryState, trainerCardEnabled, trainerConfig, updateProfile, purchase, purchaseItem, user, isLinked, refreshCouple } = useAdventure();
+  const { profile, itineraryState, trainerCardEnabled, trainerConfig, updateProfile, purchase, purchaseItem, redeemBagItem, user, isLinked, refreshCouple } = useAdventure();
   const categories = useCafeCategories();
   const places = useAllCafePlaces();
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
@@ -323,7 +323,7 @@ const TrainerCardPage = () => {
                       transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
                     >
                       {activeTab === "bag" ? (
-                        <BagTab items={profile.items} team={team} />
+                        <BagTab items={profile.items} team={team} redeem={redeemBagItem} />
                       ) : activeTab === "shop" ? (
                         <ShopTab
                           coins={profile.coins}
@@ -331,6 +331,13 @@ const TrainerCardPage = () => {
                           purchase={purchase}
                           items={profile.items}
                           purchaseItem={purchaseItem}
+                          level={stats.levelNumber}
+                          xp={stats.xp}
+                          tiers={
+                            trainerConfig.tiers?.length
+                              ? [...trainerConfig.tiers].sort((a, b) => a.minXp - b.minXp)
+                              : LEVEL_TIERS
+                          }
                         />
                       ) : (
                         <div className="space-y-6">

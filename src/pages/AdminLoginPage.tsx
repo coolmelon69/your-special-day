@@ -3,7 +3,12 @@ import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
-import { login, isAuthenticated, ADMIN_LOGIN_PATH } from "@/utils/adminAuth";
+import {
+  login,
+  isAuthenticated,
+  currentPathname,
+  ADMIN_LOGIN_PATH,
+} from "@/utils/adminAuth";
 
 const AdminLoginPage = () => {
   const [password, setPassword] = useState("");
@@ -13,13 +18,15 @@ const AdminLoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect if already authenticated. The pathname guard matters: after login
-  // navigates away, AnimatePresence mode="wait" keeps this page mounted through
-  // its exit animation, and `location` is already /admin. Without the guard the
-  // effect re-fires on every render and the browser throws
-  // "SecurityError: Attempt to use history.replaceState() more than 100 times".
+  // Redirect if already authenticated. The guard reads the real address bar,
+  // not `location.pathname`: AnimatePresence mode="wait" keeps this page mounted
+  // through its exit animation, and `<Routes location=...>` pins its router
+  // location to /admin/login the whole time. Checking the router location would
+  // therefore always pass, re-firing the effect every render until the browser
+  // throws "SecurityError: Attempt to use history.replaceState() more than 100
+  // times" — after which it refuses the navigation that actually mattered.
   useEffect(() => {
-    if (location.pathname !== ADMIN_LOGIN_PATH) return;
+    if (currentPathname() !== ADMIN_LOGIN_PATH) return;
     if (!isAuthenticated()) return;
     const from = (location.state as { from?: Location })?.from;
     navigate(from?.pathname || "/admin", { replace: true });

@@ -7,7 +7,7 @@ import { syncStampsProgress, loadStampsProgress, loadCustomStampsResult, loadCus
 import { getCurrentUser, onAuthStateChange } from "@/utils/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { deletePhotoFromStorage } from "@/utils/photoUpload";
-import { loadProfile, saveProfile, recordDrop, buySku, buyItem, type Profile } from "@/utils/profile";
+import { loadProfile, saveProfile, recordDrop, buySku, buyItem, redeemItem, type BuyItemResult, type Profile } from "@/utils/profile";
 import { loadCouple, type Couple } from "@/utils/couples";
 import { rollDrop, COINS_BY_RARITY, type Drop } from "@/utils/pokeItems";
 import { DEFAULT_TRAINER_CONFIG, type TrainerCardConfig } from "@/utils/trainerCard";
@@ -109,7 +109,9 @@ interface AdventureContextType {
   /** Buy a shop cosmetic. False means unaffordable or already owned — nothing charged. */
   purchase: (sku: string) => Promise<boolean>;
   /** Buy a Poké item off the shop shelf. False = short on coins, or already in the bag. */
-  purchaseItem: (slug: string) => Promise<boolean>;
+  purchaseItem: (slug: string, qty?: number) => Promise<BuyItemResult>;
+  /** Cash in a bag item's real-life coupon. Keyed by `OwnedItem.source`. */
+  redeemBagItem: (source: string) => Promise<boolean>;
   /** Admin escape hatch: grant coins to the signed-in trainer's balance. False means nothing changed. */
   /** Global admin switch: trainer card onboarding + /trainer-card page. */
   trainerCardEnabled: boolean;
@@ -1229,11 +1231,21 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const purchaseItem = useCallback(
-    async (slug: string): Promise<boolean> => {
+    async (slug: string, qty = 1): Promise<BuyItemResult> => {
+      if (!user) return "error";
+      const result = await buyItem(slug, qty);
+      if (result === "ok") setProfile(await loadProfile(user.id));
+      return result;
+    },
+    [user]
+  );
+
+  const redeemBagItem = useCallback(
+    async (source: string): Promise<boolean> => {
       if (!user) return false;
-      const bought = await buyItem(slug);
-      if (bought) setProfile(await loadProfile(user.id));
-      return bought;
+      const redeemed = await redeemItem(source);
+      if (redeemed) setProfile(await loadProfile(user.id));
+      return redeemed;
     },
     [user]
   );
@@ -1289,6 +1301,7 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         claimDrop,
         purchase,
         purchaseItem,
+        redeemBagItem,
         refreshCouple,
         trainerCardEnabled: trainerCardEnabled ?? true,
         setTrainerCardEnabled,

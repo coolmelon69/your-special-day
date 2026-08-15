@@ -78,15 +78,28 @@ export const isAdminSession = async (): Promise<boolean> =>
 export const ADMIN_LOGIN_PATH = "/admin/login";
 
 /**
+ * The pathname actually in the address bar.
+ *
+ * Deliberately NOT `useLocation()`. `<Routes location={location} key={...}>`
+ * under `AnimatePresence mode="wait"` freezes the router location for the
+ * outgoing route so it can finish its exit animation — meaning a page that is
+ * mid-exit keeps reading its own stale pathname and can never tell that it has
+ * already been navigated away from. `window.location` is updated synchronously
+ * by `history.replaceState`, so it is the only honest answer here.
+ */
+export const currentPathname = (): string =>
+  typeof window === "undefined" ? "" : window.location.pathname;
+
+/**
  * Whether a guarded route should emit a redirect to the login page.
  *
- * Returns false when we are already sitting on the login path, even though the
- * guarded page is unauthenticated. That case is real: `AnimatePresence
- * mode="wait"` keeps the outgoing route mounted through its exit animation, so
- * the guarded page survives past the URL change. React Router's `<Navigate>`
- * re-runs its effect on every render, so redirecting again from there pushes a
- * `replaceState` per render until the browser throws
+ * Returns false once we are already sitting on the login path, even though the
+ * guarded page is still rendering unauthenticated — it is mid-exit. React
+ * Router's `<Navigate>` re-runs its effect on every render, so redirecting
+ * again from there fires a `replaceState` per render until the browser throws
  * `SecurityError: Attempt to use history.replaceState() more than 100 times`.
+ * Past that point every later navigation is rejected too, which is what made
+ * a successful login stop redirecting to /admin.
  */
 export const shouldRedirectToLogin = (
   pathname: string,

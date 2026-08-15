@@ -234,37 +234,64 @@ export const unlinkCouple = async (): Promise<boolean> => {
   }
 };
 
+/** Success, or the reason it failed — already worded for a person to read. */
+export type GrantResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * Turn whatever came back from a `grant_coins` call into something worth
+ * showing. Postgres `raise exception` text arrives as `error.message`, and it
+ * is already the most specific thing anyone knows about the failure — a
+ * generic "please try again" in its place sends the reader looking for a
+ * network problem when the server just told them the actual rule they hit.
+ * Only the missing-function case gets rewritten, because "Could not find the
+ * function public.grant_coins" means a migration was never run and nothing
+ * about retrying will help.
+ */
+const grantMessage = (error: { message?: string } | null): string => {
+  const raw = error?.message ?? "";
+  if (raw.includes("Could not find the function")) {
+    return "The database is missing the coin functions — run sql/2026-08-09-couples.sql and sql/2026-08-15-grant-coins-solo.sql, then try again.";
+  }
+  return raw || "Could not grant coins. Check your connection and try again.";
+};
+
 /**
  * Admin escape hatch: grant coins to either trainer's own balance. "partner"
  * needs the partner's uuid, which only the couple row has — load it, pick
  * whichever of ownerId/partnerId isn't the caller, and pass that as p_target.
  * With no couple or no partner linked yet, there's nobody to grant to, so this
- * returns false without calling the RPC at all.
+ * fails without calling the RPC at all.
+ *
+ * Returns the failure reason rather than a bare false: every rejection here is
+ * a server-side rule the caller can act on ("only the pair owner…", "grant
+ * amount exceeds the 500 coin cap"), and flattening them into one retry prompt
+ * is what made a solo account's permanent lockout look like a flaky network.
  */
-export const grantCoins = async (amount: number, target: "me" | "partner"): Promise<boolean> => {
+export const grantCoins = async (amount: number, target: "me" | "partner"): Promise<GrantResult> => {
   const supabase = await getSupabase();
-  if (!supabase) return false;
+  if (!supabase) return { ok: false, message: "Not connected to the database." };
 
   try {
     if (target === "me") {
       const { data, error } = await supabase.rpc("grant_coins", { p_amount: amount });
       if (error) {
         console.error("Error granting coins:", error);
-        return false;
+        return { ok: false, message: grantMessage(error) };
       }
-      return data === true;
+      return data === true ? { ok: true } : { ok: false, message: "No trainer profile to grant to." };
     }
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return false;
+    if (!user) return { ok: false, message: "You're signed out — sign in and try again." };
 
     const couple = await loadCouple();
-    if (!couple || !couple.partnerId) return false;
+    if (!couple || !couple.partnerId) {
+      return { ok: false, message: "No partner linked yet — link one first, then you can top them up." };
+    }
 
     const partnerId = couple.ownerId === user.id ? couple.partnerId : couple.ownerId;
-    if (!partnerId) return false;
 
     const { data, error } = await supabase.rpc("grant_coins", {
       p_amount: amount,
@@ -272,12 +299,12 @@ export const grantCoins = async (amount: number, target: "me" | "partner"): Prom
     });
     if (error) {
       console.error("Error granting coins:", error);
-      return false;
+      return { ok: false, message: grantMessage(error) };
     }
-    return data === true;
+    return data === true ? { ok: true } : { ok: false, message: "That trainer has no profile to grant to." };
   } catch (error) {
     console.error("Error granting coins:", error);
-    return false;
+    return { ok: false, message: grantMessage(error as { message?: string }) };
   }
 };
 
