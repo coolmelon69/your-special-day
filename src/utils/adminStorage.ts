@@ -688,6 +688,28 @@ export const deleteCameraPhoto = async (photoId: string): Promise<void> => {
   }
 };
 
+/** Stamp a roll frame as developed once it has been promoted into the Memory Book. */
+export const markCameraPhotoDeveloped = async (photoId: string): Promise<void> => {
+  try {
+    const database = await getDB();
+    const transaction = database.transaction([STORES.PHOTOS], "readwrite");
+    const store = transaction.objectStore(STORES.PHOTOS);
+    return new Promise<void>((resolve, reject) => {
+      const request = store.get(photoId);
+      request.onsuccess = () => {
+        const photo = request.result as CameraPhoto | undefined;
+        if (!photo) return resolve();
+        const put = store.put({ ...photo, isDeveloped: true });
+        put.onsuccess = () => resolve();
+        put.onerror = () => reject(new Error("Failed to mark camera photo developed"));
+      };
+      request.onerror = () => reject(new Error("Failed to read camera photo"));
+    });
+  } catch (error) {
+    console.error("Error marking camera photo developed:", error);
+  }
+};
+
 export const getUndevelopedPhotosCount = async (): Promise<number> => {
   try {
     const database = await getDB();

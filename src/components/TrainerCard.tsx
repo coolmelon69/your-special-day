@@ -177,9 +177,6 @@ interface TrainerCardProps {
   isSaving: boolean;
 }
 
-const RING_RADIUS = 26;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
-
 const TrainerCard = ({
   profile,
   team,
@@ -238,6 +235,10 @@ const TrainerCard = ({
   const ownsTitleSku = isOwned(profile.purchases, "card.title");
   const isHolo = ownedMaterial?.id === "holo";
   const isFoil = ownedMaterial?.id === "foil";
+  /** Not a finish over the printed face — a different printed face. Foil and Holo
+   *  lay layers on the Base Set card; Full Art replaces it, and brings its own
+   *  permanent rainbow, which is the thing the SKU actually buys. */
+  const isFullArt = ownedMaterial?.id === "fullart";
   const isSakura = ownedFrame?.id === "sakura";
   const isStarfield = ownedFrame?.id === "starfield";
 
@@ -256,7 +257,7 @@ const TrainerCard = ({
   const orientationHandlerRef = useRef<((e: DeviceOrientationEvent) => void) | null>(null);
   /** A material is on the card. Stays true while capturing: the export bakes the
    *  material in, frozen at `REST_HOLO`, so a saved card still looks like the card. */
-  const hasMaterial = isHolo || isFoil;
+  const hasMaterial = isHolo || isFoil || isFullArt;
   /** A material is on the card *and* is listening — the export takes no input. */
   const materialLive = hasMaterial && !capturing;
 
@@ -337,6 +338,24 @@ const TrainerCard = ({
   };
 
   const avatar = avatarFor(profile.avatarId);
+
+  /** The printed registration line under the art. Parts drop out rather than
+   *  print as an em dash — a card with no joined date should read as a card
+   *  with a shorter line, not one with a hole in it. */
+  const registration = [
+    `ID ${trainerId}`,
+    log.joined && `Joined ${log.joined}`,
+    log.dayCount !== null && `Day ${log.dayCount}`,
+    team.name,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  /** The art window's blend. `color-dodge` is what makes a holo read as foil over
+   *  a photograph, but it clips to white over the pale team wash a photo-less card
+   *  shows — and a sprite erased by its own finish is a worse card, not a shinier one. */
+  const artBlend: React.CSSProperties["mixBlendMode"] = profile.photoUrl ? "color-dodge" : "overlay";
+
   const isMaxLevel = stats.xpForNextLevel === null;
   const pct = isMaxLevel
     ? 100
@@ -377,8 +396,8 @@ const TrainerCard = ({
 
   const meta = (label: string, value: string) => (
     <div className="flex items-baseline justify-between gap-4 py-2.5">
-      <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-right text-sm text-foreground">{value}</span>
+      <span className="tcg-soft font-mono text-[10px] uppercase tracking-wide">{label}</span>
+      <span className="tcg-ink text-right text-sm">{value}</span>
     </div>
   );
 
@@ -395,10 +414,15 @@ const TrainerCard = ({
         >
           <motion.div
             ref={cardRef}
-            className="relative rounded-[26px] bg-card"
+            className="tcgcard relative rounded-[26px] bg-card"
             style={
               {
                 transformStyle: "preserve-3d",
+                // The team's one hue at three strengths, handed to the printed
+                // world in `index.css` — energy pips, art window, gold band.
+                "--tc-accent": team.accent,
+                "--tc-ink": team.ink,
+                "--tc-tint": team.tint,
                 ...(hasMaterial ? { "--holo-x": REST_HOLO.x, "--holo-y": REST_HOLO.y } : {}),
               } as React.CSSProperties
             }
@@ -406,371 +430,607 @@ const TrainerCard = ({
             transition={reduceMotion ? { duration: 0 } : { duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           >
             {/* ---------- front ---------- */}
-            <div
-              className={cn(
-                "overflow-hidden rounded-[26px] border border-border bg-card",
-                !capturing && "shadow-[0_18px_44px_-20px_rgba(60,45,90,0.45)]"
-              )}
-              style={{ backfaceVisibility: "hidden" }}
-            >
-              {/* sakura frame — petals along the rim, matte, doesn't touch the art window */}
-              {isSakura && (
-                <div className="pointer-events-none absolute inset-0 z-10 select-none" aria-hidden>
-                  {SAKURA_PETALS.map((petal, i) => (
-                    <span key={i} className="absolute text-[13px] opacity-75" style={petal}>
-                      🌸
+            {isFullArt ? (
+              /* Full Art — the chase pull. Art to the edge, gold rim, every
+                 number floating on the scene held down by one gold rule. */
+              <div
+                className={cn(
+                  "tcg-fa-edge relative overflow-hidden rounded-[26px] p-[5px]",
+                  !capturing && "shadow-[0_18px_44px_-20px_rgba(60,45,90,0.55)]"
+                )}
+                style={{ backfaceVisibility: "hidden" }}
+              >
+                <div
+                  className={cn(
+                    "relative aspect-[63/88] overflow-hidden rounded-[21px]",
+                    materialLive && "touch-none"
+                  )}
+                  style={{
+                    background: `linear-gradient(172deg, hsl(250 55% 12%) 0%, hsl(250 45% 24%) 34%, ${team.ink} 62%, ${team.accent} 86%, ${team.tint} 100%)`,
+                  }}
+                  onPointerDown={handleArtPointerDown}
+                  onPointerMove={handleArtPointerMove}
+                  onPointerUp={handleArtPointerUp}
+                  onPointerCancel={handleArtPointerUp}
+                >
+                  {/* the art. Her photo when there is one; otherwise the team's
+                      legendary, which is what a full art of this card would show. */}
+                  {profile.photoUrl ? (
+                    <img
+                      src={profile.photoUrl}
+                      alt=""
+                      crossOrigin="anonymous"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      <div
+                        className="pointer-events-none absolute inset-x-[-18%] top-[8%] bottom-[18%] opacity-30 mix-blend-screen"
+                        style={{
+                          background:
+                            "repeating-conic-gradient(from 0deg at 50% 46%, rgba(255,244,216,0.75) 0deg 2.4deg, rgba(255,255,255,0) 2.4deg 13deg)",
+                        }}
+                        aria-hidden
+                      />
+                      <div
+                        className="pointer-events-none absolute left-1/2 top-[44%] h-[62%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+                        style={{
+                          background:
+                            "radial-gradient(circle, rgba(255,230,178,0.8) 10%, rgba(255,200,130,0.3) 38%, rgba(255,180,110,0) 68%)",
+                        }}
+                        aria-hidden
+                      />
+                      <PokeSprite
+                        dex={team.dex}
+                        fallback="✨"
+                        className="absolute left-1/2 top-[42%] h-[54%] w-[54%] -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_10px_24px_rgba(0,0,0,0.5)]"
+                      />
+                    </>
+                  )}
+
+                  {/* starfield frame — behind the type, over the art */}
+                  {isStarfield && (
+                    <motion.div
+                      className="pointer-events-none absolute inset-0 opacity-70"
+                      style={{ backgroundImage: STARFIELD_DOTS, backgroundSize: "150% 150%" }}
+                      animate={reduceMotion ? undefined : { backgroundPosition: ["0% 0%", "100% 100%"] }}
+                      transition={reduceMotion ? undefined : { duration: 20, repeat: Infinity, ease: "linear" }}
+                      aria-hidden
+                    />
+                  )}
+
+                  {/* the scrim the type is legible on — a photo can be any value */}
+                  <div
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-[46%]"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, rgba(10,8,24,0) 0%, rgba(10,8,24,0.55) 46%, rgba(8,6,20,0.88) 100%)",
+                    }}
+                    aria-hidden
+                  />
+
+                  <div className="tcg-fa-holo pointer-events-none absolute inset-0" aria-hidden />
+                  <div className="tcg-fa-etch pointer-events-none absolute inset-0" aria-hidden />
+
+                  {/* level seal */}
+                  <div className="tcg-fa-seal absolute left-3.5 top-3.5 grid h-[54px] w-[54px] place-items-center rounded-full text-center leading-none">
+                    <div>
+                      <span className="block font-serif text-[23px] font-bold leading-none">
+                        {stats.levelNumber}
+                      </span>
+                      <span className="font-mono text-[7px] uppercase tracking-[0.16em]">Level</span>
+                    </div>
+                  </div>
+
+                  <p className="absolute right-4 top-5 text-right font-mono text-[8.5px] uppercase leading-[1.5] tracking-[0.2em] text-white/85 [text-shadow:0_1px_3px_rgba(0,0,0,0.75)]">
+                    {stats.level}
+                    <br />
+                    {team.name}
+                  </p>
+
+                  {/* name — stamped foil, the way a chase card carries it */}
+                  <div className="absolute inset-x-4 bottom-[104px]">
+                    <p className="tcg-fa-name truncate font-serif text-[40px] font-bold leading-[0.95] tracking-tight">
+                      {profile.trainerName}
+                    </p>
+                    {ownsTitleSku && profile.cardTitle ? (
+                      <p className="mt-0.5 truncate font-serif text-[13px] italic text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">
+                        {profile.cardTitle}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 truncate font-serif text-[13px] italic text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">
+                        {team.motto}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* the one gold rule every number sits on */}
+                  <div className="tcg-fa-band absolute inset-x-0 bottom-[38px] flex items-center justify-between gap-3 px-4 py-2">
+                    {[
+                      { icon: Award, value: stats.badges, label: "Badges" },
+                      { icon: Stamp, value: stats.stamps, label: "Stamps" },
+                      { icon: MapPin, value: stats.visits, label: "Places" },
+                    ].map(({ icon: Icon, value, label }) => (
+                      <div key={label} className="text-center text-[#fff3d8]">
+                        <p className="font-serif text-[22px] font-bold leading-none">{value}</p>
+                        <p className="mt-1 flex items-center justify-center gap-1 font-mono text-[7px] uppercase tracking-[0.14em] text-[#ffebbe]/80">
+                          <Icon className="h-3 w-3" aria-hidden />
+                          {label}
+                        </p>
+                      </div>
+                    ))}
+                    <div className="flex flex-shrink-0 items-center gap-1">
+                      {badges
+                        .filter((slot) => slot.tier !== null)
+                        .slice(0, 3)
+                        .map((slot) => (
+                          <PinBadge
+                            key={slot.trackId}
+                            tier={slot.tier ?? "bronze"}
+                            iconKey={slot.icon}
+                            Icon={TRACK_ICONS[slot.icon] ?? Star}
+                            locked={false}
+                            isActive={false}
+                            pct={0}
+                            justUnlocked={false}
+                            size={22}
+                          />
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="absolute inset-x-4 bottom-3 flex justify-between font-mono text-[7.5px] tracking-[0.1em] text-[#fff0cd]/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+                    <span>{trainerId}</span>
+                    <span className="tabular-nums">
+                      {stats.xp} XP{log.dayCount === null ? "" : ` · Day ${log.dayCount}`}
                     </span>
-                  ))}
-                </div>
-              )}
+                  </div>
 
-              {/* header — team wash, one hue at three strengths */}
-              <div className="relative px-6 pb-5 pt-5" style={{ background: team.tint }}>
-                <div className="relative flex items-center justify-between">
-                  <span
-                    className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"
-                    style={{ color: team.ink }}
+                  {!capturing && (
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="absolute right-3.5 top-[74px] grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-black/45 text-white backdrop-blur-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      aria-label={profile.photoUrl ? "Change your trainer photo" : "Add a trainer photo"}
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Base Set — the printed card, played straight. Yellow rim, cream
+                 stock, gold-ruled art window, energy costs and a retreat band. */
+              <div
+                className={cn(
+                  "tcg-edge relative overflow-hidden rounded-[26px] p-3",
+                  !capturing && "shadow-[0_18px_44px_-20px_rgba(60,45,90,0.45)]"
+                )}
+                style={{ backfaceVisibility: "hidden" }}
+              >
+                {/* sakura frame — petals along the rim, matte, never over the art */}
+                {isSakura && (
+                  <div className="pointer-events-none absolute inset-0 z-10 select-none" aria-hidden>
+                    {SAKURA_PETALS.map((petal, i) => (
+                      <span key={i} className="absolute text-[13px] opacity-75" style={petal}>
+                        🌸
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="tcg-stock relative rounded-[10px] px-3.5 pb-3 pt-3">
+                  {/* name band — where a real card puts the species and its HP */}
+                  <div className="flex items-end gap-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="tcg-soft font-mono text-[8.5px] uppercase tracking-[0.22em]">Trainer</p>
+                      <p className="tcg-ink truncate font-serif text-[27px] font-bold leading-none">
+                        {profile.trainerName}
+                      </p>
+                      {ownsTitleSku && profile.cardTitle && (
+                        <p className="tcg-soft truncate font-serif text-[12.5px] italic">
+                          {profile.cardTitle}
+                        </p>
+                      )}
+                    </div>
+                    <p
+                      className="whitespace-nowrap font-serif text-[31px] font-bold leading-none"
+                      style={{ color: team.ink }}
+                    >
+                      <span className="font-mono text-[10px] tracking-tight">LV.</span>
+                      {stats.levelNumber}
+                    </p>
+                    {/* the energy symbol — which team's light this card was printed under */}
+                    <span
+                      className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full"
+                      style={{
+                        background: team.tint,
+                        boxShadow: `inset 0 0 0 1.5px ${team.accent}, inset 0 -2px 4px rgba(0,0,0,0.14)`,
+                      }}
+                      title={team.mascot}
+                    >
+                      <PokeSprite dex={team.dex} fallback="✨" className="h-6 w-6" />
+                    </span>
+                  </div>
+
+                  {/* art window — the photo is the artwork, at the size a card gives it */}
+                  <figure
+                    className={cn(
+                      "tcg-window relative mt-2.5 h-[188px] overflow-hidden",
+                      materialLive && "touch-none"
+                    )}
+                    onPointerDown={handleArtPointerDown}
+                    onPointerMove={handleArtPointerMove}
+                    onPointerUp={handleArtPointerUp}
+                    onPointerCancel={handleArtPointerUp}
                   >
-                    Trainer Card
-                  </span>
-                  <span className="font-mono text-[10px] tracking-[0.14em]" style={{ color: team.ink }}>
-                    ID {trainerId}
-                  </span>
-                </div>
-
-                <div className="relative mt-4 flex items-center gap-4">
-                  <div className="relative flex-shrink-0">
-                    {/* starfield frame — slow stars behind the portrait, never in front of it */}
                     {isStarfield && (
                       <motion.div
-                        className="pointer-events-none absolute -inset-3 rounded-full opacity-80"
-                        style={{ backgroundImage: STARFIELD_DOTS, backgroundSize: "160% 160%" }}
+                        className="pointer-events-none absolute inset-0 opacity-80"
+                        style={{ backgroundImage: STARFIELD_DOTS, backgroundSize: "150% 150%" }}
                         animate={reduceMotion ? undefined : { backgroundPosition: ["0% 0%", "100% 100%"] }}
                         transition={reduceMotion ? undefined : { duration: 20, repeat: Infinity, ease: "linear" }}
                         aria-hidden
                       />
                     )}
-                    <div
-                      className={cn(
-                        "relative z-10 grid h-[74px] w-[74px] place-items-center overflow-hidden rounded-full bg-card",
-                        materialLive && "touch-none"
-                      )}
-                      style={{
-                        boxShadow: `0 0 0 3px ${team.accent}, 0 6px 14px -6px rgba(${team.glow} / 0.7)`,
-                      }}
-                      onPointerDown={handleArtPointerDown}
-                      onPointerMove={handleArtPointerMove}
-                      onPointerUp={handleArtPointerUp}
-                      onPointerCancel={handleArtPointerUp}
-                    >
-                      {profile.photoUrl ? (
-                        <img
-                          src={profile.photoUrl}
-                          alt=""
-                          crossOrigin="anonymous"
-                          className="h-full w-full object-cover"
+
+                    {profile.photoUrl ? (
+                      <img
+                        src={profile.photoUrl}
+                        alt=""
+                        crossOrigin="anonymous"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center">
+                        <PokeSprite
+                          dex={avatar.dex}
+                          fallback={avatar.icon}
+                          className="h-[104px] w-[104px] text-[64px]"
                         />
-                      ) : (
-                        <PokeSprite dex={avatar.dex} fallback={avatar.icon} className="h-[52px] w-[52px] text-[34px]" />
-                      )}
+                      </div>
+                    )}
 
-                      {/* Foil, art window — the same etch as the card body, but the
-                          grooves are finer and the polish band is brighter, so the
-                          portrait stays the place the eye lands. */}
-                      {isFoil && (
-                        <>
-                          <div
-                            className="pointer-events-none absolute inset-0 opacity-70"
-                            style={{
-                              background: FOIL_ETCH,
-                              backgroundSize: "auto",
-                              backgroundPosition:
-                                "calc(50% + var(--holo-x, 0) * -14%) calc(50% + var(--holo-y, 0) * -14%)",
-                              mixBlendMode: "overlay",
-                              transition: reduceMotion ? undefined : "background-position 120ms linear",
-                            }}
-                            aria-hidden
-                          />
-                          <div
-                            className="pointer-events-none absolute inset-0 opacity-80"
-                            style={{
-                              backgroundImage: FOIL_SWEEP,
-                              backgroundSize: "260% 260%",
-                              backgroundPosition:
-                                "calc(50% + var(--holo-x, 0) * 55%) calc(50% + var(--holo-y, 0) * 55%)",
-                              mixBlendMode: "soft-light",
-                              transition: reduceMotion ? undefined : "background-position 120ms linear",
-                            }}
-                            aria-hidden
-                          />
-                        </>
-                      )}
+                    {/* Foil, art window — finer grooves and a brighter polish band
+                        than the card body, so the art stays where the eye lands. */}
+                    {isFoil && (
+                      <>
+                        <div
+                          className="pointer-events-none absolute inset-0 opacity-70"
+                          style={{
+                            background: FOIL_ETCH,
+                            backgroundSize: "auto",
+                            backgroundPosition:
+                              "calc(50% + var(--holo-x, 0) * -14%) calc(50% + var(--holo-y, 0) * -14%)",
+                            mixBlendMode: "overlay",
+                            transition: reduceMotion ? undefined : "background-position 120ms linear",
+                          }}
+                          aria-hidden
+                        />
+                        <div
+                          className="pointer-events-none absolute inset-0 opacity-80"
+                          style={{
+                            backgroundImage: FOIL_SWEEP,
+                            backgroundSize: "260% 260%",
+                            backgroundPosition:
+                              "calc(50% + var(--holo-x, 0) * 55%) calc(50% + var(--holo-y, 0) * 55%)",
+                            mixBlendMode: "soft-light",
+                            transition: reduceMotion ? undefined : "background-position 120ms linear",
+                          }}
+                          aria-hidden
+                        />
+                      </>
+                    )}
 
-                      {/* holo — the art window runs the full-strength pass; the
-                          whole-card layers below are the quieter version of this */}
-                      {isHolo && (
-                        <>
-                          <div
-                            className="pointer-events-none absolute inset-0 opacity-70"
-                            style={{
-                              background: HOLO_FOIL,
-                              backgroundPosition:
-                                "calc(50% + var(--holo-x, 0) * -20%) calc(50% + var(--holo-y, 0) * -20%)",
-                              mixBlendMode: "color-dodge",
-                              transition: reduceMotion ? undefined : "background-position 120ms linear",
-                            }}
-                            aria-hidden
-                          />
-                          <div
-                            className="pointer-events-none absolute inset-0 opacity-85"
-                            style={{
-                              backgroundImage: HOLO_RAINBOW,
-                              backgroundSize: "220% 220%",
-                              backgroundPosition:
-                                "calc(50% + var(--holo-x, 0) * 45%) calc(50% + var(--holo-y, 0) * 45%)",
-                              mixBlendMode: "color-dodge",
-                              transition: reduceMotion ? undefined : "background-position 120ms linear",
-                            }}
-                            aria-hidden
-                          />
-                          <div
-                            className="pointer-events-none absolute inset-0"
-                            style={{
-                              background:
-                                "radial-gradient(circle at calc(50% + var(--holo-x, 0) * 35%) calc(50% + var(--holo-y, 0) * 35%), rgba(255,255,255,0.95), rgba(255,255,255,0) 55%)",
-                              mixBlendMode: "overlay",
-                              transition: reduceMotion ? undefined : "background-position 120ms linear",
-                            }}
-                            aria-hidden
-                          />
-                        </>
-                      )}
-                    </div>
+                    {isHolo && (
+                      <>
+                        <div
+                          className={cn(
+                            "pointer-events-none absolute inset-0",
+                            profile.photoUrl ? "opacity-70" : "opacity-40"
+                          )}
+                          style={{
+                            background: HOLO_FOIL,
+                            backgroundPosition:
+                              "calc(50% + var(--holo-x, 0) * -20%) calc(50% + var(--holo-y, 0) * -20%)",
+                            mixBlendMode: artBlend,
+                            transition: reduceMotion ? undefined : "background-position 120ms linear",
+                          }}
+                          aria-hidden
+                        />
+                        <div
+                          className={cn(
+                            "pointer-events-none absolute inset-0",
+                            profile.photoUrl ? "opacity-85" : "opacity-60"
+                          )}
+                          style={{
+                            backgroundImage: HOLO_RAINBOW,
+                            backgroundSize: "220% 220%",
+                            backgroundPosition:
+                              "calc(50% + var(--holo-x, 0) * 45%) calc(50% + var(--holo-y, 0) * 45%)",
+                            mixBlendMode: artBlend,
+                            transition: reduceMotion ? undefined : "background-position 120ms linear",
+                          }}
+                          aria-hidden
+                        />
+                        <div
+                          className="pointer-events-none absolute inset-0"
+                          style={{
+                            background:
+                              "radial-gradient(circle at calc(50% + var(--holo-x, 0) * 35%) calc(50% + var(--holo-y, 0) * 35%), rgba(255,255,255,0.95), rgba(255,255,255,0) 55%)",
+                            mixBlendMode: "overlay",
+                            transition: reduceMotion ? undefined : "background-position 120ms linear",
+                          }}
+                          aria-hidden
+                        />
+                      </>
+                    )}
+
+                    <figcaption
+                      className="absolute inset-x-0 bottom-0 px-3 pb-1.5 pt-7 font-serif text-[13px] italic text-white"
+                      style={{
+                        background: "linear-gradient(180deg, rgba(16,12,26,0), rgba(16,12,26,0.82))",
+                      }}
+                    >
+                      {team.motto}
+                    </figcaption>
+
                     {!capturing && (
                       <button
                         type="button"
                         onClick={() => fileRef.current?.click()}
-                        className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full border border-card bg-foreground text-card transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-black/45 text-white backdrop-blur-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                         aria-label={profile.photoUrl ? "Change your trainer photo" : "Add a trainer photo"}
                       >
                         {isSaving ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <Camera className="h-3.5 w-3.5" />
+                          <Camera className="h-4 w-4" />
                         )}
                       </button>
                     )}
+                  </figure>
+
+                  {/* registration strip — a real card's length-and-weight line */}
+                  <p className="tcg-strip mt-2 rounded-[3px] px-2 py-1 text-center font-mono text-[8px] uppercase tracking-[0.06em]">
+                    {registration}
+                  </p>
+
+                  {/* the card's one dial */}
+                  <div className="mt-2.5 flex items-baseline justify-between gap-3">
+                    <span className="tcg-ink flex items-baseline gap-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.16em]">
+                      <span aria-hidden>{stats.levelIcon}</span>
+                      {stats.level}
+                      {stats.nextLevel && (
+                        <span className="tcg-soft font-normal tracking-wide">→ {stats.nextLevel}</span>
+                      )}
+                    </span>
+                    <span className="tcg-soft font-mono text-[9.5px] tabular-nums">
+                      {isMaxLevel ? "Max level" : `${stats.xpIntoLevel} / ${stats.xpForNextLevel} XP`}
+                    </span>
+                  </div>
+                  <div
+                    className="mt-1.5 h-[6px] overflow-hidden rounded-full"
+                    style={{ background: "hsl(40 30% 84%)" }}
+                  >
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ background: team.accent }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={
+                        reduceMotion
+                          ? { duration: 0 }
+                          : { duration: 1, delay: 0.25, ease: [0.16, 1, 0.3, 1] }
+                      }
+                    />
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-serif text-[27px] font-bold leading-tight text-foreground">
-                      {profile.trainerName}
-                    </p>
-                    {ownsTitleSku && profile.cardTitle && (
-                      <p className="truncate font-serif text-[13px] italic text-muted-foreground">
-                        {profile.cardTitle}
-                      </p>
-                    )}
-                    <p
-                      className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.14em]"
-                      style={{ color: team.ink }}
-                    >
-                      {team.name}
-                    </p>
-                    <p className="mt-1 truncate font-serif text-[15px] italic" style={{ color: team.ink }}>
-                      {team.motto}
-                    </p>
-                  </div>
-
-                  {/* level ring — the card's one dial, and the only place the tier number lives */}
-                  <div className="relative flex-shrink-0">
-                    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden>
-                      <circle cx="32" cy="32" r={RING_RADIUS} fill="hsl(var(--card))" />
-                      <circle
-                        cx="32"
-                        cy="32"
-                        r={RING_RADIUS}
-                        fill="none"
-                        stroke="rgba(0,0,0,0.08)"
-                        strokeWidth="5"
-                      />
-                      <motion.circle
-                        cx="32"
-                        cy="32"
-                        r={RING_RADIUS}
-                        fill="none"
-                        stroke={team.accent}
-                        strokeWidth="5"
-                        strokeLinecap="round"
-                        strokeDasharray={RING_LENGTH}
-                        transform="rotate(-90 32 32)"
-                        initial={{ strokeDashoffset: RING_LENGTH }}
-                        animate={{ strokeDashoffset: RING_LENGTH * (1 - pct / 100) }}
-                        transition={reduceMotion ? { duration: 0 } : { duration: 1.1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 grid place-items-center">
-                      <span className="font-serif text-2xl font-bold leading-none text-foreground">
-                        {stats.levelNumber}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* level + xp */}
-              <div className="border-t border-border px-6 py-4">
-                <div className="flex items-baseline justify-between">
-                  <span className="flex items-baseline gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground">
-                    <span aria-hidden>{stats.levelIcon}</span>
-                    {stats.level}
-                    {stats.nextLevel && (
-                      <span className="font-normal tracking-wide text-muted-foreground">
-                        → {stats.nextLevel}
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {isMaxLevel ? "Max level" : `${stats.xpIntoLevel} / ${stats.xpForNextLevel} XP`}
-                  </span>
-                </div>
-                <div className="mt-2 h-[7px] overflow-hidden rounded-full bg-muted">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ background: team.accent }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={reduceMotion ? { duration: 0 } : { duration: 1, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                </div>
-              </div>
-
-              {/* the three counts, divided by hairlines rather than boxed */}
-              <div className="grid grid-cols-3 border-t border-border">
-                {[
-                  { icon: Award, value: stats.badges, label: "Badges" },
-                  { icon: Stamp, value: stats.stamps, label: "Stamps" },
-                  { icon: MapPin, value: stats.visits, label: "Places" },
-                ].map(({ icon: Icon, value, label }, i) => (
-                  <div key={label} className={cn("px-4 py-4 text-center", i > 0 && "border-l border-border")}>
-                    <p className="font-serif text-[34px] font-bold leading-none tabular-nums text-foreground">{value}</p>
-                    <p className="mt-1.5 flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                      <Icon className="h-3 w-3" aria-hidden />
-                      {label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* badge case */}
-              <div className="border-t border-border px-6 py-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                  Badge case
-                </p>
-                <div className="mt-3 flex items-center justify-between gap-1">
-                  {badges.map((slot) => {
-                    const Icon = TRACK_ICONS[slot.icon] ?? Star;
-                    return (
+                  {/* attacks — the counts, costed in team energy */}
+                  <div className="mt-3">
+                    {[
+                      {
+                        cost: 1,
+                        icon: Stamp,
+                        name: "Stamps",
+                        flavour: log.latestStamp ? `Latest: ${log.latestStamp}` : "No stamps in the book yet.",
+                        value: stats.stamps,
+                      },
+                      {
+                        cost: 2,
+                        icon: MapPin,
+                        name: "Places Visited",
+                        flavour: favourites.length
+                          ? `${favourites.length} of them rated 4.5 or higher by you both.`
+                          : "Rate one 4.5 or higher together to make it a favourite.",
+                        value: stats.visits,
+                      },
+                    ].map(({ cost, icon: Icon, name, flavour, value }) => (
                       <div
-                        key={slot.trackId}
-                        title={slot.tier ? `${slot.name} — ${TIER_LABEL[slot.tier]}` : `${slot.name} — not earned yet`}
+                        key={name}
+                        className="tcg-hair flex items-center gap-2.5 border-t py-2 first:border-t-0"
                       >
-                        <PinBadge
-                          tier={slot.tier ?? "bronze"}
-                          iconKey={slot.icon}
-                          Icon={Icon}
-                          locked={slot.tier === null}
-                          isActive={false}
-                          pct={0}
-                          justUnlocked={false}
-                          size={34}
-                        />
-                        <span className="sr-only">
-                          {slot.tier ? `${slot.name}, ${TIER_LABEL[slot.tier]}` : `${slot.name}, not earned yet`}
+                        <span className="flex flex-shrink-0 gap-1" aria-hidden>
+                          {Array.from({ length: cost }, (_, i) => (
+                            <span key={i} className="tcg-pip block h-3.5 w-3.5 rounded-full" />
+                          ))}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="tcg-ink flex items-center gap-1.5 font-sans text-[13px] font-bold">
+                            <Icon className="h-4 w-4 flex-shrink-0" aria-hidden />
+                            {name}
+                          </span>
+                          <span className="tcg-soft block text-[10px] leading-snug">{flavour}</span>
+                        </span>
+                        <span className="tcg-ink flex-shrink-0 font-serif text-[26px] font-bold leading-none">
+                          {value}
                         </span>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+
+                  {/* badge case — the third count, shown as the case itself */}
+                  <div className="tcg-hair border-t pt-2.5">
+                    <p className="tcg-soft flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em]">
+                      <Award className="h-3.5 w-3.5" aria-hidden />
+                      Badge case · {stats.badges} of {badges.length}
+                    </p>
+                    <div className="mt-2 flex items-center justify-between gap-1">
+                      {badges.map((slot) => {
+                        const Icon = TRACK_ICONS[slot.icon] ?? Star;
+                        return (
+                          <div
+                            key={slot.trackId}
+                            title={
+                              slot.tier
+                                ? `${slot.name} — ${TIER_LABEL[slot.tier]}`
+                                : `${slot.name} — not earned yet`
+                            }
+                          >
+                            <PinBadge
+                              tier={slot.tier ?? "bronze"}
+                              iconKey={slot.icon}
+                              Icon={Icon}
+                              locked={slot.tier === null}
+                              isActive={false}
+                              pct={0}
+                              justUnlocked={false}
+                              size={32}
+                            />
+                            <span className="sr-only">
+                              {slot.tier
+                                ? `${slot.name}, ${TIER_LABEL[slot.tier]}`
+                                : `${slot.name}, not earned yet`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* weakness / resistance / retreat — the joke that makes it hers */}
+                  <div className="tcg-band mt-2.5 grid grid-cols-3 gap-2 border-y py-1.5 text-center">
+                    {[
+                      { key: "Weakness", val: "rainy sundays" },
+                      { key: "Resistance", val: "long queues" },
+                      { key: "Retreat", val: "two coins" },
+                    ].map(({ key, val }) => (
+                      <div key={key}>
+                        <p className="tcg-soft font-mono text-[7px] uppercase tracking-[0.14em]">{key}</p>
+                        <p className="font-mono text-[8px]" style={{ color: team.ink }}>
+                          {val}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="tcg-soft font-mono text-[7.5px] tracking-[0.08em]">
+                      Special Day Set · {team.mascot}
+                    </span>
+                    <span className="tcg-ink font-mono text-[9px] tabular-nums">★ {stats.xp} XP</span>
+                  </div>
                 </div>
               </div>
+            )}
 
-              <div
-                className="flex items-center justify-between border-t border-border px-6 py-3"
-                style={{ background: team.tint }}
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: team.ink }}>
-                  {log.joined ? `Joined ${log.joined}` : "Adventure in progress"}
-                </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] tabular-nums" style={{ color: team.ink }}>
-                  {stats.xp} XP
-                </span>
-              </div>
-            </div>
-
-            {/* ---------- back ---------- */}
+            {/* ---------- back ----------
+                 Same rim as the front, so a flip turns one object over rather
+                 than swapping it for a different one. */}
             <div
-              className="absolute inset-0 overflow-hidden rounded-[26px] border border-border bg-card"
+              className={cn(
+                "absolute inset-0 overflow-hidden rounded-[26px] p-3",
+                isFullArt ? "tcg-fa-edge" : "tcg-edge"
+              )}
               style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
               aria-hidden={!flipped}
               hidden={capturing}
             >
-              <div className="px-6 py-4" style={{ background: team.tint }}>
-                <p
-                  className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"
-                  style={{ color: team.ink }}
-                >
-                  Adventure log
-                </p>
-              </div>
-
-              <div className="divide-y divide-border px-6">
-                {meta("Trainer", profile.displayName)}
-                {meta("Joined", log.joined ?? "—")}
-                {meta("Days in", log.dayCount === null ? "—" : `Day ${log.dayCount}`)}
-                {meta("Latest stamp", log.latestStamp ?? "None yet")}
-                {meta("Up next", log.nextStop ?? "All done")}
-              </div>
-
-              <div className="border-t border-border px-6 py-4">
-                <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                  <Heart className="h-3 w-3 text-rose" aria-hidden />
-                  Favourite places
-                </p>
-                {favourites.length === 0 ? (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Nothing here yet — a place lands on this list once you both rate it 4.5 or higher.
+              <div className="tcg-stock flex h-full flex-col overflow-y-auto rounded-[10px]">
+                <div className="px-4 py-2.5" style={{ background: team.tint }}>
+                  <p
+                    className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"
+                    style={{ color: team.ink }}
+                  >
+                    Adventure log
                   </p>
-                ) : (
-                  <ul className="mt-2 divide-y divide-border">
-                    {favourites.map((place) => (
-                      <li key={place.id} className="flex items-baseline justify-between gap-4 py-2">
-                        <span className="min-w-0 truncate text-sm text-foreground">
-                          {place.name}
-                          {place.area && (
-                            <span className="text-muted-foreground"> · {place.area}</span>
-                          )}
-                        </span>
-                        <span className="flex-shrink-0 font-mono text-[11px]" style={{ color: team.ink }}>
-                          {place.rating.toFixed(1)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                </div>
 
-              <div className="px-6 pb-5 pt-1">
-                <Link
-                  to="/cafes/achievements"
-                  className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                >
-                  <Award className="h-3 w-3" aria-hidden />
-                  See the full badge case
-                </Link>
+                <div className="tcg-divide px-4">
+                  {meta("Trainer", profile.displayName)}
+                  {meta("Joined", log.joined ?? "—")}
+                  {meta("Days in", log.dayCount === null ? "—" : `Day ${log.dayCount}`)}
+                  {meta("Latest stamp", log.latestStamp ?? "None yet")}
+                  {meta("Up next", log.nextStop ?? "All done")}
+                </div>
+
+                <div className="tcg-hair border-t px-4 py-3">
+                  <p className="tcg-soft flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em]">
+                    <Heart className="h-3.5 w-3.5 text-rose" aria-hidden />
+                    Favourite places
+                  </p>
+                  {favourites.length === 0 ? (
+                    <p className="tcg-soft mt-2 text-sm">
+                      Nothing here yet — a place lands on this list once you both rate it 4.5 or higher.
+                    </p>
+                  ) : (
+                    <ul className="tcg-divide mt-1">
+                      {favourites.map((place) => (
+                        <li key={place.id} className="flex items-baseline justify-between gap-4 py-2">
+                          <span className="tcg-ink min-w-0 truncate text-sm">
+                            {place.name}
+                            {place.area && <span className="tcg-soft"> · {place.area}</span>}
+                          </span>
+                          <span
+                            className="flex-shrink-0 font-mono text-[11px] tabular-nums"
+                            style={{ color: team.ink }}
+                          >
+                            {place.rating.toFixed(1)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="px-4 pb-4 pt-1">
+                  <Link
+                    to="/cafes/achievements"
+                    className="tcg-soft inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide underline-offset-4 hover:underline"
+                  >
+                    <Award className="h-3.5 w-3.5" aria-hidden />
+                    See the full badge case
+                  </Link>
+                </div>
+
+                {/* The back is as tall as the front, and the log rarely fills it.
+                    A card back is a printed surface, not a panel that ran out —
+                    so the leftover is the team's mark, watermarked into the stock. */}
+                <div className="pointer-events-none relative flex-1" aria-hidden>
+                  <PokeSprite
+                    dex={team.dex}
+                    fallback="✨"
+                    className="absolute left-1/2 top-1/2 h-[120px] w-[120px] -translate-x-1/2 -translate-y-1/2 opacity-[0.13]"
+                  />
+                </div>
+
+                <div className="tcg-hair mt-auto flex items-center justify-between border-t px-4 py-2.5">
+                  <span className="tcg-soft font-mono text-[7.5px] uppercase tracking-[0.14em]">
+                    Special Day Set · {team.mascot}
+                  </span>
+                  <span className="tcg-soft font-mono text-[7.5px] tracking-[0.14em]">{trainerId}</span>
+                </div>
               </div>
             </div>
 
             {/* ---------- material, whole card ----------
+                Inset to the stock, not the rim: on a real holo the yellow border
+                is still yellow, and a rainbow laid over it costs the card the one
+                edge that says what it is.
                 Covers the full face, clipped to the card's own radius, over both
                 sides. Every layer reads `--holo-x/y` off the card root, so pointer,
                 drag and gyro all drive it through one pair of numbers. Rendered
@@ -778,7 +1038,7 @@ const TrainerCard = ({
                 Blend modes are the quiet half of the pair used in the art window:
                 nothing here may lift a text background toward its foreground. */}
             {isFoil && (
-              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]" aria-hidden>
+              <div className="pointer-events-none absolute inset-3 overflow-hidden rounded-[10px]" aria-hidden>
                 <div
                   className="absolute inset-0 mix-blend-multiply"
                   style={{
@@ -832,7 +1092,7 @@ const TrainerCard = ({
             )}
 
             {isHolo && (
-              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]" aria-hidden>
+              <div className="pointer-events-none absolute inset-3 overflow-hidden rounded-[10px]" aria-hidden>
                 {/* One even pass, no band. `soft-light` keeps the card's own
                     lightness doing the work, so the pinks, the level ring and the
                     badge metals all survive underneath.
@@ -843,7 +1103,7 @@ const TrainerCard = ({
                     covers the full face at either extreme of `--holo-x/y`, so it can
                     travel with the tilt without ever exposing an edge. */}
                 <div
-                  className="absolute inset-0 opacity-40 mix-blend-soft-light"
+                  className="absolute inset-0 opacity-[0.26] mix-blend-soft-light"
                   style={{
                     backgroundImage: HOLO_RAINBOW_SOFT,
                     backgroundSize: "200% 200%",
@@ -854,7 +1114,7 @@ const TrainerCard = ({
                   }}
                 />
                 <div
-                  className="absolute inset-0 opacity-[0.18] mix-blend-soft-light"
+                  className="absolute inset-0 opacity-[0.12] mix-blend-soft-light"
                   style={{
                     background: HOLO_FOIL,
                     backgroundPosition:
@@ -865,7 +1125,7 @@ const TrainerCard = ({
                 {/* No transition: the centre lives inside the gradient, so it is a
                     repaint rather than a background-position the browser can tween. */}
                 <div
-                  className="absolute inset-0 opacity-[0.18] mix-blend-overlay"
+                  className="absolute inset-0 opacity-[0.14] mix-blend-overlay"
                   style={{
                     background:
                       "radial-gradient(circle at calc(50% + var(--holo-x, 0) * 30%) calc(50% + var(--holo-y, 0) * 30%), rgba(255,255,255,0.85), rgba(255,255,255,0) 58%)",

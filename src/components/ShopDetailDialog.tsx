@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Gift, Lock, Minus, Package, PackageX, Plus, X } from "lucide-react";
 import PokeCoin from "@/components/PokeCoin";
 import { cn } from "@/lib/utils";
@@ -51,11 +51,53 @@ export interface ShopDetailProps {
   lockedLabel?: string;
   pending: boolean;
   onBuy: (qty: number) => void;
+  /** Where on screen the thing that was tapped is sitting. Given one, the card
+   *  grows out of it and shrinks back into it — the tile and the card read as
+   *  one object rather than two. Without one it just scales up in place, which
+   *  is what the cosmetics do. */
+  origin?: OriginRect | null;
+  /** Fire the sparkle burst behind the sprite on open. */
+  burst?: boolean;
+}
+
+/** The four numbers of a `DOMRect` that matter here, kept as a plain object so a
+ *  live rect can't go stale between the tap and the render. */
+export interface OriginRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 /** Nothing sensible needs more than this in one go, and it matches the ceiling
  *  `buy_item` enforces. The affordable count is almost always the lower of the two. */
 const MAX_QTY = 99;
+
+/** Card width, straight off its own classes (`w-[calc(100vw-2rem)] max-w-sm`).
+ *  Read rather than measured: the flight has to start on the very first frame,
+ *  and measuring would cost a layout pass before it could. */
+const cardWidth = () => Math.min(window.innerWidth - 32, 384);
+
+/**
+ * The card's opening transform, expressed from the tile it came out of.
+ *
+ * The card is centred, so the offset is just the gap between the tile's middle
+ * and the screen's. Scale is uniform off the width — matching the tile's aspect
+ * as well would squash the card, and nobody reads a shape that arrives distorted.
+ */
+const flightFrom = (origin: OriginRect) => ({
+  scale: Math.max(0.1, origin.width / cardWidth()),
+  x: origin.left + origin.width / 2 - window.innerWidth / 2,
+  y: origin.top + origin.height / 2 - window.innerHeight / 2,
+  opacity: 0,
+});
+
+/** Eight sparks on fixed bearings. Fixed rather than random so the burst is the
+ *  same every time — a shape you come to recognise, not noise. */
+const SPARKS = Array.from({ length: 8 }, (_, i) => {
+  const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+  return { x: Math.cos(angle) * 68, y: Math.sin(angle) * 52, delay: 0.06 + (i % 4) * 0.03 };
+});
 
 const ShopDetailDialog = ({
   open,
@@ -77,6 +119,8 @@ const ShopDetailDialog = ({
   lockedLabel,
   pending,
   onBuy,
+  origin,
+  burst,
 }: ShopDetailProps) => {
   const reduceMotion = useReducedMotion();
   const [qty, setQty] = useState(1);
@@ -99,18 +143,55 @@ const ShopDetailDialog = ({
   const affordable = shortfall <= 0;
   const buyable = !locked && !owned && !soldOut && affordable;
 
+  /**
+   * Where the card comes in from and goes back out to.
+   *
+   * Computed during render, not in an effect: framer reads `initial` on the
+   * mount frame, and an effect only lands after it — the flight would be thrown
+   * away and the card would scale up in place instead. Recomputing per render is
+   * harmless, `initial` is read once and `exit` wants the current window anyway.
+   *
+   * Falls back to a plain scale-up when there's no tile to come from — that's
+   * the cosmetics, and it's what they did before any of this.
+   */
+  const enter =
+    origin && !reduceMotion ? flightFrom(origin) : { scale: 0.94, x: 0, y: 0, opacity: 0 };
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[hsl(270_25%_20%_/_0.42)] backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content
-          className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2",
-            "overflow-hidden rounded-[26px] border border-border bg-card shadow-[0_28px_60px_-28px_hsl(270_35%_35%_/_0.55)]",
-            "duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          )}
-        >
-          <DialogPrimitive.Close
+      {/* `forceMount` hands the unmount to AnimatePresence: without it Radix rips
+          the card out the instant it closes and the flight home never plays. */}
+      <AnimatePresence>
+        {open && (
+          <DialogPrimitive.Portal forceMount>
+            <DialogPrimitive.Overlay asChild forceMount>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.24 }}
+                className="fixed inset-0 z-50 bg-[hsl(270_25%_20%_/_0.42)] backdrop-blur-[2px]"
+              />
+            </DialogPrimitive.Overlay>
+
+            {/* Content stays exactly card-sized. Stretched to fill the screen it
+                would swallow the clicks on the scrim that Radix closes on. */}
+            <DialogPrimitive.Content
+              forceMount
+              className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 focus:outline-none"
+            >
+              <motion.div
+                initial={enter}
+                animate={{ scale: 1, x: 0, y: 0, opacity: 1 }}
+                exit={enter}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { duration: 0.42, ease: [0.16, 1, 0.3, 1], opacity: { duration: 0.18 } }
+                }
+                className="overflow-hidden rounded-[26px] border border-border bg-card shadow-[0_28px_60px_-28px_hsl(270_35%_35%_/_0.55)]"
+              >
+                <DialogPrimitive.Close
             className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Close"
           >
@@ -119,12 +200,28 @@ const ShopDetailDialog = ({
 
           {/* Hero. The visual owns a fixed band so every item, sticker pack and
               filter opens to the same silhouette. */}
-          <div className="grid h-40 place-items-center border-b border-border bg-gradient-to-b from-accent to-card px-6">
+          <div className="relative grid h-40 place-items-center overflow-hidden border-b border-border bg-gradient-to-b from-accent to-card px-6">
+            {/* The burst. Behind the sprite, so it reads as something the item
+                did rather than something drawn on top of it. */}
+            {burst && !reduceMotion && (
+              <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden>
+                {SPARKS.map((spark, i) => (
+                  <motion.span
+                    key={i}
+                    className="absolute h-1.5 w-1.5 rounded-full bg-rose"
+                    initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                    animate={{ x: spark.x, y: spark.y, scale: [0, 1, 0.2], opacity: [0, 1, 0] }}
+                    transition={{ duration: 0.62, delay: spark.delay, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                ))}
+              </div>
+            )}
+
             <motion.div
               initial={reduceMotion ? false : { scale: 0.86, y: 8 }}
               animate={{ scale: 1, y: 0 }}
               transition={reduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-              className="grid h-28 w-full max-w-[220px] place-items-center"
+              className="relative grid h-28 w-full max-w-[220px] place-items-center"
             >
               {visual}
             </motion.div>
@@ -278,8 +375,11 @@ const ShopDetailDialog = ({
               </motion.button>
             </div>
           </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
+              </motion.div>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        )}
+      </AnimatePresence>
     </DialogPrimitive.Root>
   );
 };

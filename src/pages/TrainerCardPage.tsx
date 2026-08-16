@@ -13,7 +13,7 @@ import LinkPartner from "@/components/LinkPartner";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { useAllCafePlaces, useCafeCategories } from "@/hooks/useCafes";
 import { computeAchievements, type AchievementTier } from "@/utils/cafeAchievements";
-import { uploadTrainerPhoto } from "@/utils/profile";
+import { qtyOf, uploadTrainerPhoto } from "@/utils/profile";
 import { LEVEL_TIERS, computeTrainerStats, teamFor, trainerIdFor } from "@/utils/trainerCard";
 import { cn } from "@/lib/utils";
 
@@ -180,6 +180,12 @@ const TrainerCardPage = () => {
   const stats = computeTrainerStats(badges, stamps, visits, trainerConfig, rareItems);
   const team = teamFor(profile?.teamId);
 
+  /** Unspent coupons, counted in copies rather than rows. Sits on the Bag tab so
+   *  a coupon waiting to be cashed in is visible from the other two tabs — the
+   *  bag is the only one of the three holding something that expires with the day. */
+  const unspent =
+    profile?.items.reduce((n, item) => n + Math.max(0, qtyOf(item)), 0) ?? 0;
+
   const handlePhoto = async (dataUrl: string) => {
     setIsSavingPhoto(true);
     try {
@@ -293,6 +299,19 @@ const TrainerCardPage = () => {
                           )}
                           <Icon className="relative h-4 w-4" aria-hidden />
                           <span className="relative">{tab.label}</span>
+                          {tab.id === "bag" && unspent > 0 && (
+                            <span
+                              className={cn(
+                                "relative rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold leading-none tabular-nums",
+                                active
+                                  ? "bg-primary-foreground/25 text-primary-foreground"
+                                  : "bg-rose/15 text-rose",
+                              )}
+                              aria-label={`${unspent} unspent`}
+                            >
+                              {unspent}
+                            </span>
+                          )}
                         </button>
                       );
                     })}

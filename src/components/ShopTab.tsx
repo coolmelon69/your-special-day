@@ -32,7 +32,7 @@ import { fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
 import { qtyOf, type BuyItemResult, type OwnedItem } from "@/utils/profile";
 import PokeCoin from "@/components/PokeCoin";
 import CosmeticPreview from "@/components/ShopPreview";
-import ShopDetailDialog from "@/components/ShopDetailDialog";
+import ShopDetailDialog, { type OriginRect } from "@/components/ShopDetailDialog";
 import { cn } from "@/lib/utils";
 
 /** The three price shelves, in the words the shop uses for them. */
@@ -109,7 +109,10 @@ const CATEGORY_ORDER: SellableCategory[] = ["card", "sticker", "filter"];
 const SELLABLE_CATALOGUE = SHOP_CATALOGUE.filter((sku) => sku.category !== "coupon");
 
 /** What the detail dialog is currently showing. One dialog serves both shelves. */
-type Selection = { kind: "item"; slug: string } | { kind: "sku"; id: string };
+type Selection =
+  /** `origin` is where the tapped tile was, so the card can grow out of it. */
+  | { kind: "item"; slug: string; origin: OriginRect }
+  | { kind: "sku"; id: string };
 
 /** Sprite on its tinted plinth, at whatever size the surface needs. Sprites are
  *  32px native, so both sizes here are exact multiples — no blur. Declared at
@@ -198,6 +201,14 @@ const ShopTab = ({
   /** Slug or sku id whose purchase sweep is currently playing. */
   const [justBought, setJustBought] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selection | null>(null);
+  /** Open state is separate from *what* is open, and `selected` is deliberately
+   *  not cleared on close: the card has to stay mounted long enough to fly back
+   *  into the tile it came out of. The next tap overwrites it. */
+  const [detailOpen, setDetailOpen] = useState(false);
+  const show = (next: Selection) => {
+    setSelected(next);
+    setDetailOpen(true);
+  };
   /** Read once at mount, never written here — the Bag tab owns the switch, the
    *  shop only obeys it. Flipping it there and coming back re-mounts this tab. */
   const [spicyRevealed] = useState(loadSpicyRevealed);
@@ -443,18 +454,24 @@ const ShopTab = ({
 
         {/* Shelf surface. Recessed against the frame so the tiles read as goods
             sitting on it, rather than cards inside a card. */}
-        <motion.div layout className="relative bg-accent/40 px-3 py-3">
+        {/* The swipe lives on the surface, not on the page inside it: `drag` owns
+            the element's `x`, so a page that both dragged and animated `x` never
+            landed back at 0 and sat one offset off-centre for good. */}
+        <motion.div
+          layout
+          drag={reduceMotion ? false : "x"}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.16}
+          onDragEnd={(_, info) => {
+            if (info.offset.x < -60) turn(1);
+            else if (info.offset.x > 60) turn(-1);
+          }}
+          className="relative bg-accent/40 px-3 py-3"
+        >
           <AnimatePresence mode="wait" custom={direction} initial={false}>
             <motion.div
               key={page}
               custom={direction}
-              drag={reduceMotion ? false : "x"}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.16}
-              onDragEnd={(_, info) => {
-                if (info.offset.x < -60) turn(1);
-                else if (info.offset.x > 60) turn(-1);
-              }}
               initial={reduceMotion ? false : { opacity: 0, x: direction * 40 }}
               animate={{ opacity: 1, x: 0 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * -40 }}
@@ -476,7 +493,11 @@ const ShopTab = ({
                   <motion.button
                     key={item.slug}
                     type="button"
-                    onClick={() => setSelected({ kind: "item", slug: item.slug })}
+                    onClick={(event) => {
+                      const { left, top, width, height } =
+                        event.currentTarget.getBoundingClientRect();
+                      show({ kind: "item", slug: item.slug, origin: { left, top, width, height } });
+                    }}
                     animate={{ opacity: locked || soldOut ? 0.6 : 1 }}
                     transition={{ duration: reduceMotion ? 0 : 0.25 }}
                     whileHover={reduceMotion ? undefined : { y: -3 }}
@@ -674,7 +695,7 @@ const ShopTab = ({
                     <motion.button
                       key={sku.id}
                       type="button"
-                      onClick={() => setSelected({ kind: "sku", id: sku.id })}
+                      onClick={() => show({ kind: "sku", id: sku.id })}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: owned ? 0.78 : 1, y: 0 }}
                       transition={
@@ -754,8 +775,8 @@ const ShopTab = ({
 
       {openItem && (
         <ShopDetailDialog
-          open
-          onOpenChange={(next) => !next && setSelected(null)}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
           visual={
             <SpritePlinth
               item={openItem}
@@ -780,13 +801,15 @@ const ShopTab = ({
           lockedLabel={openGateName}
           pending={pendingSku === openItem.slug}
           onBuy={(qty) => handleBuyItem(openItem.slug, qty)}
+          origin={selected?.kind === "item" ? selected.origin : null}
+          burst
         />
       )}
 
       {openSku && (
         <ShopDetailDialog
-          open
-          onOpenChange={(next) => !next && setSelected(null)}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
           visual={
             <div className="h-full w-full">
               <CosmeticPreview skuId={openSku.id} />
@@ -801,7 +824,6 @@ const ShopTab = ({
           ownedLabel="Owned"
           pending={pendingSku === openSku.id}
           onBuy={() => handleBuy(openSku.id)}
-
         />
       )}
     </div>

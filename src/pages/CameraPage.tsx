@@ -2,14 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Camera, Image as ImageIcon, AlertCircle, X, Trash2, ArrowLeft, Upload } from 'lucide-react';
-import { saveCameraPhoto, getUndevelopedPhotosCount, getAllCameraPhotos, deleteCameraPhoto, type CameraPhoto } from '@/utils/adminStorage';
+import { saveCameraPhoto, getUndevelopedPhotosCount, getAllCameraPhotos, deleteCameraPhoto, markCameraPhotoDeveloped, type CameraPhoto } from '@/utils/adminStorage';
 import { useAdventure } from '@/contexts/AdventureContext';
 import { checkpointKey } from '@/utils/memoryBookGenerator';
+import { uploadPhotoToStorage } from '@/utils/photoUpload';
+import { syncCheckpointPhoto } from '@/utils/supabaseSync';
+import type { Photo } from '@/components/TimelineSection';
 import { toast } from 'sonner';
 
 const CameraPage = () => {
   const navigate = useNavigate();
-  const { itineraryState, upsertPhoto } = useAdventure();
+  const { itineraryState, upsertPhoto, user } = useAdventure();
   const [undevelopedCount, setUndevelopedCount] = useState(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,18 +92,36 @@ const CameraPage = () => {
     try {
       const toPromote = photos.filter((p) => selectedIds.has(p.id));
       for (const photo of toPromote) {
-        await upsertPhoto({
+        // Signed in, the frame has to reach Storage: the Memory Book clears the local
+        // photo store and refills it from the cloud on every load, so a local-only
+        // promote is wiped before it can ever render on a page.
+        const storageUrl = user
+          ? (await uploadPhotoToStorage(photo.dataUrl, selectedCheckpoint, photo.id)) ?? undefined
+          : undefined;
+
+        // Developed on purpose: the stop was already picked here, so there is nothing
+        // left for the Develop Film panel to ask.
+        const filed: Photo = {
           id: photo.id,
           checkpointId: selectedCheckpoint,
           src: photo.dataUrl,
+          storageUrl,
           timestamp: photo.timestamp,
-          isDeveloped: false,
-        });
+          isDeveloped: true,
+        };
+
+        await upsertPhoto(filed);
+        if (user && storageUrl) {
+          await syncCheckpointPhoto(filed);
+        }
+        await markCameraPhotoDeveloped(photo.id);
       }
       toast.success(`Promoted ${toPromote.length} photo(s) to Memory Book`);
       setShowPromoteModal(false);
       setSelectedIds(new Set());
       setSelectedCheckpoint('');
+      setPhotos(await getAllCameraPhotos());
+      fetchCount();
     } catch (err) {
       console.error("Error promoting photos:", err);
       toast.error("Failed to promote photos");

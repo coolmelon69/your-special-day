@@ -26,7 +26,13 @@ for (const sku of SHOP_CATALOGUE) {
 }
 
 // Lookups
-assert.equal(priceOf("card.material.holo"), 50, "holo is the priciest thing in the shop");
+assert.equal(priceOf("card.material.fullart"), 80, "full art is the priciest thing in the shop");
+assert.equal(priceOf("card.material.holo"), 50, "holo is the second priciest");
+assert.equal(
+  Math.max(...SHOP_CATALOGUE.map((s) => s.price)),
+  priceOf("card.material.fullart"),
+  "nothing outprices the chase card",
+);
 assert.equal(priceOf("nope.not.real"), null, "unknown sku has no price");
 assert.equal(skuById("nope.not.real"), undefined, "unknown sku is not found");
 
@@ -41,7 +47,10 @@ assert.equal(isOwned([], "card.title"), false, "empty purchases owns nothing");
 // The catalogue is duplicated in `buy_sku` because the client must never send
 // a price. Duplication is fine; drift is not — a cheaper row here than in the
 // database means a button that promises a price the charge won't honour.
-const migration = readFileSync(new URL("../../sql/2026-08-08-items-shop.sql", import.meta.url), "utf8");
+// Read the LATEST migration that recreates buy_sku, not the first one — the
+// price list is a `case` expression, so every new sku ships a whole new copy
+// of the function and the older file stops describing what the database runs.
+const migration = readFileSync(new URL("../../sql/2026-08-16-card-fullart.sql", import.meta.url), "utf8");
 
 // Scope to buy_sku's body — record_drop has a `case` of its own, and matching
 // the whole file would fold its coin values in with the shop's prices.

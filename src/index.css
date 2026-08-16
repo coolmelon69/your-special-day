@@ -514,6 +514,137 @@
   .ticket-seal--blind::before {
     border-color: hsl(274 18% 78%);
   }
+
+  /* ─── the trading card — /trainer-card ────────────────────────────
+     A section-local material world: printed card stock inside a yellow
+     rim, a gold-ruled art window, energy pips and a weakness/retreat
+     band. Scoped under .tcgcard so none of it leaks into the editorial
+     system. Team colour arrives as --tc-accent / --tc-ink / --tc-tint,
+     set inline from the Team record. See DESIGN_SYSTEM.md §15. */
+  .tcgcard {
+    --edge: 45 92% 54%;
+    --edge-deep: 41 88% 44%;
+    --stock: 42 62% 97.5%;
+    --stock-2: 40 44% 91%;
+    --rule: 40 45% 30%;
+    --print: 40 26% 13%;
+    --print-soft: 40 16% 36%;
+    --gild: 44 60% 58%;
+  }
+
+  /* the yellow rim. Two stops rather than one: a flat fill reads as a
+     coloured div, a raked one reads as stock cut from a printed sheet */
+  .tcg-edge {
+    background:
+      linear-gradient(158deg, hsl(48 96% 68%) 0%, hsl(var(--edge)) 44%, hsl(var(--edge-deep)) 100%);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.55), inset 0 -1px 0 hsl(40 60% 30% / 0.3);
+  }
+
+  /* the printed face inside the rim */
+  .tcg-stock {
+    background: linear-gradient(180deg, hsl(var(--stock)), hsl(var(--stock-2)));
+    border: 1px solid hsl(var(--rule) / 0.42);
+    color: hsl(var(--print));
+  }
+
+  /* the art window's gold rule — a lit edge and its shadow, so the frame
+     reads as pressed into the sheet rather than drawn on it */
+  .tcg-window {
+    border: 3px solid transparent;
+    border-image: linear-gradient(150deg,
+      hsl(46 78% 84%), hsl(var(--gild)) 28%, hsl(44 70% 88%) 52%, hsl(40 58% 42%) 78%, hsl(46 76% 82%)) 1;
+    /* The ground behind a sprite, for a card with no photo yet. The team tint
+       alone is near-white — the accent wash is what stops the window reading
+       as a hole in the sheet. */
+    background:
+      radial-gradient(120% 96% at 50% 6%,
+        color-mix(in srgb, var(--tc-accent) 26%, transparent),
+        transparent 72%),
+      var(--tc-tint, hsl(var(--stock-2)));
+  }
+
+  /* the printed data strip under the art — where a real card puts length
+     and weight, this one puts the trainer's registration line */
+  .tcg-strip {
+    background: hsl(var(--stock-2));
+    border: 1px solid hsl(var(--rule) / 0.32);
+    color: hsl(var(--rule));
+  }
+
+  /* one energy pip. Team-hued so a Valor card and a Mystic card cost
+     different energy at a glance */
+  .tcg-pip {
+    background: radial-gradient(circle at 34% 28%, hsl(0 0% 100% / 0.85), var(--tc-accent) 62%, hsl(0 0% 0% / 0.35));
+    box-shadow: inset 0 -1px 1px hsl(0 0% 0% / 0.32), 0 1px 1px hsl(0 0% 0% / 0.2);
+  }
+
+  .tcg-hair { border-color: hsl(var(--rule) / 0.2); }
+  .tcg-divide > * + * { border-top: 1px solid hsl(var(--rule) / 0.2); }
+  .tcg-band { border-color: hsl(var(--rule) / 0.45); }
+  .tcg-soft { color: hsl(var(--print-soft)); }
+  .tcg-ink { color: hsl(var(--print)); }
+
+  /* ─── full art (card.material.fullart) ──────────────────────────
+     The chase pull: art to the edge, gold rim, every number floating on
+     the scene. Its rainbow is permanent — that is what the SKU buys —
+     and rides the same --holo-x/--holo-y the other materials use. */
+  .tcg-fa-edge {
+    background: linear-gradient(150deg,
+      hsl(46 84% 88%), hsl(43 62% 52%) 24%, hsl(46 78% 84%) 46%, hsl(40 56% 38%) 70%, hsl(46 82% 86%));
+  }
+
+  .tcg-fa-holo {
+    background-image:
+      repeating-linear-gradient(104deg, hsl(0 0% 100% / 0.45) 0 1px, transparent 1px 6px),
+      linear-gradient(116deg,
+        hsl(330 100% 55% / 0.45), hsl(42 100% 50% / 0.4) 20%, hsl(152 100% 74% / 0.4) 44%,
+        hsl(196 100% 50% / 0.45) 66%, hsl(272 100% 67% / 0.45) 86%, hsl(330 100% 55% / 0.45));
+    background-size: auto, 240% 240%;
+    background-position:
+      0 0,
+      calc(50% + var(--holo-x, 0) * 42%) calc(50% + var(--holo-y, 0) * 42%);
+    mix-blend-mode: overlay;
+    opacity: 0.5;
+  }
+
+  /* the cross-hatch a textured full art carries under the ink */
+  .tcg-fa-etch {
+    background-image:
+      repeating-linear-gradient(45deg, hsl(0 0% 100% / 0.5) 0 1px, transparent 1px 9px),
+      repeating-linear-gradient(-45deg, hsl(0 0% 100% / 0.35) 0 1px, transparent 1px 9px);
+    mix-blend-mode: soft-light;
+    opacity: 0.2;
+  }
+
+  .tcg-fa-seal {
+    background: radial-gradient(circle at 34% 28%, hsl(46 96% 90%), hsl(43 66% 54%) 58%, hsl(40 62% 32%));
+    box-shadow: 0 3px 8px hsl(0 0% 0% / 0.45), inset 0 -2px 3px hsl(0 0% 0% / 0.3);
+    color: hsl(40 70% 16%);
+  }
+
+  /* the one gold rule the stats sit on */
+  .tcg-fa-band {
+    background: linear-gradient(90deg,
+      hsl(250 40% 8% / 0), hsl(250 40% 8% / 0.72) 12%, hsl(250 40% 8% / 0.72) 88%, hsl(250 40% 8% / 0));
+    border-top: 1px solid hsl(44 62% 68% / 0.5);
+    border-bottom: 1px solid hsl(44 62% 68% / 0.5);
+  }
+
+  /* foil lettering. The one gradient-on-text in the project: on a chase
+     card the name IS stamped foil, so weight alone cannot say it. */
+  .tcg-fa-name {
+    background: linear-gradient(180deg, hsl(46 100% 93%) 12%, hsl(44 78% 71%) 48%, hsl(40 68% 46%) 74%, hsl(46 96% 86%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 4px hsl(0 0% 0% / 0.6));
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tcg-fa-holo {
+      transition: background-position 120ms linear;
+    }
+  }
 }
 
 @layer utilities {

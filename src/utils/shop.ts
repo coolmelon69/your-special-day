@@ -21,6 +21,13 @@ export interface ShopSku {
 export const SHOP_CATALOGUE: ShopSku[] = [
   // Trainer card — worn on /trainer-card, the tab next door
   {
+    id: "card.material.fullart",
+    category: "card",
+    name: "Full Art",
+    blurb: "The chase pull. Art to the edge, gold rim, your name stamped in foil.",
+    price: 80,
+  },
+  {
     id: "card.material.holo",
     category: "card",
     name: "Holo Finish",

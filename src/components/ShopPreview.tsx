@@ -107,6 +107,88 @@ const CosmeticPreview = ({ skuId }: { skuId: string }) => {
   }
 
   switch (skuId) {
+    // The only cosmetic that replaces the card rather than finishing it, so this
+    // is the one swatch that can't use `MiniCard` — no white band, no window,
+    // no margin. Same silhouette, different printing, which is the whole pitch.
+    case "card.material.fullart":
+      return (
+        <Frame style={{ background: "hsl(268 40% 20%)" }}>
+          <div className="absolute inset-0 grid place-items-center p-3">
+            <div
+              className="relative h-full w-[58%] overflow-hidden rounded-md p-[1.5px] shadow-[0_3px_8px_-3px_hsl(268_40%_12%)]"
+              style={{
+                background:
+                  "linear-gradient(150deg, hsl(46 84% 88%), hsl(43 62% 52%) 26%, hsl(46 78% 84%) 50%, hsl(40 56% 38%) 74%, hsl(46 82% 86%))",
+              }}
+            >
+              <div
+                className="relative h-full w-full overflow-hidden rounded-[3px]"
+                style={{
+                  background:
+                    "linear-gradient(172deg, hsl(250 55% 14%) 0%, hsl(258 46% 30%) 40%, hsl(316 44% 46%) 72%, hsl(28 78% 64%) 100%)",
+                }}
+              >
+                {/* the sun the art is built around */}
+                <span
+                  className="absolute left-1/2 top-[44%] h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle, hsl(44 100% 90%) 22%, hsl(38 95% 72% / 0.35) 50%, transparent 72%)",
+                  }}
+                />
+                {/* the permanent rainbow — what the SKU actually buys */}
+                <span
+                  className="absolute inset-0 opacity-50 mix-blend-overlay"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(116deg, hsl(330 100% 60% / 0.5), hsl(45 100% 55% / 0.45) 22%, hsl(150 90% 70% / 0.45) 46%, hsl(200 100% 60% / 0.5) 68%, hsl(275 100% 70% / 0.5))",
+                  }}
+                />
+                <span
+                  className="absolute inset-0 opacity-30 mix-blend-soft-light"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(45deg, rgba(255,255,255,.6) 0 1px, transparent 1px 5px)",
+                  }}
+                />
+                {/* level seal */}
+                <span
+                  className="absolute left-1 top-1 h-[9px] w-[9px] rounded-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 34% 28%, hsl(46 96% 92%), hsl(43 66% 56%) 58%, hsl(40 62% 34%))",
+                  }}
+                />
+                {/* the name, stamped in foil */}
+                <div
+                  className="absolute inset-x-1 bottom-[11px] h-[5px] rounded-[1px]"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, hsl(46 100% 93%), hsl(44 78% 70%) 52%, hsl(40 68% 46%))",
+                  }}
+                />
+                {/* the one gold rule every number sits on */}
+                <div
+                  className="absolute inset-x-0 bottom-[3px] flex items-center justify-center gap-[3px] border-y py-[2px]"
+                  style={{
+                    borderColor: "hsl(44 62% 70% / 0.55)",
+                    background: "hsl(250 40% 8% / 0.6)",
+                  }}
+                >
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="h-[3px] w-[6px] rounded-[1px]"
+                      style={{ background: "hsl(46 90% 86%)" }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Frame>
+      );
+
     // Rainbow spectrum sweeping the art window — the holo layer's signature.
     case "card.material.holo":
       return (

@@ -82,15 +82,20 @@ export const avatarFor = (avatarId: string | null | undefined): AvatarPreset =>
  * table, which is what keeps an unowned card looking exactly like it does today.
  */
 export interface CardMaterial {
-  id: "foil" | "holo";
+  id: "foil" | "holo" | "fullart";
   label: string;
   blurb: string;
   unlockSku: string;
 }
 
+/** `fullart` is the odd one out: Foil and Holo lay a finish over the printed
+ *  face, but Full Art *replaces* that face with an edge-to-edge one. Same
+ *  field, so picking it deselects the other two — which is right, a card is
+ *  only ever printed one way. */
 export const CARD_MATERIALS: CardMaterial[] = [
   { id: "foil", label: "Foil", blurb: "Etched metal, whole card. Tilt it and the glints move.", unlockSku: "card.material.foil" },
   { id: "holo", label: "Holo", blurb: "Rainbow across the whole card, brightest over your photo.", unlockSku: "card.material.holo" },
+  { id: "fullart", label: "Full Art", blurb: "The chase pull. Art to the edge, gold rim, your name in foil.", unlockSku: "card.material.fullart" },
 ];
 
 export interface CardFrame {

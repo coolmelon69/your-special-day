@@ -13,6 +13,9 @@ import {
   Menu,
   IdCard,
   HeartHandshake,
+  Backpack,
+  Store,
+  ChevronDown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -46,6 +49,14 @@ const MASTHEAD_LINK =
 const CHROME_BUTTON =
   "inline-flex items-center gap-2 rounded-[10px] border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground transition-gentle hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+/** The three panels of /trainer-card, which the page selects with `?tab=`.
+ *  Card is the default, so it carries no param — a bare /trainer-card link. */
+const PROFILE_TABS = [
+  { tab: "card", label: "Card", icon: IdCard },
+  { tab: "bag", label: "Bag", icon: Backpack },
+  { tab: "shop", label: "Shop", icon: Store },
+] as const;
+
 interface NavItem {
   path: string;
   label: string;
@@ -73,6 +84,12 @@ const NavigationBar = () => {
    *  code from an account with no profile row (`no_profile`). */
   const showPairPrompt =
     siteUnlocked && !!user && !!profile && !isLinked && location.pathname !== "/trainer-card";
+
+  /** Which trainer-card panel is showing, mirroring the page's own fallback:
+   *  an absent or unknown `?tab=` means Card. Router's NavLink matches on path
+   *  alone, so the sub-items compare this themselves or all three light up. */
+  const activeProfileTab = new URLSearchParams(location.search).get("tab") ?? "card";
+  const [profileOpen, setProfileOpen] = useState(location.pathname === "/trainer-card");
 
   // Listen to auth state changes
   useEffect(() => {
@@ -218,6 +235,74 @@ const NavigationBar = () => {
                   {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.path;
+
+                    // Profile is three destinations wearing one route, so in the
+                    // sheet it becomes a labelled group rather than a link that
+                    // silently drops you on whichever panel it feels like.
+                    if (item.path === "/trainer-card" && !item.accent) {
+                      return (
+                        <li key={item.label}>
+                          {/* Native <details> — the disclosure the platform already
+                              ships, keyboard and a11y included. Open by default
+                              while you're on the page it points at. */}
+                          <details
+                            open={profileOpen}
+                            onToggle={(e) => setProfileOpen(e.currentTarget.open)}
+                            className="group"
+                          >
+                            <summary
+                              className={`flex cursor-pointer list-none items-center gap-3 py-4 font-serif text-xl transition-gentle hover:text-foreground [&::-webkit-details-marker]:hidden ${
+                                isActive ? "text-foreground" : "text-muted-foreground"
+                              }`}
+                            >
+                              <Icon
+                                className={`h-4 w-4 ${
+                                  isActive ? "text-rose" : "text-muted-foreground"
+                                }`}
+                              />
+                              {item.label}
+                              <ChevronDown
+                                className="ml-auto h-4 w-4 transition-transform duration-200 group-open:rotate-180"
+                                aria-hidden
+                              />
+                            </summary>
+                            <ul className="mb-4 ml-2 border-l border-border pl-5">
+                              {PROFILE_TABS.map((sub) => {
+                                const SubIcon = sub.icon;
+                                const subActive =
+                                  location.pathname === "/trainer-card" &&
+                                  activeProfileTab === sub.tab;
+                                return (
+                                  <li key={sub.tab}>
+                                    <SheetClose asChild>
+                                      <Link
+                                        to={
+                                          sub.tab === "card"
+                                            ? "/trainer-card"
+                                            : `/trainer-card?tab=${sub.tab}`
+                                        }
+                                        aria-current={subActive ? "page" : undefined}
+                                        className={`flex items-center gap-3 py-3 font-serif text-lg transition-gentle hover:text-foreground ${
+                                          subActive ? "text-foreground" : "text-muted-foreground"
+                                        }`}
+                                      >
+                                        <SubIcon
+                                          className={`h-4 w-4 ${
+                                            subActive ? "text-rose" : "text-muted-foreground"
+                                          }`}
+                                        />
+                                        {sub.label}
+                                      </Link>
+                                    </SheetClose>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </details>
+                        </li>
+                      );
+                    }
+
                     return (
                       <li key={item.label}>
                         <SheetClose asChild>

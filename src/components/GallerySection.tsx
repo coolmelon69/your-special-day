@@ -17,6 +17,7 @@ import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useAdventure } from "@/contexts/AdventureContext";
+import { checkpointKey } from "@/utils/memoryBookGenerator";
 import { cn } from "@/lib/utils";
 
 type Leaf = {
@@ -295,11 +296,12 @@ const GallerySection = () => {
   const leaves: Leaf[] =
     user && photos.length > 0
       ? photos.map((photo) => {
-          const stop = itineraryState.find((item) => item.title === photo.checkpointId);
+          // Photos are filed under `time-title`, not the bare title.
+          const stop = itineraryState.find((item) => checkpointKey(item) === photo.checkpointId);
           return {
             id: photo.id,
             src: photo.storageUrl || photo.src,
-            caption: photo.caption?.trim() || photo.checkpointId,
+            caption: photo.caption?.trim() || stop?.title || photo.checkpointId,
             place: stop?.title ?? photo.checkpointId,
             time: stop?.time,
             taken: photo.timestamp,

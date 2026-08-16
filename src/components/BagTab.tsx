@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Eye, EyeOff, Gift, Package, Sparkles, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
+import { AlertCircle, Eye, EyeOff, Gift, Package, Sparkles, X } from "lucide-react";
 import { qtyOf, type OwnedItem } from "@/utils/profile";
 import { fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
 import { actionFor, loadSpicyRevealed, saveSpicyRevealed } from "@/utils/itemActions";
 import type { Team } from "@/utils/trainerCard";
+import ItemUsedFanfare from "./ItemUsedFanfare";
 import { cn } from "@/lib/utils";
 
 interface BagTabProps {
@@ -24,6 +25,29 @@ const titleFromSource = (source: string): string => {
   return dash === -1 ? source : source.slice(dash + 1);
 };
 
+/** The sheet composes itself around the sprite once the sprite has landed: the
+ *  travel reads first, the reading matter arrives under it. */
+const SHEET_GROUP = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05, delayChildren: 0.12 } },
+};
+
+const SHEET_ITEM: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] } },
+};
+
+/** The sprite opts out of the group's fade — its entrance is the flight itself,
+ *  and a variant would override the layout animation's opacity. */
+const SHEET_SPRITE = { hidden: { opacity: 1 }, show: { opacity: 1 } };
+
+/** One spring for both ends of the trip, so out and back feel like one gesture. */
+const SPRITE_TRAVEL = { type: "spring", stiffness: 240, damping: 28 } as const;
+
+/** How long the armed "tap again to spend it" stays armed. Long enough to think,
+ *  short enough that a coupon opened again later never starts half-spent. */
+const CONFIRM_TIMEOUT_MS = 5000;
+
 const BagTab = ({ items, team, redeem }: BagTabProps) => {
   const [details, setDetails] = useState<Record<string, ItemDetails>>({});
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -33,7 +57,22 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
    *  accident on a card you only meant to read. */
   const [confirming, setConfirming] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  /** The celebration outlives the item that caused it. A successful redeem makes
+   *  the parent reload the profile, which drops the spent stack out of `items`
+   *  and takes `active` with it — so the fanfare carries its own copy of what to
+   *  show rather than reading off a row that is on its way out. */
+  const [fanfare, setFanfare] = useState<{
+    spriteUrl?: string | null;
+    name: string;
+    action: string;
+  } | null>(null);
+  /** Why the last redeem didn't happen. Cleared on every new attempt. */
+  const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  /** The tile that opened the sheet, so closing hands focus back to where it
+   *  came from instead of dropping it on the body. */
+  const tileRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const openedFrom = useRef<string | null>(null);
   const reduceMotion = useReducedMotion();
 
   // Spent items leave. The row survives in the database — rare-drop XP is
@@ -70,13 +109,29 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
   useEffect(() => {
     if (openIndex === null) return;
     const previous = document.body.style.overflow;
+    // Same mutable map either way — held in a local so the cleanup isn't reading
+    // a ref that React may have swapped underneath it.
+    const tiles = tileRefs.current;
     document.body.style.overflow = "hidden";
     dialogRef.current?.focus();
     setConfirming(null);
+    setError(null);
     return () => {
       document.body.style.overflow = previous;
+      // Back to the tile she opened, if it's still in the bag — a redeemed one
+      // isn't, and then the page keeps focus rather than chasing a ghost.
+      const source = openedFrom.current;
+      if (source) tiles[source]?.focus();
     };
   }, [openIndex]);
+
+  // An armed coupon disarms itself. "Tap again to spend it" left standing is a
+  // one-tap accident waiting for whoever picks the phone up next.
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = window.setTimeout(() => setConfirming(null), CONFIRM_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [confirming]);
 
   useEffect(() => {
     if (openIndex === null) return;
@@ -121,15 +176,29 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
     if (!active || pending) return;
     if (confirming !== active.source) {
       setConfirming(active.source);
+      setError(null);
       return;
     }
     setPending(true);
+    setError(null);
+    // Snapshot before the await: `active` is derived from `items`, which the
+    // parent reloads the moment the redeem lands.
+    const spent = {
+      spriteUrl: activeDetails?.spriteUrl,
+      name: activeDetails?.name ?? active.slug,
+      action: activeAction?.action ?? "",
+    };
     const ok = await redeem(active.source);
     setPending(false);
     setConfirming(null);
     // The parent reloads the profile on success, which re-sorts `items` under
-    // this sheet — close rather than leave the index pointing at a moved row.
-    if (ok) setOpenIndex(null);
+    // this sheet — the fanfare covers the sheet while it plays, and dismissing
+    // it closes the sheet rather than leaving the index on a moved row.
+    if (ok) setFanfare(spent);
+    else
+      setError(
+        "That didn't go through — it may already have been spent on another device. Your coupon is still here; try again in a moment.",
+      );
   };
 
   return (
@@ -181,8 +250,14 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
               // A spent stack leaves the bag, so `source` is unique among what's
               // left. `at` is belt and braces against a stale render mid-redeem.
               key={`${item.source}-${item.at ?? index}`}
+              ref={(node) => {
+                tileRefs.current[item.source] = node;
+              }}
               type="button"
-              onClick={() => setOpenIndex(index)}
+              onClick={() => {
+                openedFrom.current = item.source;
+                setOpenIndex(index);
+              }}
               aria-label={`${d?.name.replace(/-/g, " ") ?? item.slug}, ${item.rarity}${held > 1 ? `, ${held} of them` : ""}`}
               whileHover={reduceMotion ? undefined : { y: -3, scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
@@ -208,14 +283,19 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
                 />
               )}
               {d?.spriteUrl ? (
-                <img
+                /* Paired with the sheet's sprite by `layoutId`: opening an item
+                   flies this one to the centre of the screen, closing flies it
+                   home. Only one of the pair is ever the lead. */
+                <motion.img
+                  layoutId={reduceMotion ? undefined : `bag-sprite-${item.source}`}
+                  transition={SPRITE_TRAVEL}
                   src={d.spriteUrl}
                   alt=""
                   className="relative h-10 w-10"
                   style={{ imageRendering: "pixelated" }}
                 />
               ) : (
-                <div className="relative h-10 w-10 rounded-md bg-muted" aria-hidden />
+                <div className="relative h-10 w-10 animate-pulse rounded-md bg-muted" aria-hidden />
               )}
               <p className="relative line-clamp-1 font-mono text-[10px] capitalize tracking-wide text-foreground">
                 {d?.name.replace(/-/g, " ") ?? item.slug.replace(/-/g, " ")}
@@ -248,12 +328,24 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
               aria-modal="true"
               aria-label={activeDetails?.name ?? active.slug}
               tabIndex={-1}
-              initial={{ opacity: 0 }}
+              /* The container itself never fades — the sprite flying in from its
+                 tile has to stay solid the whole way across. Only the ground it
+                 lands on does. Exit is held long enough for the return trip. */
+              initial={{ opacity: 1 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed inset-0 z-50 flex select-none flex-col bg-background outline-none"
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-0 z-50 flex select-none flex-col outline-none"
             >
+              <motion.div
+                aria-hidden
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22 }}
+                className="absolute inset-0 bg-background"
+              />
+
               <button
                 type="button"
                 aria-label="Close item"
@@ -274,42 +366,69 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
               </div>
 
               <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-4">
-                <div className="mx-auto flex max-w-sm flex-col items-center text-center">
+                <motion.div
+                  className="mx-auto flex max-w-sm flex-col items-center text-center"
+                  variants={SHEET_GROUP}
+                  initial={reduceMotion ? false : "hidden"}
+                  animate="show"
+                >
                   {active.rarity === "rare" && (
-                    <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-rose">
+                    <motion.p
+                      variants={SHEET_ITEM}
+                      className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-rose"
+                    >
                       <Sparkles className="h-4 w-4" aria-hidden />
                       Rare
-                    </p>
+                    </motion.p>
                   )}
                   {activeDetails?.spriteUrl ? (
-                    <img
+                    /* The same sprite element as the tile in the grid — Framer
+                       matches them by `layoutId` and flies it across, so the
+                       sheet reads as this item opening rather than a panel
+                       appearing over it. */
+                    <motion.img
+                      layoutId={reduceMotion ? undefined : `bag-sprite-${active.source}`}
+                      variants={SHEET_SPRITE}
+                      transition={SPRITE_TRAVEL}
                       src={activeDetails.spriteUrl}
                       alt=""
                       className="mt-4 h-32 w-32"
                       style={{ imageRendering: "pixelated" }}
                     />
                   ) : (
-                    <div className="mt-4 h-32 w-32 rounded-lg bg-muted" aria-hidden />
+                    <div className="mt-4 h-32 w-32 animate-pulse rounded-lg bg-muted" aria-hidden />
                   )}
-                  <h2 className="mt-4 font-serif text-3xl font-bold capitalize leading-[1.05] tracking-tight sm:text-4xl">
+                  <motion.h2
+                    variants={SHEET_ITEM}
+                    className="mt-4 font-serif text-3xl font-bold capitalize leading-[1.05] tracking-tight sm:text-4xl"
+                  >
                     {(activeDetails?.name ?? active.slug).replace(/-/g, " ")}
-                  </h2>
+                  </motion.h2>
                   {qtyOf(active) > 1 && (
-                    <p className="mt-2 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-rose">
+                    <motion.p
+                      variants={SHEET_ITEM}
+                      className="mt-2 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-rose"
+                    >
                       <Package className="h-4 w-4" aria-hidden />
                       {qtyOf(active)} in your bag
-                    </p>
+                    </motion.p>
                   )}
                   {activeDetails?.flavorText && (
-                    <p className="mt-3 font-sans text-sm leading-relaxed text-muted-foreground">
+                    <motion.p
+                      variants={SHEET_ITEM}
+                      className="mt-3 font-sans text-sm leading-relaxed text-muted-foreground"
+                    >
                       {activeDetails.flavorText}
-                    </p>
+                    </motion.p>
                   )}
 
                   {/* The real-life half. Set apart from the PokéAPI text above it
                       because it's the part that costs somebody something. */}
                   {activeAction && (
-                    <div className="mt-6 w-full rounded-2xl border border-rose/30 bg-rose-light/40 px-5 py-4">
+                    <motion.div
+                      variants={SHEET_ITEM}
+                      className="mt-6 w-full rounded-2xl border border-rose/30 bg-rose-light/40 px-5 py-4"
+                    >
                       <p className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rose">
                         <Gift className="h-4 w-4" aria-hidden />
                         Redeem for
@@ -328,11 +447,11 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
                           {activeAction.action}
                         </p>
                       )}
-                    </div>
+                    </motion.div>
                   )}
 
                   {activeAction && !activeHidden && (
-                    <>
+                    <motion.div variants={SHEET_ITEM} className="flex flex-col items-center">
                       <motion.button
                         type="button"
                         onClick={handleRedeem}
@@ -359,19 +478,51 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
                             ? `Uses one up. ${qtyOf(active) - 1} would be left.`
                             : "Redeeming uses it up. It leaves your bag."}
                       </p>
-                    </>
+
+                      {/* A redeem that fails used to say nothing at all — the
+                          button simply disarmed itself and the coupon stayed
+                          put, which looks identical to having spent it. */}
+                      {error && (
+                        <p
+                          role="alert"
+                          className="mt-3 inline-flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-left font-sans text-xs leading-relaxed text-destructive"
+                        >
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                          {error}
+                        </p>
+                      )}
+                    </motion.div>
                   )}
 
-                  <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <motion.p
+                    variants={SHEET_ITEM}
+                    className="mt-5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground"
+                  >
                     From {titleFromSource(active.source)}
-                  </p>
-                </div>
+                  </motion.p>
+                </motion.div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>,
         document.body,
       )}
+
+      <AnimatePresence>
+        {fanfare && (
+          <ItemUsedFanfare
+            key="item-used"
+            spriteUrl={fanfare.spriteUrl}
+            name={fanfare.name}
+            action={fanfare.action}
+            team={team}
+            onDone={() => {
+              setFanfare(null);
+              setOpenIndex(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };
