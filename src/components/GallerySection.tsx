@@ -458,7 +458,7 @@ const GallerySection = () => {
             </p>
             <Link
               to="/camera"
-              className="album-label album-label--kraft border transition-transform duration-200 hover:-translate-y-px"
+              className="tap-44 album-label album-label--kraft border transition-transform duration-200 hover:-translate-y-px"
               style={{ borderColor: "hsl(var(--kraft-ink) / 0.35)" }}
             >
               Shoot another frame

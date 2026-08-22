@@ -48,3 +48,9 @@ docs/superpowers/*
 sql/*
 .serena
 CLAUDE.md
+
+# Playwright
+.env.test
+/test-results/
+/playwright-report/
+/tests/.auth/

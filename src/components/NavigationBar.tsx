@@ -47,7 +47,7 @@ const MASTHEAD_LINK =
 
 /** Bordered mono control — the account button and the menu trigger share it. */
 const CHROME_BUTTON =
-  "inline-flex items-center gap-2 rounded-[10px] border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground transition-gentle hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-[10px] border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground transition-gentle hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** The three panels of /trainer-card, which the page selects with `?tab=`.
  *  Card is the default, so it carries no param — a bare /trainer-card link. */
@@ -140,7 +140,7 @@ const NavigationBar = () => {
           {/* ── Masthead ── */}
           <Link
             to={siteUnlocked ? "/" : "/cafes"}
-            className="font-serif text-lg font-bold tracking-tight text-foreground transition-gentle hover:text-primary md:text-xl"
+            className="tap-44 inline-flex items-center font-serif text-lg font-bold tracking-tight text-foreground transition-gentle hover:text-primary md:text-xl"
           >
             Hehe<span className="dot-accent">.</span>
           </Link>

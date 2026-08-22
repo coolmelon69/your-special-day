@@ -280,7 +280,7 @@ const TrainerCardPage = () => {
                           tabIndex={active ? 0 : -1}
                           onClick={() => setActiveTab(tab.id)}
                           className={cn(
-                            "relative inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5",
+                            "relative inline-flex min-h-[44px] items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5",
                             active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                           )}
                         >

@@ -648,6 +648,27 @@
 }
 
 @layer utilities {
+  /* Touch target floor. Inline links and compact chips are often shorter than
+     the 44px a fingertip needs; padding them would break the rhythm of the
+     line they sit in, so the hit area grows behind the element instead and
+     the type stays exactly where it was. Use `min-h-[44px]` on controls that
+     can afford to grow; use this on the ones that can't. */
+  .tap-44:not(.absolute):not(.fixed) {
+    position: relative;
+  }
+
+  .tap-44::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   .font-script {
     font-family: var(--font-script);
   }

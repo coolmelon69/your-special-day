@@ -171,7 +171,7 @@ const CameraPage = () => {
         <h1 className="text-2xl font-bold">Disposable Camera</h1>
         <button
           onClick={openGallery}
-          className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-700 transition-colors"
+          className="flex min-h-[44px] items-center gap-2 bg-zinc-800 px-4 py-1.5 rounded-full hover:bg-zinc-700 transition-colors"
         >
           <ImageIcon className="w-4 h-4" />
           <span className="font-medium">{undevelopedCount}</span>

@@ -153,7 +153,7 @@ const StoryShell = ({ slides, audioSrc, onClose }: StoryShellProps) => {
       {audioSrc && (
         <motion.button
           onClick={() => setMuted((m) => !m)}
-          className="absolute top-12 left-4 z-[101] w-9 h-9 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-full border border-border text-muted-foreground shadow-sm hover:text-foreground hover:border-foreground transition-colors"
+          className="absolute top-12 left-4 z-[101] w-11 h-11 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-full border border-border text-muted-foreground shadow-sm hover:text-foreground hover:border-foreground transition-colors"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           aria-label={muted ? "Unmute music" : "Mute music"}
@@ -164,7 +164,7 @@ const StoryShell = ({ slides, audioSrc, onClose }: StoryShellProps) => {
 
       <motion.button
         onClick={close}
-        className="absolute top-12 right-4 z-[101] w-9 h-9 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-full border border-border text-muted-foreground shadow-sm hover:text-foreground hover:border-foreground transition-colors"
+        className="absolute top-12 right-4 z-[101] w-11 h-11 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-full border border-border text-muted-foreground shadow-sm hover:text-foreground hover:border-foreground transition-colors"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         aria-label="Close"

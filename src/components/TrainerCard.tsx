@@ -590,7 +590,7 @@ const TrainerCard = ({
                     <button
                       type="button"
                       onClick={() => fileRef.current?.click()}
-                      className="absolute right-3.5 top-[74px] grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-black/45 text-white backdrop-blur-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      className="tap-44 absolute right-3.5 top-[74px] grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-black/45 text-white backdrop-blur-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       aria-label={profile.photoUrl ? "Change your trainer photo" : "Add a trainer photo"}
                     >
                       {isSaving ? (
@@ -783,7 +783,7 @@ const TrainerCard = ({
                       <button
                         type="button"
                         onClick={() => fileRef.current?.click()}
-                        className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-black/45 text-white backdrop-blur-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        className="tap-44 absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-black/45 text-white backdrop-blur-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                         aria-label={profile.photoUrl ? "Change your trainer photo" : "Add a trainer photo"}
                       >
                         {isSaving ? (
@@ -1000,7 +1000,7 @@ const TrainerCard = ({
                 <div className="px-4 pb-4 pt-1">
                   <Link
                     to="/cafes/achievements"
-                    className="tcg-soft inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide underline-offset-4 hover:underline"
+                    className="tap-44 tcg-soft inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide underline-offset-4 hover:underline"
                   >
                     <Award className="h-3.5 w-3.5" aria-hidden />
                     See the full badge case
@@ -1160,7 +1160,7 @@ const TrainerCard = ({
         <button
           type="button"
           onClick={() => setFlipped((f) => !f)}
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-foreground transition-colors hover:border-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-foreground transition-colors hover:border-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           aria-pressed={flipped}
         >
           <RotateCw className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -1171,7 +1171,7 @@ const TrainerCard = ({
           type="button"
           onClick={handleSaveImage}
           disabled={capturing}
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-foreground transition-colors hover:border-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-foreground transition-colors hover:border-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
         >
           {capturing ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />
@@ -1269,7 +1269,7 @@ function CosmeticRow<T extends { id: string; label: string; unlockSku: string }>
           onClick={() => onSelect(null)}
           aria-pressed={activeId === null}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
+            "inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
             activeId === null
               ? "border-primary bg-primary-light text-primary"
               : "border-border bg-card text-muted-foreground hover:border-foreground hover:text-foreground"
@@ -1287,7 +1287,7 @@ function CosmeticRow<T extends { id: string; label: string; unlockSku: string }>
               <span
                 key={option.id}
                 title={`${option.label} — unlocks in the shop for ${priceOf(option.unlockSku)} coins`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide text-muted-foreground opacity-60"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide text-muted-foreground opacity-60"
               >
                 <Lock className="h-4 w-4" aria-hidden />
                 {option.label}
@@ -1305,7 +1305,7 @@ function CosmeticRow<T extends { id: string; label: string; unlockSku: string }>
               onClick={() => onSelect(active ? null : option.id)}
               aria-pressed={active}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
+                "inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
                 active
                   ? "border-primary bg-primary-light text-primary"
                   : "border-border bg-card text-foreground hover:border-foreground"

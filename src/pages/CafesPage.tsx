@@ -68,7 +68,7 @@ const CafesPage = () => {
             </p>
             <Link
               to="/cafes/achievements"
-              className="mt-4 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-primary hover:text-primary/80"
+              className="tap-44 mt-4 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-primary hover:text-primary/80"
             >
               <Trophy className="h-4 w-4" aria-hidden />
               Achievements
@@ -125,7 +125,7 @@ const CafesPage = () => {
                 </div>
               )}
 
-              <Button className="mt-8" onClick={() => setIsFormOpen(true)}>
+              <Button className="mt-8 min-h-[44px]" onClick={() => setIsFormOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 New category
               </Button>
