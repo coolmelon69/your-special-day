@@ -19,6 +19,7 @@ import AdminPanelPage from "./pages/AdminPanelPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ScanQRPage from "./pages/ScanQRPage";
 import RedemptionSuccessPage from "./pages/RedemptionSuccessPage";
+import MysteryGiftRevealPage from "./pages/MysteryGiftRevealPage";
 import NotFound from "./pages/NotFound";
 import CameraPage from "./pages/CameraPage";
 import CafesPage from "./pages/CafesPage";
@@ -70,6 +71,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin" element={<PageWrapper><AdminPanelPage /></PageWrapper>} />
         <Route path="/scan-qr" element={<PageWrapper><ScanQRPage /></PageWrapper>} />
         <Route path="/redemption-success" element={<PageWrapper><RedemptionSuccessPage /></PageWrapper>} />
+        <Route path="/gift-reveal" element={<PageWrapper><MysteryGiftRevealPage /></PageWrapper>} />
         <Route path="/camera" element={<PageWrapper><CameraPage /></PageWrapper>} />
         <Route path="/cafes" element={<PageWrapper><CafesPage /></PageWrapper>} />
         <Route path="/cafes/achievements" element={<PageWrapper><CafeAchievementsPage /></PageWrapper>} />

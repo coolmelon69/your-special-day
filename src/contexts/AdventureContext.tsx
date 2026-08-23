@@ -12,6 +12,7 @@ import { loadCouple, type Couple } from "@/utils/couples";
 import { rollDrop, COINS_BY_RARITY, type Drop } from "@/utils/pokeItems";
 import { DEFAULT_TRAINER_CONFIG, type TrainerCardConfig } from "@/utils/trainerCard";
 import { loadTrainerCardConfig } from "@/utils/supabaseSync";
+import { loadClaimedGifts, giftToCoupon } from "@/utils/mysteryGifts";
 import TrainerOnboarding from "@/components/TrainerOnboarding";
 import LinkPartner from "@/components/LinkPartner";
 
@@ -910,6 +911,20 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       } else {
         mergedCoupons = [...defaultCoupons, ...convertedCustomCoupons];
       }
+
+      /* Mystery gifts sit at the end of the book, after the catalogue: they
+         were given, not earned, so they carry no stamp requirement and no
+         price. `couponOrder` never mentions them — the admin panel orders the
+         catalogue, and a gift only exists once it has been claimed. */
+      if (user) {
+        try {
+          const claimedGifts = await loadClaimedGifts();
+          mergedCoupons = [...mergedCoupons, ...claimedGifts.map(giftToCoupon)];
+        } catch (giftError) {
+          console.warn("Could not load claimed mystery gifts:", giftError);
+        }
+      }
+
       setCoupons(mergedCoupons);
     } catch (error) {
       console.error("Error refreshing coupons:", error);

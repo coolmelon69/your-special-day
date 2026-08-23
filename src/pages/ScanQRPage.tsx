@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import { Keyboard, X } from "lucide-react";
 import QrScanner from "qr-scanner";
 import { toast } from "@/hooks/use-toast";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { redeemCoupon } from "@/utils/redeemCoupon";
+import { claimMysteryGift, extractGiftCode } from "@/utils/mysteryGifts";
 import { Helmet } from "react-helmet-async";
 
 const ScanQRPage = () => {
@@ -16,7 +17,7 @@ const ScanQRPage = () => {
      flag would still read `false` on every frame after the first hit. */
   const busyRef = useRef(false);
   const navigate = useNavigate();
-  const { coupons, user } = useAdventure();
+  const { coupons, user, refreshCoupons } = useAdventure();
   const totalCouponsRef = useRef(coupons.length);
   totalCouponsRef.current = coupons.length;
 
@@ -34,6 +35,43 @@ const ScanQRPage = () => {
   const handleQRScan = useCallback(
     async (qrData: string) => {
       const trimmedData = qrData.trim();
+
+      /* Mystery Gift cards come first: they carry {"gift":"CODE"} or a bare
+         code, neither of which the coupon parse below would recognise. A
+         coupon QR falls straight through — extractGiftCode returns null for
+         it. See src/utils/mysteryGiftCode.ts. */
+      const giftCode = extractGiftCode(trimmedData);
+      if (giftCode) {
+        if (!user) {
+          rejectScan("Not signed in", "Sign in on this device before opening a gift.");
+          return;
+        }
+
+        const claim = await claimMysteryGift(giftCode);
+
+        if (claim.status === "claimed") {
+          await refreshCoupons();
+          navigate("/gift-reveal", {
+            state: { payload: claim.payload, id: claim.id },
+          });
+          return;
+        }
+
+        if (claim.status === "already") {
+          rejectScan("Already opened", "This gift has already found its home.");
+          return;
+        }
+        if (claim.status === "invalid") {
+          rejectScan("Unknown card", "This code isn't one of ours.");
+          return;
+        }
+        if (claim.status === "unauthenticated") {
+          rejectScan("Not signed in", "Sign in on this device before opening a gift.");
+          return;
+        }
+        rejectScan("Something went wrong", "Could not open this gift. Please try again.");
+        return;
+      }
 
       let parsedData: { code?: string; couponId?: number; title?: string };
       try {
@@ -71,7 +109,7 @@ const ScanQRPage = () => {
         state: { couponTitle: parsedData.title || "Coupon", couponId },
       });
     },
-    [navigate, rejectScan, user]
+    [navigate, refreshCoupons, rejectScan, user]
   );
 
   const handleScanRef = useRef(handleQRScan);
@@ -192,11 +230,23 @@ const ScanQRPage = () => {
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="absolute bottom-32 left-0 right-0 text-center px-4">
-          <p className="text-white text-lg font-medium">
+        {/* Instructions + the way out when the camera can't read the card */}
+        <div className="absolute bottom-24 left-0 right-0 px-4 text-center">
+          <p className="text-lg font-medium text-white">
             Position the QR code within the frame
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              scannerRef.current?.destroy();
+              scannerRef.current = null;
+              navigate("/coupons?claim=1");
+            }}
+            className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 font-mono text-[11px] uppercase tracking-[0.16em] text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <Keyboard className="h-4 w-4" aria-hidden="true" />
+            Type the code instead
+          </button>
         </div>
 
         {/* Close Button */}

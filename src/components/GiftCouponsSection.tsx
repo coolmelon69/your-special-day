@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Lock, Trophy, Heart, Compass } from "lucide-react";
 import type { ItineraryItem } from "./TimelineSection";
 import TicketVoucher from "./TicketVoucher";
+import GiftClaimSlip from "./GiftClaimSlip";
 import VoucherModal, { FINE_PRINT } from "./VoucherModal";
 import { DisplayHeading } from "@/components/editorial";
 import { cn } from "@/lib/utils";
@@ -486,6 +487,9 @@ const GiftCouponsSection = ({ itineraryState }: GiftCouponsSectionProps) => {
               );
             })}
           </div>
+
+          {/* ─── the claim slip: a code typed by hand when the camera fails ─── */}
+          <GiftClaimSlip />
 
           {/* ─── the back of the book ─── */}
           <footer className="mt-14 border-t border-dashed border-[hsl(var(--stock-shade))] pt-6">
