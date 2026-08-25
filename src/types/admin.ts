@@ -48,6 +48,8 @@ export type AdminSettings = {
   couponOrder?: string[];
   /** Global switch: show the trainer card onboarding + page to logged-in users. */
   trainerCardEnabled: boolean;
+  /** Global switch: require the site-wide password lockscreen. Off = site public for everyone. */
+  siteLockEnabled: boolean;
 };
 
 export const WRAPPED_SLIDE_ICONS = ["trophy", "heart", "star", "camera", "sparkles"] as const;

@@ -117,6 +117,9 @@ interface AdventureContextType {
   /** Global admin switch: trainer card onboarding + /trainer-card page. */
   trainerCardEnabled: boolean;
   setTrainerCardEnabled: (enabled: boolean) => void;
+  /** Global admin switch: require the site-wide password lockscreen. */
+  siteLockEnabled: boolean;
+  setSiteLockEnabled: (enabled: boolean) => void;
   /** Global admin-tuned XP weights + rank ladder. */
   trainerConfig: TrainerCardConfig;
   setTrainerConfig: (config: TrainerCardConfig) => void;
@@ -198,6 +201,17 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     getAdminSettings()
       .then((settings) => setTrainerCardEnabled(settings.trainerCardEnabled ?? true))
       .catch(() => setTrainerCardEnabled(true));
+  }, []);
+
+  // Global admin switch for the site-wide password lockscreen. Starts null
+  // (unknown) and defaults to true (locked) below so a slow load never
+  // exposes the site before the setting is confirmed off.
+  const [siteLockEnabled, setSiteLockEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getAdminSettings()
+      .then((settings) => setSiteLockEnabled(settings.siteLockEnabled ?? true))
+      .catch(() => setSiteLockEnabled(true));
   }, []);
 
   // Global levelling config (XP weights + rank ladder). Falls back to the
@@ -1344,6 +1358,8 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         refreshCouple,
         trainerCardEnabled: trainerCardEnabled ?? true,
         setTrainerCardEnabled,
+        siteLockEnabled: siteLockEnabled ?? true,
+        setSiteLockEnabled,
         trainerConfig,
         setTrainerConfig,
       }}

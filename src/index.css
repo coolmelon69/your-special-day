@@ -576,26 +576,12 @@
     border: 1px solid hsl(0 0% 100% / 0.28);
   }
 
-  /* Printing a gift card means printing the card, not the admin panel around
-     it. `visibility` rather than `display` so the layout the card sits in
-     survives and it lands where it was laid out. */
-  @media print {
-    body:has(.gift-print-card) * {
-      visibility: hidden;
-    }
-    .gift-print-card,
-    .gift-print-card * {
-      visibility: visible;
-    }
-    .gift-print-card {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      border: none !important;
-      box-shadow: none !important;
-    }
-  }
+  /* Printing a gift card is now its own route — /print/gifts, where the cards
+     are laid on an A4 sheet and nothing else is on the page. The old rule
+     here hid the admin panel with `visibility` and pulled the card to `top:
+     0`, which printed blank the moment an ancestor carried a transform (every
+     framer-motion panel does). See the `.print-sheet` block at the end of this
+     file for what replaced it. */
 
   /* what the envelope says before it is opened */
   .gift-hand {
@@ -862,6 +848,528 @@
     
     @page {
       margin: 2cm;
+    }
+  }
+}
+
+/* ─── the printed gift card — /print/gifts (deliberate exception) ──────
+   A section-local material world, scoped under `.giftcard`. It borrows the
+   ticket book's paper tokens so a card and the ticket it becomes speak one
+   language, but nothing here uses the editorial system: this object is ink
+   on stock, not a page.
+
+   Everything inside a card is sized in `cqw` against the card's own
+   container, so one set of numbers serves both the on-screen sheet preview
+   and the 138mm card that comes out of the printer.
+
+   The rule that outranks looks: the code has to scan. Each design keeps a
+   white quiet zone around the QR, and `.gc-token` — which punches the mark
+   out of the middle — pairs with error-correction level H in
+   GiftPrintCard.tsx to buy back the redundancy the hole costs.
+
+   See DESIGN_SYSTEM.md §14 for the ticket book these cards belong to. */
+@layer components {
+  .giftcard {
+    --stock: 40 34% 96.5%;
+    --stock-2: 38 26% 92%;
+    --stock-shade: 36 22% 78%;
+    --print: 330 62% 38%;
+    --print-soft: 330 12% 42%;
+    --graphite: 30 12% 22%;
+
+    container-type: inline-size;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 148 / 105;
+    overflow: hidden;
+    border-radius: 3px;
+    border: 1px solid hsl(var(--stock-shade));
+    color: hsl(var(--graphite));
+    background: linear-gradient(178deg, hsl(var(--stock)), hsl(var(--stock-2)));
+    box-shadow: 0 1px 1px hsl(30 30% 20% / 0.06), 0 18px 34px -22px hsl(30 40% 20% / 0.55);
+  }
+
+  /* an image slot, filled or not */
+  .giftcard .gc-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .giftcard .gc-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1cqw;
+    text-align: center;
+    font-family: var(--font-mono, "DM Mono", monospace);
+    font-size: 2cqw;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--graphite) / 0.62);
+    background:
+      repeating-linear-gradient(45deg, hsl(var(--print) / 0.08) 0 6px, transparent 6px 12px),
+      linear-gradient(160deg, hsl(330 40% 90%), hsl(272 30% 88%));
+  }
+  .giftcard .gc-empty-icon {
+    width: 4cqw;
+    height: 4cqw;
+    stroke-width: 1.5;
+  }
+
+  /* The QR fills its box exactly. `height: auto` looks equivalent and is not:
+     react-qr-code renders width/height attributes of its own, and in the
+     print layout those win, dropping the code out of the bottom of the card.
+     Every container below pairs this with an explicit square. */
+  .giftcard .gc-qr {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .giftcard .gc-title {
+    font-family: var(--font-serif, "Cormorant Garamond", serif);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.02;
+    margin: 0;
+  }
+  .giftcard .gc-code {
+    font-family: var(--font-mono, "DM Mono", monospace);
+    letter-spacing: 0.14em;
+  }
+  .giftcard .gc-cap,
+  .giftcard .gc-no {
+    font-family: var(--font-mono, "DM Mono", monospace);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: hsl(var(--print-soft));
+  }
+
+  /* ── the token: one object, centred, the mark punched out of the code ── */
+  .gc-token {
+    background: linear-gradient(178deg, hsl(var(--stock)), hsl(38 24% 89%));
+  }
+  .gc-token .gc-band {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 26cqw;
+    overflow: hidden;
+  }
+  .gc-token .gc-band-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, hsl(320 40% 14% / 0.35), hsl(320 40% 14% / 0.72));
+  }
+  .gc-token .gc-band-text {
+    position: absolute;
+    left: 5cqw;
+    right: 5cqw;
+    top: 5.6cqw;
+    z-index: 2;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 3cqw;
+    color: hsl(40 30% 96%);
+  }
+  .gc-token .gc-title {
+    font-size: 5.6cqw;
+    max-width: 14ch;
+    text-wrap: balance;
+  }
+  .gc-token .gc-no {
+    font-size: 1.75cqw;
+    color: hsl(330 70% 88%);
+    white-space: nowrap;
+    padding-top: 0.8cqw;
+  }
+  /* The white face IS the quiet zone — the padding is not decoration. */
+  /* Top edge, not centre: the card is 70.95cqw tall, so a centred token has
+     no fixed relationship to either the band above it or the code below and
+     lands on both. Anchored at 20cqw it overlaps the band by 6 and stops at
+     60, clear of the foot. */
+  .gc-token .gc-token-face {
+    position: absolute;
+    left: 50%;
+    top: 20cqw;
+    transform: translateX(-50%);
+    width: 40cqw;
+    aspect-ratio: 1;
+    padding: 2.2cqw;
+    border-radius: 2cqw;
+    background: #fff;
+    box-shadow: 0 2px 3px hsl(30 30% 20% / 0.14), 0 14px 26px -14px hsl(320 40% 20% / 0.5);
+  }
+  .gc-token .gc-knock {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 26%;
+    aspect-ratio: 1;
+    padding: 1.1cqw;
+    border-radius: 50%;
+    background: #fff;
+  }
+  .gc-token .gc-knock > * {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 50%;
+  }
+  .gc-token .gc-knock .gc-empty {
+    font-size: 1.4cqw;
+    letter-spacing: 0.12em;
+  }
+  .gc-token .gc-knock .gc-empty-icon {
+    width: 3cqw;
+    height: 3cqw;
+  }
+  .gc-token .gc-token-foot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 4.4cqw;
+    text-align: center;
+  }
+  .gc-token .gc-code {
+    font-size: 2.5cqw;
+  }
+  .gc-token .gc-cap {
+    display: block;
+    font-size: 1.7cqw;
+    margin-top: 0.7cqw;
+  }
+
+  /* ── half and half: photo left, a true quiet zone right ── */
+  .gc-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .gc-split .gc-split-left {
+    position: relative;
+    overflow: hidden;
+  }
+  /* The title and the number print white over whatever photo is uploaded —
+     including a bright one, and including the empty slot's pale hatch. This
+     is what guarantees they stay readable; it is not a mood wash. */
+  .gc-split .gc-split-left::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      hsl(320 42% 12% / 0.62) 0%,
+      hsl(320 42% 12% / 0.12) 44%,
+      hsl(320 42% 12% / 0.66) 100%
+    );
+  }
+  .gc-split .gc-title {
+    position: absolute;
+    left: 4cqw;
+    top: 4cqw;
+    z-index: 2;
+    font-size: 6cqw;
+    max-width: 11ch;
+    color: hsl(40 30% 96%);
+    text-shadow: 0 2px 10px hsl(320 40% 12% / 0.6);
+  }
+  .gc-split .gc-split-cap {
+    position: absolute;
+    left: 4cqw;
+    bottom: 4cqw;
+    z-index: 2;
+    font-size: 1.75cqw;
+    color: hsl(40 30% 96%);
+    text-shadow: 0 1px 6px hsl(320 40% 12% / 0.7);
+  }
+  .gc-split .gc-split-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2.4cqw;
+    padding: 5cqw 4cqw;
+    background: #fff;
+    border-left: 1px solid hsl(var(--graphite) / 0.18);
+  }
+  .gc-split .gc-split-qr {
+    width: 30cqw;
+    height: 30cqw;
+  }
+  .gc-split .gc-code {
+    font-size: 2.6cqw;
+    text-align: center;
+    line-height: 1.45;
+    margin: 0;
+  }
+  .gc-split .gc-split-right .gc-cap {
+    font-size: 1.7cqw;
+  }
+  /* the mark bridges the seam, which is also what stops the split reading as
+     two cards printed side by side */
+  .gc-split .gc-split-seal {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    width: 12cqw;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 1.6px solid hsl(var(--stock));
+    box-shadow: 0 3px 10px -3px hsl(320 40% 14% / 0.6);
+  }
+  .gc-split .gc-split-seal .gc-empty {
+    font-size: 1.4cqw;
+    letter-spacing: 0.1em;
+  }
+  .gc-split .gc-split-seal .gc-empty-icon {
+    width: 3cqw;
+    height: 3cqw;
+  }
+
+  /* ── the roundel: duotone bleed, the code ringed by circling type ── */
+  .gc-roundel {
+    background: hsl(330 30% 12%);
+    color: hsl(40 30% 96%);
+  }
+  .gc-roundel .gc-roundel-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  /* Any photo lands on palette without being edited first: strip it to
+     luminance, then push the two tones back in through screen. */
+  .gc-roundel .gc-img {
+    filter: grayscale(1) contrast(1.15);
+  }
+  .gc-roundel .gc-duo {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(150deg, hsl(272 60% 26%), hsl(330 62% 32%));
+    mix-blend-mode: screen;
+    opacity: 0.72;
+  }
+  .gc-roundel .gc-veil {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(60% 70% at 50% 50%, hsl(330 40% 8% / 0.42), hsl(330 40% 8% / 0.86));
+  }
+  /* Centred with `inset: 0; margin: auto`, not with a translate. Chromium
+     mispaints the contents of a transform-centred absolute box in its PDF
+     pass — the ring printed empty with the code dumped below the card, while
+     print-media emulation on screen looked correct. */
+  .gc-roundel .gc-ring-stack {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 56cqw;
+    /* Explicit, not `aspect-ratio: 1`. A grid container's aspect ratio is not
+       resolved by the print layout, which collapses the ring and throws the
+       code out below the card. */
+    height: 56cqw;
+    display: grid;
+    place-items: center;
+  }
+  .gc-roundel .gc-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.4px solid hsl(40 30% 96% / 0.4);
+  }
+  .gc-roundel .gc-ring-in {
+    inset: 5.5cqw;
+    border-color: hsl(40 30% 96% / 0.22);
+  }
+  .gc-roundel .gc-ringtext {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .gc-roundel .gc-ringtext text {
+    font-family: var(--font-mono, "DM Mono", monospace);
+    font-size: 6.2px;
+    letter-spacing: 3.1px;
+    text-transform: uppercase;
+    fill: hsl(40 30% 96% / 0.82);
+  }
+  .gc-roundel .gc-roundel-qr {
+    width: 34cqw;
+    height: 34cqw;
+    padding: 1.6cqw;
+    border-radius: 1.2cqw;
+    background: #fff;
+    box-shadow: 0 4px 18px -6px hsl(330 40% 6% / 0.8);
+  }
+  .gc-roundel .gc-title {
+    position: absolute;
+    left: 5cqw;
+    top: 4.6cqw;
+    font-size: 5.2cqw;
+    max-width: 12ch;
+  }
+  .gc-roundel .gc-no {
+    position: absolute;
+    right: 5cqw;
+    top: 5.4cqw;
+    font-size: 1.7cqw;
+    color: hsl(330 70% 86%);
+  }
+  .gc-roundel .gc-code {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 4.4cqw;
+    text-align: center;
+    font-size: 2.4cqw;
+  }
+  .gc-roundel .gc-roundel-desc {
+    position: absolute;
+    left: 5cqw;
+    bottom: 4.6cqw;
+    max-width: 22ch;
+    font-size: 1.9cqw;
+    line-height: 1.5;
+    color: hsl(40 22% 90% / 0.72);
+  }
+  .gc-roundel .gc-roundel-seal {
+    position: absolute;
+    right: 5cqw;
+    bottom: 4.2cqw;
+    width: 11cqw;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 1px solid hsl(40 30% 96% / 0.45);
+  }
+  .gc-roundel .gc-roundel-seal .gc-empty {
+    font-size: 1.3cqw;
+    letter-spacing: 0.1em;
+  }
+  .gc-roundel .gc-roundel-seal .gc-empty-icon {
+    width: 2.8cqw;
+    height: 2.8cqw;
+  }
+
+  /* ─── the sheet ───────────────────────────────────────────────────────
+     A4 LANDSCAPE, four A6-landscape cards. Portrait A4 cannot hold four
+     landscape A6 cards without rotating every one of them; landscape A4
+     divides into four 148.5 × 105 quadrants exactly, which is A6.
+
+     The 6mm page inset is not a design margin — it is the strip most
+     printers physically cannot reach. Cards are 138mm rather than a true
+     148mm for the same reason. Trim on the marks and they cut square. */
+  .print-sheet {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 297 / 210;
+    padding: 2.02%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    background: #fff;
+    box-shadow: 0 1px 1px hsl(270 20% 20% / 0.05), 0 22px 44px -30px hsl(270 30% 20% / 0.5);
+  }
+  .print-cell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 1.4%;
+  }
+  .print-cell > .giftcard {
+    width: 93%;
+    box-shadow: none;
+  }
+  /* crop marks: a hairline cross at each quadrant's leading corner */
+  .print-cell::before,
+  .print-cell::after {
+    content: "";
+    position: absolute;
+    background: hsl(270 10% 45%);
+  }
+  .print-cell::before {
+    inset: 0 0 auto 0;
+    height: 1px;
+  }
+  .print-cell::after {
+    inset: 0 auto 0 0;
+    width: 1px;
+  }
+
+  @media print {
+    /* Only the sheets reach the paper. `display` rather than `visibility` so
+       the picker's layout does not reserve empty pages around them — the old
+       gift-print rule used visibility and printed blank sheets because the
+       card kept its place in a transformed ancestor. */
+    body > * {
+      display: none !important;
+    }
+    body > .print-root,
+    .print-root {
+      display: block !important;
+    }
+    .print-root .print-chrome {
+      display: none !important;
+    }
+    /* The bench's page frame — padding, centring, max-width, the gap between
+       sheets — is screen furniture. On paper the sheet IS the page, so all of
+       it goes; otherwise the first sheet starts inset and the last one falls
+       off the bottom. */
+    .print-root,
+    .print-root .print-stack,
+    .print-root .print-stack > * {
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+    }
+
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .print-sheet {
+      width: 297mm;
+      height: 210mm;
+      aspect-ratio: auto;
+      padding: 6mm;
+      box-shadow: none;
+      break-after: page;
+    }
+    .print-sheet:last-child {
+      break-after: auto;
+    }
+    .print-cell {
+      padding: 2mm;
+    }
+    .print-cell > .giftcard {
+      width: 130mm;
+      border: none;
+    }
+    /* Photographs and duotone washes are backgrounds to a browser, and a
+       browser drops backgrounds when it prints. Without this the roundel
+       prints as an empty dark-less rectangle. */
+    .giftcard,
+    .giftcard * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
   }
 }

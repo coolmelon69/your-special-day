@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { AdventureProvider } from "@/contexts/AdventureContext";
+import { AdventureProvider, useAdventure } from "@/contexts/AdventureContext";
 import NavigationBar from "@/components/NavigationBar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { AnimatePresence, motion } from "framer-motion";
@@ -27,6 +27,7 @@ import CafeCategoryPage from "./pages/CafeCategoryPage";
 import CafeAchievementsPage from "./pages/CafeAchievementsPage";
 import LockscreenPage from "./pages/LockscreenPage";
 import TrainerCardPage from "./pages/TrainerCardPage";
+import PrintGiftsPage from "./pages/PrintGiftsPage";
 import { isSiteUnlocked } from "@/utils/adminAuth";
 
 
@@ -77,10 +78,34 @@ const AnimatedRoutes = () => {
         <Route path="/cafes/achievements" element={<PageWrapper><CafeAchievementsPage /></PageWrapper>} />
         <Route path="/cafes/:slug" element={<PageWrapper><CafeCategoryPage /></PageWrapper>} />
         <Route path="/trainer-card" element={<PageWrapper><TrainerCardPage /></PageWrapper>} />
+        <Route path="/print/gifts" element={<PageWrapper><PrintGiftsPage /></PageWrapper>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
     </AnimatePresence>
+  );
+};
+
+// Reads the admin's site-lock toggle from context, so it must live inside
+// AdventureProvider — see SiteGate below for why the provider wraps the
+// lockscreen too.
+const SiteContent = ({
+  passwordLocked,
+  onUnlock,
+}: {
+  passwordLocked: boolean;
+  onUnlock: () => void;
+}) => {
+  const { siteLockEnabled } = useAdventure();
+  const locked = siteLockEnabled && passwordLocked;
+
+  return locked ? (
+    <LockscreenPage onUnlock={onUnlock} />
+  ) : (
+    <ErrorBoundary>
+      <NavigationBar />
+      <AnimatedRoutes />
+    </ErrorBoundary>
   );
 };
 
@@ -89,7 +114,7 @@ const SiteGate = () => {
   const [unlocked, setUnlocked] = useState(isSiteUnlocked());
   const isPublicPath =
     location.pathname === "/cafes" || location.pathname.startsWith("/cafes/");
-  const locked = !isPublicPath && !unlocked;
+  const passwordLocked = !isPublicPath && !unlocked;
 
   // The provider wraps the lockscreen too, deliberately: it renders the
   // first-login trainer onboarding and the partner-code step *instead of* its
@@ -101,14 +126,7 @@ const SiteGate = () => {
   // and remount the provider (which would re-run every Supabase loader).
   return (
     <AdventureProvider>
-      {locked ? (
-        <LockscreenPage onUnlock={() => setUnlocked(true)} />
-      ) : (
-        <ErrorBoundary>
-          <NavigationBar />
-          <AnimatedRoutes />
-        </ErrorBoundary>
-      )}
+      <SiteContent passwordLocked={passwordLocked} onUnlock={() => setUnlocked(true)} />
     </AdventureProvider>
   );
 };

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import QRCode from "react-qr-code";
 import {
@@ -50,6 +51,7 @@ const emptyForm = {
 };
 
 const MysteryGiftsManager = () => {
+  const navigate = useNavigate();
   const [gifts, setGifts] = useState<MysteryGift[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -283,16 +285,19 @@ const MysteryGiftsManager = () => {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="gift-print-card rounded-2xl border border-rose/40 bg-card p-5 shadow-romantic"
+          className="rounded-2xl border border-rose/40 bg-card p-5 shadow-romantic"
         >
           <div className="flex items-center justify-between gap-3 print:hidden">
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-rose">
               QR card
             </p>
             <div className="flex items-center gap-2">
+              {/* Printing is its own route now: a card has to be laid on a
+                  sheet with a chosen design, which is more than a preview can
+                  do. window.print() from here printed blank pages. */}
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => navigate(`/print/gifts?ids=${shown.id}`)}
                 className="inline-flex items-center gap-2 rounded-[10px] border border-border px-3 py-1.5 text-sm text-foreground transition hover:border-foreground"
               >
                 <Printer className="h-4 w-4" />

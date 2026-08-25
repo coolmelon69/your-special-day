@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Coins, IdCard, RotateCcw, User, Users } from "lucide-react";
+import { AlertCircle, Coins, IdCard, Lock, RotateCcw, User, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { Switch } from "@/components/ui/switch";
 import { useAdventure } from "@/contexts/AdventureContext";
@@ -15,8 +15,18 @@ const ACHIEVEMENT_STORAGE_KEY = "coupon-achievements";
 const STORAGE_KEY = "birthday-adventure-progress";
 
 const AdminSettings = () => {
-  const { setItineraryState, refreshPhotos, user, trainerCardEnabled, setTrainerCardEnabled, profile } = useAdventure();
+  const {
+    setItineraryState,
+    refreshPhotos,
+    user,
+    trainerCardEnabled,
+    setTrainerCardEnabled,
+    siteLockEnabled,
+    setSiteLockEnabled,
+    profile,
+  } = useAdventure();
   const [savingTrainerCard, setSavingTrainerCard] = useState(false);
+  const [savingSiteLock, setSavingSiteLock] = useState(false);
   const [coinAmount, setCoinAmount] = useState("50");
   const [grantingCoins, setGrantingCoins] = useState(false);
   const [grantTarget, setGrantTarget] = useState<"me" | "partner">("me");
@@ -48,6 +58,21 @@ const AdminSettings = () => {
       alert("Could not save that setting. Please try again.");
     } finally {
       setSavingTrainerCard(false);
+    }
+  };
+
+  const handleToggleSiteLock = async () => {
+    const next = !siteLockEnabled;
+    setSavingSiteLock(true);
+    setSiteLockEnabled(next); // optimistic — revert on failure
+    try {
+      await updateAdminSettings({ siteLockEnabled: next });
+    } catch (error) {
+      console.error("Error saving site lock setting:", error);
+      setSiteLockEnabled(!next);
+      alert("Could not save that setting. Please try again.");
+    } finally {
+      setSavingSiteLock(false);
     }
   };
 
@@ -229,6 +254,25 @@ const AdminSettings = () => {
           onCheckedChange={handleToggleTrainerCard}
           disabled={savingTrainerCard}
           aria-label="Enable trainer card setup for logged-in users"
+        />
+      </div>
+
+      <div className="flex items-start justify-between gap-4 rounded-xl border border-border p-4">
+        <div className="flex items-start gap-3">
+          <Lock className={`w-4 h-4 mt-0.5 flex-shrink-0 ${siteLockEnabled ? "text-primary" : "text-muted-foreground"}`} />
+          <div>
+            <p className="text-sm font-medium text-foreground">Site password lock</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              When on, visitors hit the password lockscreen before seeing the site. When off, the
+              site is public for everyone — the /cafes pages stay public either way.
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={siteLockEnabled}
+          onCheckedChange={handleToggleSiteLock}
+          disabled={savingSiteLock}
+          aria-label="Require the site-wide password lockscreen"
         />
       </div>
 

@@ -30,6 +30,11 @@ export type MysteryGift = {
   createdAt: number;
   claimedAt: number | null;
   isClaimed: boolean;
+  /** The photo and the mark printed on this gift's card, if any have been
+   *  uploaded. See src/utils/giftPrintImages.ts — the card DESIGN is not
+   *  stored alongside them, it is chosen on /print/gifts each time. */
+  printHero: string | null;
+  printMark: string | null;
 };
 
 export type ClaimedGift = {
@@ -173,6 +178,8 @@ export const listMyMysteryGifts = async (): Promise<MysteryGift[]> => {
       createdAt: new Date(row.created_at).getTime(),
       claimedAt: row.claimed_at ? new Date(row.claimed_at).getTime() : null,
       isClaimed: !!row.is_claimed,
+      printHero: (row.print_hero as string) ?? null,
+      printMark: (row.print_mark as string) ?? null,
     }));
   } catch (e) {
     console.error("Error listing mystery gifts:", e);

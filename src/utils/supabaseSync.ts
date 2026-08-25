@@ -1244,7 +1244,8 @@ export const loadAdminSettings = async (): Promise<AdminSettings | null> => {
 export const syncGlobalAdminSettings = async (
   disabledDefaultStamps: string[],
   disabledDefaultCoupons: number[],
-  trainerCardEnabled = true
+  trainerCardEnabled = true,
+  siteLockEnabled = true
 ): Promise<boolean> => {
   if (!isSupabaseAvailable() || !supabase) {
     return false;
@@ -1266,6 +1267,7 @@ export const syncGlobalAdminSettings = async (
           disabled_default_stamps: disabledDefaultStamps,
           disabled_default_coupons: disabledDefaultCoupons,
           trainer_card_enabled: trainerCardEnabled,
+          site_lock_enabled: siteLockEnabled,
           last_modified: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -1308,6 +1310,7 @@ export const loadGlobalAdminSettings = async (): Promise<{
   disabledDefaultStamps: string[];
   disabledDefaultCoupons: number[];
   trainerCardEnabled: boolean;
+  siteLockEnabled: boolean;
   lastModified: number;
 } | null> => {
   if (!isSupabaseAvailable() || !supabase) {
@@ -1344,6 +1347,8 @@ export const loadGlobalAdminSettings = async (): Promise<{
       disabledDefaultCoupons: data.disabled_default_coupons || [],
       // Column may not exist yet (migration not run) — default to enabled.
       trainerCardEnabled: data.trainer_card_enabled ?? true,
+      // Column may not exist yet (migration not run) — default to locked (safe).
+      siteLockEnabled: data.site_lock_enabled ?? true,
       lastModified: new Date(data.last_modified).getTime(),
     };
   } catch (error) {

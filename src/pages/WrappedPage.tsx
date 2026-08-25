@@ -61,7 +61,7 @@ const WrappedPage = () => {
       <StoryShell
         key={runKey}
         slides={slides}
-        audioSrc="/music/glue.mp3"
+        audioSrc="/music/beside_you.mp3"
         onClose={() => navigate("/")}
       />
     </>
