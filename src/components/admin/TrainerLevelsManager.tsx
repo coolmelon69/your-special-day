@@ -9,6 +9,7 @@ import {
   DEFAULT_TRAINER_CONFIG,
   TIER_COLORS,
   TIER_COLOR_CLASSES,
+  collectedStampXp,
   computeTrainerStats,
   validateTrainerConfig,
   type LevelTier,
@@ -22,7 +23,7 @@ const labelCls = "block font-mono text-[10px] uppercase tracking-wide text-muted
 
 const WEIGHT_FIELDS: { key: keyof TrainerCardConfig["weights"]; label: string; hint: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "badge", label: "Per badge", hint: "café achievement", icon: Award },
-  { key: "stamp", label: "Per stamp", hint: "itinerary checkpoint", icon: Stamp },
+  { key: "stamp", label: "Per stamp", hint: "default — override per stamp in Stamps", icon: Stamp },
   { key: "visit", label: "Per visit", hint: "café marked visited", icon: Coffee },
   { key: "rareItem", label: "Per rare item", hint: "rare checkpoint drop", icon: Sparkles },
 ];
@@ -45,14 +46,16 @@ const TrainerLevelsManager = () => {
   const categories = useCafeCategories();
   const places = useAllCafePlaces();
   const badges = computeAchievements(categories.data ?? [], places.data ?? []).filter((a) => a.unlocked).length;
-  const stamps = itineraryState.filter((i) => i.isPast).length;
+  const collectedStamps = itineraryState.filter((i) => i.isPast);
+  const stamps = collectedStamps.length;
   const visits = (places.data ?? []).filter((p) => p.status === "visited").length;
   const rareItems = (profile?.items ?? []).filter((item) => item.rarity === "rare").length;
 
   const error = validateTrainerConfig(draft);
   const preview = useMemo(
-    () => computeTrainerStats(badges, stamps, visits, draft, rareItems),
-    [badges, stamps, visits, draft, rareItems],
+    () =>
+      computeTrainerStats(badges, stamps, visits, draft, rareItems, collectedStampXp(collectedStamps, draft)),
+    [badges, stamps, visits, draft, rareItems, collectedStamps],
   );
   const sortedTiers = useMemo(() => [...draft.tiers].sort((a, b) => a.minXp - b.minXp), [draft.tiers]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(trainerConfig);
@@ -75,7 +78,8 @@ const TrainerLevelsManager = () => {
   const handleSave = async () => {
     if (error) return;
     setSaving(true);
-    const next: TrainerCardConfig = { weights: draft.weights, tiers: sortedTiers };
+    // Per-stamp XP lives on the same row but is edited in Stamps — carry it through.
+    const next: TrainerCardConfig = { ...draft, weights: draft.weights, tiers: sortedTiers };
     try {
       const ok = await syncTrainerCardConfig(next);
       if (!ok) {

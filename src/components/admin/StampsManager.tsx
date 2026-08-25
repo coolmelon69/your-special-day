@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, MapPin, GripVertical, RotateCcw } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, MapPin, GripVertical, RotateCcw, Zap, Check, Eye, EyeOff } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -34,6 +34,9 @@ import type { ItineraryItem } from "@/components/TimelineSection";
 import { loadCustomStampsResult, loadGlobalAdminSettings, resetStamp, resetAllStamps } from "@/utils/supabaseSync";
 import { saveCustomStampsToIndexedDB } from "@/utils/adminStorage";
 import { getCurrentUser } from "@/utils/auth";
+import { useAdventure } from "@/contexts/AdventureContext";
+import { stampKeyOf, type TrainerCardConfig } from "@/utils/trainerCard";
+import { syncTrainerCardConfig } from "@/utils/supabaseSync";
 import { Pill } from "@/components/editorial";
 
 const AVAILABLE_SPRITES = Object.keys(sprites);
@@ -52,11 +55,11 @@ type StampListItem =
   | { type: "custom"; stamp: CustomStamp; id: string };
 
 function buildOrderedStampList(
-  visibleDefaults: ItineraryItem[],
+  allDefaults: ItineraryItem[],
   stamps: CustomStamp[],
   stampOrder: string[]
 ): StampListItem[] {
-  const defaultByTitle = new Map(visibleDefaults.map((s) => [s.title, s]));
+  const defaultByTitle = new Map(allDefaults.map((s) => [s.title, s]));
   const customById = new Map(stamps.map((s) => [s.id, s]));
   const result: StampListItem[] = [];
   const seen = new Set<string>();
@@ -79,7 +82,7 @@ function buildOrderedStampList(
       }
     }
   }
-  for (const s of visibleDefaults) {
+  for (const s of allDefaults) {
     const key = `default:${s.title}`;
     if (!seen.has(key)) {
       result.push({ type: "default", stamp: s, id: key });
@@ -98,13 +101,27 @@ function buildOrderedStampList(
 
 function SortableStampRow({
   item,
-  onDeleteDefault,
+  xpValue,
+  xpDefault,
+  xpSaved,
+  onXpChange,
+  onXpCommit,
+  isHidden,
+  onToggleVisibility,
   onEdit,
   onDelete,
   onReset,
 }: {
   item: StampListItem;
-  onDeleteDefault: (e: React.MouseEvent, title: string) => void;
+  /** Raw input text — empty means "no override, use the default weight". */
+  xpValue: string;
+  xpDefault: number;
+  /** True right after a save landed, so the row can say so. */
+  xpSaved: boolean;
+  onXpChange: (key: string, raw: string) => void;
+  onXpCommit: (key: string, raw: string) => void;
+  isHidden: boolean;
+  onToggleVisibility: (item: StampListItem) => void;
   onEdit: (stamp: CustomStamp) => void;
   onDelete: (stampId: string) => void;
   onReset: (item: StampListItem) => void;
@@ -119,14 +136,15 @@ function SortableStampRow({
   const stamp = item.stamp;
   const SpriteComponent = sprites[stamp.sprite];
   const isDefault = item.type === "default";
-  const itineraryStamp = isDefault ? (stamp as ItineraryItem) : null;
   const customStamp = !isDefault ? (stamp as CustomStamp) : null;
 
   return (
     <motion.div
       ref={setNodeRef}
       style={style}
-      className={`bg-card border border-border p-3 rounded-xl flex items-center gap-3 ${isDragging ? "opacity-80 z-50 shadow-romantic" : ""}`}
+      className={`bg-card border p-3 rounded-xl flex items-center gap-3 ${
+        isHidden ? "border-dashed border-border/70" : "border-border"
+      } ${isDragging ? "opacity-80 z-50 shadow-romantic" : ""}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
     >
@@ -139,7 +157,11 @@ function SortableStampRow({
       >
         <GripVertical className="w-4 h-4" />
       </button>
-      <div className="w-11 h-11 flex-shrink-0 rounded-lg border border-border bg-foreground/5 grid place-items-center p-1.5">
+      <div
+        className={`w-11 h-11 flex-shrink-0 rounded-lg border border-border bg-foreground/5 grid place-items-center p-1.5 transition-[filter,opacity] duration-200 ${
+          isHidden ? "saturate-[0.15] opacity-50" : ""
+        }`}
+      >
         {SpriteComponent ? (
           <SpriteComponent isActive={stamp.isActive} isPast={stamp.isPast} />
         ) : (
@@ -149,10 +171,15 @@ function SortableStampRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <Pill variant="rose">{stamp.time}</Pill>
-          <h4 className="font-medium text-sm text-foreground truncate">{stamp.title}</h4>
+          <h4 className={`font-medium text-sm truncate ${isHidden ? "text-muted-foreground" : "text-foreground"}`}>
+            {stamp.title}
+          </h4>
           <Pill variant={isDefault ? "accent" : "done"}>{isDefault ? "Default" : "Custom"}</Pill>
+          {isHidden && <Pill variant="tag" icon={<EyeOff />}>Hidden</Pill>}
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-1">{stamp.description}</p>
+        <p className={`text-xs line-clamp-1 ${isHidden ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
+          {stamp.description}
+        </p>
         {customStamp?.location && (
           <div className="flex items-center gap-1 mt-1">
             <MapPin className="w-3 h-3 text-muted-foreground" />
@@ -162,6 +189,32 @@ function SortableStampRow({
           </div>
         )}
       </div>
+      <label
+        className="flex items-center gap-1.5 flex-shrink-0"
+        title={`XP both partners earn when this stamp is checked in (default ${xpDefault})`}
+      >
+        <Zap className="w-4 h-4 text-rose" />
+        <input
+          type="number"
+          min="0"
+          inputMode="numeric"
+          value={xpValue}
+          placeholder={String(xpDefault)}
+          onChange={(e) => onXpChange(stampKeyOf(stamp), e.target.value)}
+          onBlur={(e) => onXpCommit(stampKeyOf(stamp), e.target.value)}
+          onKeyDown={(e) => {
+            // Enter is what people reach for; blurring routes it through the
+            // same commit rather than needing a second, separate path.
+            if (e.key === "Enter") e.currentTarget.blur();
+          }}
+          className="w-16 px-2 py-1.5 text-sm text-center rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition"
+          aria-label={`XP for ${stamp.title}`}
+        />
+        <Check
+          className={`w-4 h-4 text-rose transition-opacity ${xpSaved ? "opacity-100" : "opacity-0"}`}
+          aria-hidden="true"
+        />
+      </label>
       <button
         type="button"
         onClick={() => onReset(item)}
@@ -170,16 +223,15 @@ function SortableStampRow({
       >
         <RotateCcw className="w-4 h-4" />
       </button>
-      {isDefault && itineraryStamp && (
-        <button
-          type="button"
-          onClick={(e) => onDeleteDefault(e, itineraryStamp.title)}
-          className={iconBtnDanger}
-          title="Delete stamp"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => onToggleVisibility(item)}
+        className={iconBtnCls}
+        aria-pressed={isHidden}
+        title={isHidden ? "Show stamp again" : "Hide stamp from the journey"}
+      >
+        {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
       {!isDefault && customStamp && (
         <div className="flex items-center gap-2">
           <button onClick={() => onEdit(customStamp)} className={iconBtnCls} title="Edit">
@@ -195,6 +247,11 @@ function SortableStampRow({
 }
 
 const StampsManager = () => {
+  const { trainerConfig, setTrainerConfig } = useAdventure();
+  /** Input text per stamp key while typing; committed to the config on blur. */
+  const [xpDraft, setXpDraft] = useState<Record<string, string>>({});
+  /** Key of the stamp whose XP just saved, for the tick beside its box. */
+  const [xpSavedKey, setXpSavedKey] = useState<string | null>(null);
   const [stamps, setStamps] = useState<CustomStamp[]>([]);
   const [disabledDefaultStamps, setDisabledDefaultStamps] = useState<string[]>([]);
   const [stampOrder, setStampOrder] = useState<string[]>([]);
@@ -214,11 +271,54 @@ const StampsManager = () => {
     longitude: "",
     radius: "100",
     is_secret: false,
+    xp: "",
   });
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Adopt the config once it arrives from Supabase, without stomping on
+  // whatever the admin is mid-way through typing.
+  useEffect(() => {
+    setXpDraft((current) => {
+      const next: Record<string, string> = {};
+      for (const [key, value] of Object.entries(trainerConfig.stampXp ?? {})) {
+        next[key] = String(value);
+      }
+      return { ...next, ...current };
+    });
+  }, [trainerConfig.stampXp]);
+
+  const handleXpChange = (key: string, raw: string) => {
+    setXpDraft((current) => ({ ...current, [key]: raw }));
+  };
+
+  /** Blank clears the override so the stamp falls back to the global weight. */
+  const handleXpCommit = async (key: string, raw: string) => {
+    const trimmed = raw.trim();
+    const parsed = Number(trimmed);
+    const nextMap = { ...(trainerConfig.stampXp ?? {}) };
+    if (trimmed === "") {
+      delete nextMap[key];
+    } else if (Number.isFinite(parsed) && parsed >= 0) {
+      nextMap[key] = parsed;
+    } else {
+      // Junk typed in — snap the field back to whatever is stored.
+      setXpDraft((current) => ({ ...current, [key]: String(trainerConfig.stampXp?.[key] ?? "") }));
+      return;
+    }
+    setXpDraft((current) => ({ ...current, [key]: trimmed === "" ? "" : String(parsed) }));
+    const next: TrainerCardConfig = { ...trainerConfig, stampXp: nextMap };
+    setTrainerConfig(next);
+    const ok = await syncTrainerCardConfig(next);
+    if (!ok) {
+      alert("Failed to save stamp XP. Please try again.");
+      return;
+    }
+    setXpSavedKey(key);
+    setTimeout(() => setXpSavedKey((current) => (current === key ? null : current)), 1600);
+  };
 
   const loadData = async () => {
     try {
@@ -277,14 +377,34 @@ const StampsManager = () => {
     }
   };
 
-  const handleDeleteDefaultStamp = async (e: React.MouseEvent, title: string) => {
-    e.preventDefault();
-    e.stopPropagation();
+  /* One switch, two stores. A default stamp has no row of its own, so its
+     hidden state lives in the shared `disabledDefaultStamps` list; a custom one
+     carries `hidden` on the row itself. The row hands back the item and gets
+     the right write. */
+  const handleToggleVisibility = async (item: StampListItem) => {
+    if (item.type === "custom") {
+      const stamp = item.stamp;
+      const next = !stamp.hidden;
+      setStamps((prev) => prev.map((s) => (s.id === stamp.id ? { ...s, hidden: next } : s)));
+      try {
+        await updateCustomStamp({ ...stamp, hidden: next });
+      } catch (error) {
+        console.error("Error toggling custom stamp visibility:", error);
+        alert("Failed to update stamp visibility. Please try again.");
+        await loadData();
+      }
+      return;
+    }
+    await handleToggleDefaultStamp(item.stamp.title);
+  };
+
+  const handleToggleDefaultStamp = async (title: string) => {
     try {
       const settings = await getAdminSettings();
       const currentDisabled = settings.disabledDefaultStamps || [];
-      if (currentDisabled.includes(title)) return;
-      const newDisabled = [...currentDisabled, title];
+      const newDisabled = currentDisabled.includes(title)
+        ? currentDisabled.filter((t) => t !== title)
+        : [...currentDisabled, title];
 
       setDisabledDefaultStamps(newDisabled);
       await updateAdminSettings({ disabledDefaultStamps: newDisabled });
@@ -298,8 +418,8 @@ const StampsManager = () => {
         console.warn("Could not reload global settings after update:", verifyError);
       }
     } catch (error) {
-      console.error("Error deleting default stamp:", error);
-      alert("Failed to delete stamp. Please try again.");
+      console.error("Error toggling default stamp:", error);
+      alert("Failed to update stamp visibility. Please try again.");
       try {
         const globalSettings = await loadGlobalAdminSettings();
         if (globalSettings) {
@@ -327,6 +447,7 @@ const StampsManager = () => {
       longitude: "",
       radius: "100",
       is_secret: false,
+      xp: "",
     });
     setShowForm(true);
   };
@@ -343,6 +464,7 @@ const StampsManager = () => {
       longitude: stamp.location?.longitude.toString() || "",
       radius: stamp.location?.radius.toString() || "100",
       is_secret: stamp.is_secret || false,
+      xp: String(trainerConfig.stampXp?.[stampKeyOf(stamp)] ?? ""),
     });
     setShowForm(true);
   };
@@ -391,8 +513,7 @@ const StampsManager = () => {
     const { active, over } = event;
     setActiveStampId(null);
     if (!over || active.id === over.id) return;
-    const visible = initialItinerary.filter((s) => !disabledDefaultStamps.includes(s.title));
-    const ordered = buildOrderedStampList(visible, stamps, stampOrder);
+    const ordered = buildOrderedStampList(initialItinerary, stamps, stampOrder);
     const oldIndex = ordered.findIndex((i) => i.id === active.id);
     const newIndex = ordered.findIndex((i) => i.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -439,6 +560,21 @@ const StampsManager = () => {
         await addCustomStamp(stampData);
       }
 
+      // The XP override is keyed by time+title, so renaming or retiming a stamp
+      // has to carry it across rather than orphan it under the old key.
+      const nextMap = { ...(trainerConfig.stampXp ?? {}) };
+      if (editingStamp) delete nextMap[stampKeyOf(editingStamp)];
+      const parsedXp = Number(formData.xp.trim());
+      const newKey = stampKeyOf(stampData);
+      if (formData.xp.trim() !== "" && Number.isFinite(parsedXp) && parsedXp >= 0) {
+        nextMap[newKey] = parsedXp;
+      } else {
+        delete nextMap[newKey];
+      }
+      const nextConfig: TrainerCardConfig = { ...trainerConfig, stampXp: nextMap };
+      setTrainerConfig(nextConfig);
+      await syncTrainerCardConfig(nextConfig);
+
       setShowForm(false);
       setEditingStamp(null);
       setIsSpriteDropdownOpen(false);
@@ -457,9 +593,13 @@ const StampsManager = () => {
     );
   }
 
-  const visibleDefaults = initialItinerary.filter((s) => !disabledDefaultStamps.includes(s.title));
-  const totalStampsCount = visibleDefaults.length + stamps.length;
-  const orderedItems = buildOrderedStampList(visibleDefaults, stamps, stampOrder);
+  const orderedItems = buildOrderedStampList(initialItinerary, stamps, stampOrder);
+  const isItemHidden = (item: StampListItem) =>
+    item.type === "default"
+      ? disabledDefaultStamps.includes(item.stamp.title)
+      : Boolean(item.stamp.hidden);
+  const hiddenCount = orderedItems.filter(isItemHidden).length;
+  const totalStampsCount = orderedItems.length - hiddenCount;
 
   return (
     <div>
@@ -478,12 +618,16 @@ const StampsManager = () => {
         </motion.button>
       </div>
       <p className="text-sm text-muted-foreground mb-5">
-        Add custom stamps with the button above. Default stamps can be deleted to remove them from the list.
+        Add custom stamps with the button above. Hiding takes a stamp out of the journey and gives it back
+        untouched when you show it again
+        {hiddenCount > 0 ? ` — ${hiddenCount} hidden right now` : ""}. The <span className="text-rose">XP</span> box sets what checking that stamp in is worth — both partners
+        earn it. It saves the moment you click away or press Enter; blank means the default of{" "}
+        {trainerConfig.weights.stamp} XP.
       </p>
 
       {/* Single combined Stamps list */}
       <div className="mb-6">
-        {totalStampsCount === 0 && !showForm ? (
+        {orderedItems.length === 0 && !showForm ? (
           <div className="text-center py-6 bg-muted/30 border border-border rounded-xl">
             <p className="text-sm text-muted-foreground">
               No stamps. Add a custom stamp or restore defaults (if you add a restore feature later).
@@ -497,7 +641,13 @@ const StampsManager = () => {
                   <SortableStampRow
                     key={item.id}
                     item={item}
-                    onDeleteDefault={handleDeleteDefaultStamp}
+                    xpValue={xpDraft[stampKeyOf(item.stamp)] ?? ""}
+                    xpDefault={trainerConfig.weights.stamp}
+                    xpSaved={xpSavedKey === stampKeyOf(item.stamp)}
+                    onXpChange={handleXpChange}
+                    onXpCommit={handleXpCommit}
+                    isHidden={isItemHidden(item)}
+                    onToggleVisibility={handleToggleVisibility}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onReset={handleReset}
@@ -734,6 +884,30 @@ const StampsManager = () => {
                   <label htmlFor="is_secret" className="text-sm font-medium text-foreground cursor-pointer">
                     Is Secret?
                   </label>
+                </div>
+
+                {/* XP granted on check-in */}
+                <div>
+                  <label className={labelCls} htmlFor="stamp-xp">
+                    XP on check-in
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-rose flex-shrink-0" />
+                    <input
+                      id="stamp-xp"
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      value={formData.xp}
+                      onChange={(e) => setFormData({ ...formData, xp: e.target.value })}
+                      placeholder={String(trainerConfig.weights.stamp)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Both partners earn this when the stamp is checked in. Blank uses the default of{" "}
+                    {trainerConfig.weights.stamp} XP.
+                  </p>
                 </div>
 
                 {/* Submit button */}

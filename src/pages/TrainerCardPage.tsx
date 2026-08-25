@@ -12,9 +12,10 @@ import ShopTab from "@/components/ShopTab";
 import LinkPartner from "@/components/LinkPartner";
 import { useAdventure } from "@/contexts/AdventureContext";
 import { useAllCafePlaces, useCafeCategories } from "@/hooks/useCafes";
+import { useShopOpen } from "@/hooks/useShopOpen";
 import { computeAchievements, type AchievementTier } from "@/utils/cafeAchievements";
 import { qtyOf, uploadTrainerPhoto } from "@/utils/profile";
-import { LEVEL_TIERS, computeTrainerStats, teamFor, trainerIdFor } from "@/utils/trainerCard";
+import { LEVEL_TIERS, collectedStampXp, computeTrainerStats, teamFor, trainerIdFor } from "@/utils/trainerCard";
 import { cn } from "@/lib/utils";
 
 /** Ordered tab list — appending an entry here is the whole job for a new tab.
@@ -57,13 +58,19 @@ const TrainerCardPage = () => {
   const reduceMotion = useReducedMotion();
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // Unknown or absent `?tab=` falls back to Card — a stale link never lands on a blank page.
+  /** The admin can shut the shop, which takes its tab off this pocket. The bag
+   *  stays either way — what she already owns is hers. */
+  const shopOpen = useShopOpen();
+  const tabs = useMemo(() => (shopOpen ? TABS : TABS.filter((t) => t.id !== "shop")), [shopOpen]);
+
+  // Unknown or absent `?tab=` falls back to Card — a stale link never lands on a
+  // blank page, and `?tab=shop` on a shut shop is exactly such a link.
   const requestedTab = searchParams.get("tab");
-  const activeTab: TabId = TABS.some((t) => t.id === requestedTab) ? (requestedTab as TabId) : "card";
+  const activeTab: TabId = tabs.some((t) => t.id === requestedTab) ? (requestedTab as TabId) : "card";
 
   // Which way the panel slides. Kept in a ref rather than state: it's read during
   // the same render that changes the tab, and it must never cause one of its own.
-  const tabIndex = TABS.findIndex((t) => t.id === activeTab);
+  const tabIndex = tabs.findIndex((t) => t.id === activeTab);
   const lastIndexRef = useRef(tabIndex);
   const direction = tabIndex >= lastIndexRef.current ? 1 : -1;
   useEffect(() => {
@@ -88,7 +95,7 @@ const TrainerCardPage = () => {
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (!step) return;
     event.preventDefault();
-    const next = TABS[(tabIndex + step + TABS.length) % TABS.length];
+    const next = tabs[(tabIndex + step + tabs.length) % tabs.length];
     setActiveTab(next.id);
     tabRefs.current[next.id]?.focus();
   };
@@ -174,10 +181,19 @@ const TrainerCardPage = () => {
   if (!trainerCardEnabled) return <Navigate to="/" replace />;
 
   const badges = achievements.filter((a) => a.unlocked).length;
-  const stamps = itineraryState.filter((i) => i.isPast).length;
+  const collectedStamps = itineraryState.filter((i) => i.isPast);
+  const stamps = collectedStamps.length;
   const visits = (places.data ?? []).filter((p) => p.status === "visited").length;
   const rareItems = (profile?.items ?? []).filter((item) => item.rarity === "rare").length;
-  const stats = computeTrainerStats(badges, stamps, visits, trainerConfig, rareItems);
+  // Per-stamp XP overrides mean the count alone can't price the stamps.
+  const stats = computeTrainerStats(
+    badges,
+    stamps,
+    visits,
+    trainerConfig,
+    rareItems,
+    collectedStampXp(collectedStamps, trainerConfig),
+  );
   const team = teamFor(profile?.teamId);
 
   /** Unspent coupons, counted in copies rather than rows. Sits on the Bag tab so
@@ -263,7 +279,7 @@ const TrainerCardPage = () => {
                     onKeyDown={handleTabKey}
                     className="relative inline-flex rounded-full border border-border bg-card p-1"
                   >
-                    {TABS.map((tab) => {
+                    {tabs.map((tab) => {
                       const active = activeTab === tab.id;
                       const Icon = tab.icon;
                       return (

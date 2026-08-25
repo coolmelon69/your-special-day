@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit, Trash2, X, Save, GripVertical, RotateCcw, Coins } from "lucide-react";
+import { Plus, Edit, Trash2, X, Save, GripVertical, RotateCcw, Coins, Eye, EyeOff } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -81,11 +81,11 @@ type CouponListItem =
   | { type: "custom"; coupon: CustomCoupon; id: string };
 
 function buildOrderedCouponList(
-  visibleDefaults: DefaultCoupon[],
+  allDefaults: DefaultCoupon[],
   coupons: CustomCoupon[],
   couponOrder: string[]
 ): CouponListItem[] {
-  const defaultById = new Map(visibleDefaults.map((c) => [String(c.id), c]));
+  const defaultById = new Map(allDefaults.map((c) => [String(c.id), c]));
   const customById = new Map(coupons.map((c) => [c.id, c]));
   const result: CouponListItem[] = [];
   const seen = new Set<string>();
@@ -108,7 +108,7 @@ function buildOrderedCouponList(
       }
     }
   }
-  for (const c of visibleDefaults) {
+  for (const c of allDefaults) {
     const key = `default:${c.id}`;
     if (!seen.has(key)) {
       result.push({ type: "default", coupon: c, id: key });
@@ -127,13 +127,15 @@ function buildOrderedCouponList(
 
 function SortableCouponRow({
   item,
-  onToggleDefault,
+  isHidden,
+  onToggleVisibility,
   onEdit,
   onDelete,
   onReset,
 }: {
   item: CouponListItem;
-  onToggleDefault: (e: React.MouseEvent, id: number) => void;
+  isHidden: boolean;
+  onToggleVisibility: (item: CouponListItem) => void;
   onEdit: (coupon: CustomCoupon) => void;
   onDelete: (id: string) => void;
   onReset: (coupon: DefaultCoupon | CustomCoupon) => void;
@@ -149,7 +151,9 @@ function SortableCouponRow({
     <motion.div
       ref={setNodeRef}
       style={style}
-      className={`bg-card border border-border rounded-xl p-3 relative flex items-start gap-3 ${isDragging ? "opacity-90 z-50 shadow-romantic" : ""}`}
+      className={`bg-card border rounded-xl p-3 relative flex items-start gap-3 ${
+        isHidden ? "border-dashed border-border/70" : "border-border"
+      } ${isDragging ? "opacity-90 z-50 shadow-romantic" : ""}`}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
     >
@@ -162,15 +166,24 @@ function SortableCouponRow({
       >
         <GripVertical className="w-4 h-4" />
       </button>
-      <div className={`w-11 h-11 flex-shrink-0 rounded-lg grid place-items-center text-2xl bg-gradient-to-br ${coupon.color}`}>
+      <div
+        className={`w-11 h-11 flex-shrink-0 rounded-lg grid place-items-center text-2xl bg-gradient-to-br transition-[filter,opacity] duration-200 ${coupon.color} ${
+          isHidden ? "saturate-[0.15] opacity-50" : ""
+        }`}
+      >
         {coupon.emoji}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <h4 className="font-medium text-sm text-foreground truncate">{coupon.title}</h4>
+            <h4 className={`font-medium text-sm truncate ${isHidden ? "text-muted-foreground" : "text-foreground"}`}>
+              {coupon.title}
+            </h4>
             {coupon.category && <Pill variant="rose" className="capitalize">{coupon.category}</Pill>}
             <Pill variant={isDefault ? "accent" : "done"}>{isDefault ? "Default" : "Custom"}</Pill>
+            {isHidden && (
+              <Pill variant="tag" icon={<EyeOff />}>Hidden</Pill>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
@@ -181,16 +194,15 @@ function SortableCouponRow({
             >
               <RotateCcw className="w-4 h-4" />
             </button>
-            {isDefault && (
-              <button
-                type="button"
-                onClick={(e) => onToggleDefault(e, (coupon as DefaultCoupon).id)}
-                className={iconBtnDanger}
-                title="Hide coupon"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onToggleVisibility(item)}
+              className={iconBtnCls}
+              aria-pressed={isHidden}
+              title={isHidden ? "Show coupon again" : "Hide coupon from her book"}
+            >
+              {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
             {!isDefault && (
               <>
                 <button onClick={() => onEdit(coupon as CustomCoupon)} className={iconBtnCls} title="Edit">
@@ -203,7 +215,7 @@ function SortableCouponRow({
             )}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
+        <p className={`text-xs mb-2 line-clamp-2 leading-relaxed ${isHidden ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
           {coupon.description}
         </p>
         <div className="flex items-center gap-3 flex-wrap">
@@ -316,9 +328,28 @@ const CouponsManager = () => {
     }
   };
 
-  const handleToggleDefaultCoupon = async (e: React.MouseEvent, couponId: number) => {
-    e.preventDefault();
-    e.stopPropagation();
+  /* One switch, two stores. A default coupon has no row of its own, so its
+     hidden state lives in the shared `disabledDefaultCoupons` list; a custom one
+     carries `hidden` on the row itself. The row component doesn't need to know
+     which — it hands back the item and gets the right write. */
+  const handleToggleVisibility = async (item: CouponListItem) => {
+    if (item.type === "custom") {
+      const coupon = item.coupon;
+      const next = !coupon.hidden;
+      setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, hidden: next } : c)));
+      try {
+        await updateCustomCoupon({ ...coupon, hidden: next });
+      } catch (error) {
+        console.error("Error toggling custom coupon visibility:", error);
+        alert("Failed to update coupon visibility. Please try again.");
+        await loadData();
+      }
+      return;
+    }
+    await handleToggleDefaultCoupon(item.coupon.id);
+  };
+
+  const handleToggleDefaultCoupon = async (couponId: number) => {
     try {
       const settings = await getAdminSettings();
       const currentDisabled = settings.disabledDefaultCoupons || [];
@@ -457,8 +488,7 @@ const CouponsManager = () => {
     const { active, over } = event;
     setActiveCouponId(null);
     if (!over || active.id === over.id) return;
-    const visible = DEFAULT_COUPONS.filter((c) => !disabledDefaultCoupons.includes(c.id));
-    const ordered = buildOrderedCouponList(visible, coupons, couponOrder);
+    const ordered = buildOrderedCouponList(DEFAULT_COUPONS, coupons, couponOrder);
     const oldIndex = ordered.findIndex((i) => i.id === active.id);
     const newIndex = ordered.findIndex((i) => i.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -540,15 +570,20 @@ const CouponsManager = () => {
     );
   }
 
-  const visibleDefaults = DEFAULT_COUPONS.filter((c) => !disabledDefaultCoupons.includes(c.id));
-  const orderedItems = buildOrderedCouponList(visibleDefaults, coupons, couponOrder);
+  const orderedItems = buildOrderedCouponList(DEFAULT_COUPONS, coupons, couponOrder);
+  const isItemHidden = (item: CouponListItem) =>
+    item.type === "default"
+      ? disabledDefaultCoupons.includes(item.coupon.id)
+      : Boolean(item.coupon.hidden);
+  const hiddenCount = orderedItems.filter(isItemHidden).length;
 
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-serif text-2xl font-bold text-foreground">
-          Coupons <span className="text-muted-foreground">({DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).length + coupons.length})</span>
+          Coupons{" "}
+          <span className="text-muted-foreground">({orderedItems.length - hiddenCount})</span>
         </h2>
         <motion.button
           onClick={handleAddNew}
@@ -559,13 +594,19 @@ const CouponsManager = () => {
           Add new
         </motion.button>
       </div>
-      <p className="text-sm text-muted-foreground mb-5">
-        Manage all coupons. Default coupons can be hidden, custom coupons can be edited or deleted.
+      <p className="text-sm text-muted-foreground mb-5 flex items-center gap-2 flex-wrap">
+        <span>Drag to reorder. Hiding takes a coupon out of her book — even one she already unlocked — and gives it back untouched when you show it again.</span>
+        {hiddenCount > 0 && (
+          <span className="inline-flex items-center gap-2 text-muted-foreground">
+            <EyeOff className="w-4 h-4" />
+            {hiddenCount} hidden
+          </span>
+        )}
       </p>
 
       {/* All Coupons Section - Merged */}
       <div className="mb-6">
-        {DEFAULT_COUPONS.filter(c => !disabledDefaultCoupons.includes(c.id)).length === 0 && coupons.length === 0 && !showForm ? (
+        {orderedItems.length === 0 && !showForm ? (
           <div className="text-center py-6 bg-muted/30 border border-border rounded-xl">
             <p className="text-sm text-muted-foreground">
               No coupons available. Click "Add new" to create a custom coupon.
@@ -579,7 +620,8 @@ const CouponsManager = () => {
                   <SortableCouponRow
                     key={item.id}
                     item={item}
-                    onToggleDefault={handleToggleDefaultCoupon}
+                    isHidden={isItemHidden(item)}
+                    onToggleVisibility={handleToggleVisibility}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onReset={handleReset}

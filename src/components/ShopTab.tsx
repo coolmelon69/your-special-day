@@ -226,12 +226,16 @@ const ShopTab = ({
   const wide = useWide();
   const perPage = wide ? PAGE_SIZES.wide : PAGE_SIZES.compact;
 
-  /** The catalogue at today's prices. Same 36 slugs either way — only what they
-   *  cost changes, which is what re-sorts the shelves and moves the level gates. */
+  /** The catalogue at today's prices, minus anything the admin has pulled.
+   *  Hidden isn't sold out: a pulled item leaves no gap and says nothing, it
+   *  simply isn't in the shop. Prices re-sort the shelves and move the gates. */
   const pool = useMemo(
     () =>
       shopConfig
-        ? ITEM_SHOP_POOL.map((item) => ({ ...item, price: shopConfig[item.slug]?.price ?? item.price }))
+        ? ITEM_SHOP_POOL.filter((item) => !shopConfig[item.slug]?.hidden).map((item) => ({
+            ...item,
+            price: shopConfig[item.slug]?.price ?? item.price,
+          }))
         : ITEM_SHOP_POOL,
     [shopConfig],
   );
@@ -347,12 +351,15 @@ const ShopTab = ({
   // What the visible page is. A page runs through the price order and can
   // straddle two shelves, so the header names every shelf on it and the gate is
   // decided per tile.
-  const pageItems = pages[page] ?? pages[pages.length - 1];
+  const pageItems = pages[page] ?? pages[pages.length - 1] ?? [];
   const isLocked = (item: ItemSku) => level < TIER_MIN_LEVEL[tierOf(item.price)];
   const pageTiers = SHELF_ORDER.filter((tier) =>
     pageItems.some((item) => tierOf(item.price) === tier),
   );
-  const pageLabel = pageTiers.map((tier) => TIER_LABEL[tier]).join(" · ");
+  const pageLabel = pageTiers.map((tier) => TIER_LABEL[tier]).join(" · ") || "The shelves";
+  /** Every item pulled. Rare, and the honest thing to say is that the shelves
+   *  are bare — not to leave a grid-shaped hole where they were. */
+  const shelvesBare = pool.length === 0;
   /** The nearest shelf on this page she hasn't reached — SHELF_ORDER is cheapest
    *  first, so the first locked one is also the soonest to open. */
   const gateTier = pageTiers.find((tier) => level < TIER_MIN_LEVEL[tier]);
@@ -468,6 +475,14 @@ const ShopTab = ({
           }}
           className="relative bg-accent/40 px-3 py-3"
         >
+          {shelvesBare ? (
+            <div className="px-4 py-12 text-center">
+              <PackageX className="mx-auto h-4 w-4 text-muted-foreground" aria-hidden />
+              <p className="mt-3 font-sans text-sm text-muted-foreground">
+                The shelves are bare right now. Come back — the Mart restocks.
+              </p>
+            </div>
+          ) : (
           <AnimatePresence mode="wait" custom={direction} initial={false}>
             <motion.div
               key={page}
@@ -604,9 +619,12 @@ const ShopTab = ({
               })}
             </motion.div>
           </AnimatePresence>
+          )}
         </motion.div>
 
-        {/* Counter controls. */}
+        {/* Counter controls. Gone when there is nothing to page through — one
+            page, or none at all. */}
+        {pages.length > 1 && (
         <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2.5">
           <button
             type="button"
@@ -639,17 +657,20 @@ const ShopTab = ({
           <button
             type="button"
             onClick={() => turn(1)}
-            disabled={page === pages.length - 1}
+            disabled={page >= pages.length - 1}
             aria-label="Next page"
             className="grid h-9 w-9 place-items-center rounded-xl border border-border text-foreground transition-colors hover:border-rose hover:text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground/40"
           >
             <ChevronRight className="h-4 w-4" aria-hidden />
           </button>
         </div>
+        )}
       </div>
 
       <p aria-live="polite" className="sr-only">
-        {pageLabel}, page {page + 1} of {pages.length}
+        {shelvesBare
+          ? "The shelves are empty."
+          : `${pageLabel}, page ${page + 1} of ${pages.length}`}
       </p>
 
       {allOwned && (

@@ -17,8 +17,13 @@ export const TIER_COLOR_CLASSES: Record<TierColor, { text: string; bg: string; b
 export type XpWeights = { badge: number; stamp: number; visit: number; rareItem: number };
 export type LevelTier = { name: string; minXp: number; color: TierColor; icon: string };
 
+/** Per-stamp XP overrides, keyed by `stampKeyOf` — the same key `stamps_progress`
+ *  rows use. A stamp missing from the map is worth `weights.stamp`. Renaming or
+ *  retiming a stamp changes its key, so it falls back to the default weight. */
+export type StampXpMap = Record<string, number>;
+
 /** Everything the admin can tune about levelling. */
-export type TrainerCardConfig = { weights: XpWeights; tiers: LevelTier[] };
+export type TrainerCardConfig = { weights: XpWeights; tiers: LevelTier[]; stampXp?: StampXpMap };
 
 export const XP_WEIGHTS: XpWeights = { badge: 5, stamp: 2, visit: 3, rareItem: 10 };
 
@@ -35,15 +40,37 @@ export const DEFAULT_TRAINER_CONFIG: TrainerCardConfig = {
   tiers: LEVEL_TIERS,
 };
 
+/** The one key a stamp is known by across progress rows and XP overrides. */
+export const stampKeyOf = (stamp: { time: string; title: string }): string =>
+  `${stamp.time}-${stamp.title}`;
+
+/** XP a single stamp is worth: its override, or the flat weight. */
+export const stampXpOf = (
+  stamp: { time: string; title: string },
+  config: TrainerCardConfig = DEFAULT_TRAINER_CONFIG,
+): number => {
+  const override = config.stampXp?.[stampKeyOf(stamp)];
+  return Number.isFinite(override) ? (override as number) : (config.weights ?? XP_WEIGHTS).stamp;
+};
+
+/** Total XP from the stamps already collected. */
+export const collectedStampXp = (
+  collected: { time: string; title: string }[],
+  config: TrainerCardConfig = DEFAULT_TRAINER_CONFIG,
+): number => collected.reduce((sum, stamp) => sum + stampXpOf(stamp, config), 0);
+
 export const computeXp = (
   badges: number,
   stamps: number,
   visits: number,
   rareItems: number = 0,
   weights: XpWeights = XP_WEIGHTS,
+  /** Sum of the per-stamp values, when the caller knows which stamps were
+   *  collected. Falls back to the flat `stamps * weights.stamp` when absent. */
+  stampXpTotal?: number,
 ): number =>
   badges * weights.badge +
-  stamps * weights.stamp +
+  (stampXpTotal ?? stamps * weights.stamp) +
   visits * weights.visit +
   // A config saved before rare items existed has no `rareItem` key.
   rareItems * (weights.rareItem ?? 0);
@@ -223,11 +250,12 @@ export const computeTrainerStats = (
   visits: number,
   config: TrainerCardConfig = DEFAULT_TRAINER_CONFIG,
   rareItems: number = 0,
+  stampXpTotal?: number,
 ): TrainerStats => {
   const weights = config.weights ?? XP_WEIGHTS;
   // Thresholds are authored in the admin panel, so never trust the order.
   const tiers = (config.tiers?.length ? [...config.tiers] : LEVEL_TIERS).sort((a, b) => a.minXp - b.minXp);
-  const xp = computeXp(badges, stamps, visits, rareItems, weights);
+  const xp = computeXp(badges, stamps, visits, rareItems, weights, stampXpTotal);
 
   let currentTierIndex = 0;
   for (let i = 0; i < tiers.length; i++) {
@@ -255,6 +283,9 @@ export const computeTrainerStats = (
 /** Admin-facing validation. Returns a human message, or null when the config is usable. */
 export const validateTrainerConfig = (config: TrainerCardConfig): string | null => {
   const { weights, tiers } = config;
+  for (const [key, value] of Object.entries(config.stampXp ?? {})) {
+    if (!Number.isFinite(value) || value < 0) return `XP for "${key}" must be zero or more.`;
+  }
   for (const [key, value] of Object.entries(weights)) {
     if (!Number.isFinite(value) || value < 0) return `XP per ${key} must be zero or more.`;
   }

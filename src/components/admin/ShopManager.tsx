@@ -16,6 +16,10 @@ import { motion } from "framer-motion";
 import {
   Boxes,
   ChevronDown,
+  DoorClosed,
+  DoorOpen,
+  Eye,
+  EyeOff,
   Gift,
   Infinity as InfinityIcon,
   PackageX,
@@ -25,10 +29,18 @@ import {
   Store,
   TriangleAlert,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import PokeCoin from "@/components/PokeCoin";
 import { ITEM_SHOP_POOL, SHELF_ORDER, tierOf, type ShelfTier } from "@/utils/itemShop";
 import { actionFor } from "@/utils/itemActions";
-import { loadItemShop, saveItemShopRow, type ItemShopConfig } from "@/utils/itemShopConfig";
+import {
+  loadItemShop,
+  loadShopOpen,
+  saveItemShopRow,
+  saveShopOpen,
+  type ItemShopConfig,
+  type SaveShopResult,
+} from "@/utils/itemShopConfig";
 import { fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +76,9 @@ interface Row {
   price: number;
   stock: number | null;
   action: string | null;
+  /** Pulled from sale: gone from the shop, and refused if she still holds one.
+   *  Not a draft field — the switch writes on the spot. */
+  hidden: boolean;
   /** The promise from `itemActions.ts`, shown as the placeholder so clearing the
    *  box visibly falls back to it rather than to nothing. */
   fallbackAction: string;
@@ -85,6 +100,12 @@ const ShopManager = () => {
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  /** The whole-shop switch. Optimistic while it saves, reverted if the write is
+   *  refused — a switch that waits for a round trip before moving feels broken. */
+  const [shopOpen, setShopOpen] = useState(true);
+  const [togglingShop, setTogglingShop] = useState(false);
+  /** Which row's visibility switch is mid-write, so only that one goes quiet. */
+  const [togglingSlug, setTogglingSlug] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +113,9 @@ const ShopManager = () => {
       if (cancelled) return;
       setConfig(loaded);
       setLoading(false);
+    });
+    loadShopOpen().then((open) => {
+      if (!cancelled) setShopOpen(open);
     });
     fetchAllDetails().then((entries) => {
       if (!cancelled) setDetails(entries);
@@ -110,6 +134,7 @@ const ShopManager = () => {
         price: live?.price ?? item.price,
         stock: live?.stock ?? null,
         action: live?.action ?? null,
+        hidden: live?.hidden ?? false,
         fallbackAction: actionFor(item.slug)?.action ?? "",
         detail: details[item.slug],
       };
@@ -134,6 +159,67 @@ const ShopManager = () => {
     });
   };
 
+  /** The two refusals worth words, shared by every write on this page. */
+  const explain = (result: Exclude<SaveShopResult, "ok">, what: string) => {
+    if (result === "no-table")
+      alert(`The shop tables aren't up to date. Run the latest file in sql/ in Supabase, then try again.`);
+    else if (result === "forbidden")
+      alert("Only the pair owner can change the shop. Sign in as the account that created the invite.");
+    else alert(`Could not ${what}. Please try again.`);
+  };
+
+  /** Pull an item from sale, or put it back. Written on the spot rather than
+   *  through the row's Save: this is a switch, and a switch that needs a second
+   *  button to mean anything is a checkbox wearing a costume. Any half-typed
+   *  price in the row is left exactly where it is — the saved values go up. */
+  const handleToggleHidden = async (row: Row) => {
+    const hidden = !row.hidden;
+    setTogglingSlug(row.slug);
+    // Optimistic, so the item greys out under the thumb that flipped it.
+    setConfig((current) => ({
+      ...(current ?? {}),
+      [row.slug]: { slug: row.slug, price: row.price, stock: row.stock, action: row.action, hidden },
+    }));
+    try {
+      const result = await saveItemShopRow(row.slug, {
+        price: row.price,
+        stock: row.stock,
+        action: row.action,
+        hidden,
+      });
+      if (result !== "ok") {
+        setConfig((current) => ({
+          ...(current ?? {}),
+          [row.slug]: {
+            slug: row.slug,
+            price: row.price,
+            stock: row.stock,
+            action: row.action,
+            hidden: row.hidden,
+          },
+        }));
+        explain(result, hidden ? "hide that item" : "show that item");
+      }
+    } finally {
+      setTogglingSlug(null);
+    }
+  };
+
+  /** Shut the shop, or open it. Takes the tab off the nav for everyone. */
+  const handleToggleShop = async (next: boolean) => {
+    setTogglingShop(true);
+    setShopOpen(next);
+    try {
+      const result = await saveShopOpen(next);
+      if (result !== "ok") {
+        setShopOpen(!next);
+        explain(result, next ? "open the shop" : "close the shop");
+      }
+    } finally {
+      setTogglingShop(false);
+    }
+  };
+
   const handleSave = async (row: Row) => {
     const draft = drafts[row.slug];
     if (!draft) return;
@@ -148,22 +234,25 @@ const ShopManager = () => {
         price,
         stock,
         action: draft.action.trim() || null,
+        hidden: row.hidden,
       });
       if (result === "ok") {
         setConfig((current) => ({
           ...(current ?? {}),
-          [row.slug]: { slug: row.slug, price, stock, action: draft.action.trim() || null },
+          [row.slug]: {
+            slug: row.slug,
+            price,
+            stock,
+            action: draft.action.trim() || null,
+            hidden: row.hidden,
+          },
         }));
         revert(row.slug);
         setSavedSlug(row.slug);
         window.setTimeout(() => setSavedSlug((s) => (s === row.slug ? null : s)), 2400);
-      } else if (result === "no-table") {
-        setConfig(null);
-        alert("The shelf table isn't there yet. Run sql/2026-08-16-item-shop-config.sql in Supabase, then try again.");
-      } else if (result === "forbidden") {
-        alert("Only the pair owner can price the shop. Sign in as the account that created the invite.");
       } else {
-        alert("Could not save that item. Please try again.");
+        if (result === "no-table") setConfig(null);
+        explain(result, "save that item");
       }
     } finally {
       setSavingSlug(null);
@@ -176,8 +265,42 @@ const ShopManager = () => {
         <h2 className="font-serif text-2xl font-bold text-foreground">Shop shelf</h2>
         <p className="text-sm text-muted-foreground mt-1">
           What each item costs, how many are left to sell, and the promise it's redeemed for. Price
-          decides which shelf it sits on, and a shelf is what a level unlocks.
+          decides which shelf it sits on, and a shelf is what a level unlocks. The eye takes an item
+          out of the shop entirely — hidden isn't sold out, and a hidden coupon can't be spent from
+          the bag either.
         </p>
+      </div>
+
+      {/* The door. Above the shelf because it overrules every row below it:
+          repricing a berry means nothing while the shop is shut. */}
+      <div
+        className={cn(
+          "flex items-center gap-4 rounded-xl border p-4 transition-colors",
+          shopOpen ? "border-border" : "border-rose/40 bg-rose/[0.04]",
+        )}
+      >
+        {shopOpen ? (
+          <DoorOpen className="w-4 h-4 flex-shrink-0 text-primary" aria-hidden />
+        ) : (
+          <DoorClosed className="w-4 h-4 flex-shrink-0 text-rose" aria-hidden />
+        )}
+        <div className="min-w-0 flex-1">
+          <label htmlFor="shop-open" className="text-sm font-medium text-foreground">
+            {shopOpen ? "Shop is open" : "Shop is closed"}
+          </label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {shopOpen
+              ? "The Shop tab is in the nav and everything unhidden below is for sale."
+              : "The Shop tab is gone from the nav and nothing can be bought. The bag keeps what she already owns."}
+          </p>
+        </div>
+        <Switch
+          id="shop-open"
+          checked={shopOpen}
+          disabled={togglingShop}
+          onCheckedChange={handleToggleShop}
+          aria-label="Shop open"
+        />
       </div>
 
       {!loading && !config && (
@@ -237,6 +360,7 @@ const ShopManager = () => {
                     value.stock.trim() === "" ||
                     (Number.isInteger(Number(value.stock)) && Number(value.stock) >= 0);
                   const soldOut = row.stock === 0;
+                  const hidden = row.hidden;
                   const open = openSlug === row.slug;
 
                   return (
@@ -245,6 +369,7 @@ const ShopManager = () => {
                       className={cn(
                         "rounded-xl border p-3 transition-colors",
                         dirty ? "border-primary/40 bg-primary/[0.03]" : "border-border",
+                        hidden && !dirty && "border-dashed bg-muted/30",
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -254,7 +379,10 @@ const ShopManager = () => {
                             alt=""
                             width={40}
                             height={40}
-                            className={cn("flex-shrink-0", soldOut && "opacity-60 grayscale")}
+                            className={cn(
+                              "flex-shrink-0 transition",
+                              (soldOut || hidden) && "opacity-60 grayscale",
+                            )}
                             style={{ imageRendering: "pixelated" }}
                           />
                         ) : (
@@ -262,12 +390,23 @@ const ShopManager = () => {
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium capitalize text-foreground">
+                          <p
+                            className={cn(
+                              "truncate text-sm font-medium capitalize",
+                              hidden ? "text-muted-foreground line-through" : "text-foreground",
+                            )}
+                          >
                             {row.name}
                           </p>
                           <p className="mt-0.5 flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
                             <span className="truncate">{row.slug}</span>
-                            {soldOut && (
+                            {hidden && (
+                              <span className="inline-flex flex-shrink-0 items-center gap-1 uppercase tracking-wide text-muted-foreground">
+                                <EyeOff className="w-4 h-4" />
+                                Hidden
+                              </span>
+                            )}
+                            {soldOut && !hidden && (
                               <span className="inline-flex flex-shrink-0 items-center gap-1 uppercase tracking-wide text-rose">
                                 <PackageX className="w-4 h-4" />
                                 Sold out
@@ -331,6 +470,27 @@ const ShopManager = () => {
                               )}
                             />
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleHidden(row)}
+                            disabled={togglingSlug === row.slug}
+                            aria-pressed={!hidden}
+                            aria-label={
+                              hidden
+                                ? `Show ${row.name} in the shop`
+                                : `Hide ${row.name} from the shop`
+                            }
+                            title={hidden ? "Hidden — tap to show" : "Showing — tap to hide"}
+                            className={cn(
+                              "grid h-9 w-9 place-items-center rounded-[10px] border transition-colors focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:opacity-50",
+                              hidden
+                                ? "border-dashed border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                                : "border-border text-primary hover:border-primary",
+                            )}
+                          >
+                            {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
 
                           <button
                             type="button"

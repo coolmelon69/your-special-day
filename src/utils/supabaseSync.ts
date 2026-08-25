@@ -745,6 +745,7 @@ export const syncCustomStamps = async (
       sprite: stamp.sprite,
       is_active: stamp.isActive,
       is_past: stamp.isPast,
+      hidden: stamp.hidden ?? false,
       location: stamp.location || null,
       updated_at: new Date(stamp.updatedAt).toISOString(),
     }));
@@ -815,6 +816,7 @@ export const loadCustomStamps = async (): Promise<CustomStamp[]> => {
       sprite: record.sprite,
       isActive: record.is_active,
       isPast: record.is_past,
+      hidden: record.hidden ?? false,
       location: record.location || undefined,
       createdAt: new Date(record.created_at).getTime(),
       updatedAt: new Date(record.updated_at).getTime(),
@@ -863,6 +865,7 @@ export const loadCustomStampsResult = async (): Promise<LoadResult<CustomStamp[]
             sprite: record.sprite,
             isActive: record.is_active,
             isPast: record.is_past,
+            hidden: record.hidden ?? false,
             location: record.location || undefined,
             createdAt: new Date(record.created_at).getTime(),
             updatedAt: new Date(record.updated_at).getTime(),
@@ -943,6 +946,7 @@ export const syncCustomCoupons = async (
       color: coupon.color,
       required_stamps: coupon.requiredStamps,
       category: coupon.category || null,
+      hidden: coupon.hidden ?? false,
       updated_at: new Date(coupon.updatedAt).toISOString(),
     }));
 
@@ -1012,6 +1016,7 @@ export const loadCustomCoupons = async (): Promise<CustomCoupon[]> => {
       color: record.color,
       requiredStamps: record.required_stamps,
       category: record.category || undefined,
+      hidden: record.hidden ?? false,
       createdAt: new Date(record.created_at).getTime(),
       updatedAt: new Date(record.updated_at).getTime(),
     }));
@@ -1059,6 +1064,7 @@ export const loadCustomCouponsResult = async (): Promise<LoadResult<CustomCoupon
             color: record.color,
             requiredStamps: record.required_stamps,
             category: record.category || undefined,
+            hidden: record.hidden ?? false,
             createdAt: new Date(record.created_at).getTime(),
             updatedAt: new Date(record.updated_at).getTime(),
           }));

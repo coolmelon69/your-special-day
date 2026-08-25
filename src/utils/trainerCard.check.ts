@@ -9,7 +9,19 @@
  * fallback and looks like a slow network. Neither would surface in review.
  */
 import assert from "node:assert/strict";
-import { AVATAR_PRESETS, TEAMS, avatarFor, teamFor } from "./trainerCard.ts";
+import {
+  AVATAR_PRESETS,
+  DEFAULT_TRAINER_CONFIG,
+  TEAMS,
+  avatarFor,
+  collectedStampXp,
+  computeTrainerStats,
+  stampKeyOf,
+  stampXpOf,
+  teamFor,
+  validateTrainerConfig,
+  type TrainerCardConfig,
+} from "./trainerCard.ts";
 import { animatedSpriteUrl, stillSpriteUrl, spriteSources } from "./pokeSprites.ts";
 
 // --- teams -----------------------------------------------------------------
@@ -61,5 +73,37 @@ assert.ok(animatedSpriteUrl(25).startsWith("https://cdn.jsdelivr.net/"));
 // Outside a browser there is no matchMedia, so the animated source leads and
 // the still one backs it up — the same order a motion-tolerant viewer gets.
 assert.deepEqual(spriteSources(25), [animatedSpriteUrl(25), stillSpriteUrl(25)]);
+
+// --- per-stamp xp ----------------------------------------------------------
+
+const breakfast = { time: "9:00 AM", title: "Breakfast Quest" };
+const sunset = { time: "7:00 PM", title: "Sunset" };
+
+// The key has to match what `syncStampsProgress` writes, or an override
+// silently applies to nothing.
+assert.equal(stampKeyOf(breakfast), "9:00 AM-Breakfast Quest");
+
+const config: TrainerCardConfig = {
+  ...DEFAULT_TRAINER_CONFIG,
+  stampXp: { [stampKeyOf(breakfast)]: 15, [stampKeyOf(sunset)]: 0 },
+};
+
+assert.equal(stampXpOf(breakfast, config), 15, "override wins");
+assert.equal(stampXpOf(sunset, config), 0, "a zero override is an override, not a missing one");
+assert.equal(stampXpOf({ time: "1:00 PM", title: "Lunch" }, config), 2, "no override falls back to the weight");
+assert.equal(collectedStampXp([breakfast, sunset, { time: "1:00 PM", title: "Lunch" }], config), 17);
+
+// A stamp checked in is worth the same to whoever reads the shared row, so the
+// only thing that can differ between partners is their own badges/visits.
+const withOverride = computeTrainerStats(0, 1, 0, config, 0, collectedStampXp([breakfast], config));
+const withoutOverride = computeTrainerStats(0, 1, 0, config, 0);
+assert.equal(withOverride.xp, 15);
+assert.equal(withoutOverride.xp, 2, "no total passed = old flat pricing");
+
+assert.equal(validateTrainerConfig(config), null);
+assert.ok(
+  validateTrainerConfig({ ...config, stampXp: { [stampKeyOf(breakfast)]: -1 } }),
+  "negative per-stamp XP must be rejected",
+);
 
 console.log("trainerCard.check.ts: all assertions passed");

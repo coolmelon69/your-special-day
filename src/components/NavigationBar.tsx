@@ -25,6 +25,7 @@ import { isAuthenticated, isSiteUnlocked } from "@/utils/adminAuth";
 import AuthModal from "./AuthModal";
 import { getCurrentUser, signOut, onAuthStateChange } from "@/utils/auth";
 import { useAdventure } from "@/contexts/AdventureContext";
+import { useShopOpen } from "@/hooks/useShopOpen";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import {
   DropdownMenu,
@@ -76,6 +77,10 @@ const NavigationBar = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { trainerCardEnabled, profile, isLinked } = useAdventure();
+  /** Shop shut by the admin? Its sub-item leaves the menu. The Card and Bag
+   *  entries are untouched — the shop closing is not a lockout. */
+  const shopOpen = useShopOpen();
+  const profileTabs = shopOpen ? PROFILE_TABS : PROFILE_TABS.filter((t) => t.tab !== "shop");
 
   /** The pairing form lives on /trainer-card, so the prompt is a route, not a
    *  modal. Hidden once you're standing on that page — the form is already in
@@ -267,7 +272,7 @@ const NavigationBar = () => {
                               />
                             </summary>
                             <ul className="mb-4 ml-2 border-l border-border pl-5">
-                              {PROFILE_TABS.map((sub) => {
+                              {profileTabs.map((sub) => {
                                 const SubIcon = sub.icon;
                                 const subActive =
                                   location.pathname === "/trainer-card" &&

@@ -372,6 +372,12 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
           // User not logged in - don't load custom stamps
           console.log("User not logged in - showing default stamps only");
         }
+
+        /* An admin has pulled these. Dropped before anything downstream sees
+           them, so a hidden stamp is absent from the order, the map and the
+           check-in, not merely greyed out. Deleting stays a separate, harsher
+           button in the panel. */
+        customStamps = customStamps.filter((stamp) => !stamp.hidden);
         
         let mergedItinerary: ItineraryItem[];
         const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
@@ -550,6 +556,12 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
             console.warn("Could not load custom stamps from IndexedDB:", fallbackError);
           }
         }
+
+        /* An admin has pulled these. Dropped before anything downstream sees
+           them, so a hidden stamp is absent from the order, the map and the
+           check-in, not merely greyed out. Deleting stays a separate, harsher
+           button in the panel. */
+        customStamps = customStamps.filter((stamp) => !stamp.hidden);
 
         // Merge base itinerary with custom stamps
         let mergedItinerary: ItineraryItem[];
@@ -867,6 +879,11 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         console.log("User not logged in - showing default coupons only");
       }
 
+      /* Same as the stamps above: a hidden coupon leaves the book entirely,
+         including one she already unlocked. The row and its place in
+         `couponOrder` survive, so showing it again restores it whole. */
+      customCoupons = customCoupons.filter((coupon) => !coupon.hidden);
+
       const convertedCustomCoupons: CouponType[] = customCoupons.map((coupon) => ({
         id: coupon.id,
         title: coupon.title,
@@ -992,7 +1009,8 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         }
         
         // Reset defaults and reload custom stamps
-        getAllCustomStamps().then(async (customStamps) => {
+        getAllCustomStamps().then(async (allCustomStamps) => {
+          const customStamps = allCustomStamps.filter((stamp) => !stamp.hidden);
           // Filter out disabled default stamps
           const resetDefaults = initialItinerary
             .filter((stamp) => !disabledTitles.includes(stamp.title))
@@ -1099,6 +1117,12 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
           console.warn("Could not load custom stamps from IndexedDB:", fallbackError);
         }
       }
+
+      /* An admin has pulled these. Dropped before anything downstream sees
+         them, so a hidden stamp is absent from the order, the map and the
+         check-in, not merely greyed out. Deleting stays a separate, harsher
+         button in the panel. */
+      customStamps = customStamps.filter((stamp) => !stamp.hidden);
 
       const convertedCustomStamps: ItineraryItem[] = customStamps.map((stamp) => ({
         time: stamp.time,

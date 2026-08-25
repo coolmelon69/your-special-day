@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
-import { AlertCircle, Eye, EyeOff, Gift, Package, Sparkles, X } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Gift, Package, PauseCircle, Sparkles, X } from "lucide-react";
 import { qtyOf, type OwnedItem } from "@/utils/profile";
+import { loadItemShop, type ItemShopConfig } from "@/utils/itemShopConfig";
 import { fetchItemDetails, type ItemDetails } from "@/utils/pokeItems";
 import { actionFor, loadSpicyRevealed, saveSpicyRevealed } from "@/utils/itemActions";
 import type { Team } from "@/utils/trainerCard";
@@ -68,6 +69,10 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
   } | null>(null);
   /** Why the last redeem didn't happen. Cleared on every new attempt. */
   const [error, setError] = useState<string | null>(null);
+  /** The shelf, only for its hidden flags: an item the admin has pulled can't be
+   *  redeemed either (`redeem_item`, sql/2026-08-25-shop-visibility.sql), and a
+   *  button that fails on tap is worse than one that says why beforehand. */
+  const [shopConfig, setShopConfig] = useState<ItemShopConfig | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   /** The tile that opened the sheet, so closing hands focus back to where it
    *  came from instead of dropping it on the body. */
@@ -104,6 +109,18 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
+
+  // Which items are pulled from sale. One read at mount — an admin flipping a
+  // switch mid-session is caught by the server on redeem either way.
+  useEffect(() => {
+    let cancelled = false;
+    loadItemShop().then((config) => {
+      if (!cancelled && config) setShopConfig(config);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Lock the page behind the sheet, focus it on open — same contract as `MedalDetailOverlay`.
   useEffect(() => {
@@ -168,12 +185,15 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
   const activeAction = active ? actionFor(active.slug) : null;
   /** Teasing coupons stay covered until the reveal toggle is on. */
   const activeHidden = !!activeAction?.spicy && !spicyRevealed;
+  /** Pulled from the shop by the admin, which also freezes the promise on it.
+   *  Not gone — the coupon comes back the moment the item is shown again. */
+  const activePulled = !!active && !!shopConfig?.[active.slug]?.hidden;
   /** Copies, not rows — three berries in one stack are three things to spend. */
   const toSpend = sorted.reduce((n, item) => n + qtyOf(item), 0);
   const hasSpicy = sorted.some((item) => actionFor(item.slug)?.spicy);
 
   const handleRedeem = async () => {
-    if (!active || pending) return;
+    if (!active || pending || activePulled) return;
     if (confirming !== active.source) {
       setConfirming(active.source);
       setError(null);
@@ -450,7 +470,20 @@ const BagTab = ({ items, team, redeem }: BagTabProps) => {
                     </motion.div>
                   )}
 
-                  {activeAction && !activeHidden && (
+                  {/* Pulled by the admin. The promise above stays readable — she
+                      still owns this — but there is no button, because tapping
+                      one that the server will refuse teaches nothing. */}
+                  {activeAction && !activeHidden && activePulled && (
+                    <motion.div variants={SHEET_ITEM} className="flex flex-col items-center">
+                      <p className="mt-5 inline-flex items-start gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-left font-sans text-xs leading-relaxed text-muted-foreground">
+                        <PauseCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                        On hold — this one's been taken off the shop for now. It stays in your bag,
+                        and you can spend it once it's back.
+                      </p>
+                    </motion.div>
+                  )}
+
+                  {activeAction && !activeHidden && !activePulled && (
                     <motion.div variants={SHEET_ITEM} className="flex flex-col items-center">
                       <motion.button
                         type="button"

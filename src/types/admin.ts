@@ -14,6 +14,8 @@ export type CustomStamp = {
     radius: number; // radius in meters
   };
   is_secret?: boolean;
+  /** Hidden by an admin: gone from the journey, but the row (and its order) is kept. */
+  hidden?: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -28,6 +30,8 @@ export type CustomCoupon = {
   category?: string;
   /** Coin price to unlock this coupon. Optional — undefined/0 means free, as today. */
   priceCoins?: number;
+  /** Hidden by an admin: gone from her book, even if already unlocked. Row kept. */
+  hidden?: boolean;
   createdAt: number;
   updatedAt: number;
 };
