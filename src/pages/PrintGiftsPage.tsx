@@ -12,7 +12,13 @@ import {
   Trash2,
 } from "lucide-react";
 import ProtectedRoute from "@/components/admin/ProtectedRoute";
-import GiftPrintCard, { CARD_DESIGNS, type CardDesign } from "@/components/print/GiftPrintCard";
+import GiftPrintCard, {
+  CARD_DESIGNS,
+  MARK_PRESET_COLOR,
+  MARK_PRESETS,
+  type CardDesign,
+  type MarkPreset,
+} from "@/components/print/GiftPrintCard";
 import { DisplayHeading, Eyebrow } from "@/components/editorial";
 import { toast } from "@/hooks/use-toast";
 import { formatGiftCode, listMyMysteryGifts, type MysteryGift } from "@/utils/mysteryGifts";
@@ -39,8 +45,11 @@ import { attachGiftPrintImage, clearGiftPrintImage, type PrintSlot } from "@/uti
 
 const PER_SHEET = 4;
 
-/** One card in the run: which gift, printed which way. Order is print order. */
-type Row = { id: string; design: CardDesign };
+/** One card in the run: which gift, printed which way, and — for a gift with
+ *  no uploaded Mark image — which wax seal fills that slot. Order is print
+ *  order. Like the design, the seal choice is not stored: it is a decision
+ *  about this sheet, not the gift. */
+type Row = { id: string; design: CardDesign; markPreset: MarkPreset };
 
 const chunk = <T,>(items: T[], size: number): T[][] =>
   items.reduce<T[][]>((out, item, i) => {
@@ -80,7 +89,7 @@ const PrintGiftsPage = () => {
         .map((id) => id.trim())
         .filter((id) => list.some((g) => g.id === id));
       if (wanted.length) {
-        setRows(wanted.map((id) => ({ id, design: "token" })));
+        setRows(wanted.map((id) => ({ id, design: "token", markPreset: "rose" })));
         setFocusId(wanted[0]);
       }
     })();
@@ -98,13 +107,18 @@ const PrintGiftsPage = () => {
     setRows((current) =>
       current.some((r) => r.id === id)
         ? current.filter((r) => r.id !== id)
-        : [...current, { id, design: "token" }]
+        : [...current, { id, design: "token", markPreset: "rose" }]
     );
   };
 
   const setDesign = (id: string, design: CardDesign) => {
     setFocusId(id);
     setRows((current) => current.map((r) => (r.id === id ? { ...r, design } : r)));
+  };
+
+  const setMarkPreset = (id: string, markPreset: MarkPreset) => {
+    setFocusId(id);
+    setRows((current) => current.map((r) => (r.id === id ? { ...r, markPreset } : r)));
   };
 
   /** Give every selected card the same design — the common case for a batch. */
@@ -175,7 +189,9 @@ const PrintGiftsPage = () => {
      selected. A gift that only has images uploaded (not ticked) previews too —
      that is the whole point of looking before you commit it to a sheet. */
   const focusGift = (focusId ? byId.get(focusId) : undefined) ?? cards[0]?.gift ?? null;
-  const focusDesign = rows.find((r) => r.id === focusGift?.id)?.design ?? "token";
+  const focusRow = rows.find((r) => r.id === focusGift?.id);
+  const focusDesign = focusRow?.design ?? "token";
+  const focusMarkPreset = focusRow?.markPreset ?? "rose";
   const focusNumber = cards.findIndex((c) => c.gift.id === focusGift?.id) + 1;
 
   return (
@@ -298,6 +314,30 @@ const PrintGiftsPage = () => {
                                 onPick={(file) => handleUpload(gift.id, "mark", file)}
                                 onClear={() => handleClear(gift.id, "mark")}
                               />
+
+                              {/* No mark uploaded: a wax seal fills that
+                                  slot instead, and this is what picks its
+                                  colour. Moot the moment a real mark is
+                                  attached, so it hides rather than sitting
+                                  there unused. */}
+                              {row && !gift.printMark && (
+                                <div className="flex items-center gap-1 rounded-[10px] border border-border px-2 py-1.5">
+                                  {MARK_PRESETS.map((p) => (
+                                    <button
+                                      key={p.value}
+                                      type="button"
+                                      onClick={() => setMarkPreset(gift.id, p.value)}
+                                      aria-pressed={row.markPreset === p.value}
+                                      aria-label={`${p.label} wax seal`}
+                                      title={`${p.label} wax seal`}
+                                      className={`h-4 w-4 rounded-full ring-offset-2 ring-offset-card transition ${
+                                        row.markPreset === p.value ? "ring-2 ring-rose" : ""
+                                      }`}
+                                      style={{ background: MARK_PRESET_COLOR[p.value] }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -417,6 +457,7 @@ const PrintGiftsPage = () => {
             <PreviewPanel
               gift={focusGift}
               design={focusDesign}
+              markPreset={focusMarkPreset}
               number={focusNumber || 1}
               onSheet={!!focusGift && selected.has(focusGift.id)}
             />
@@ -439,11 +480,13 @@ const PrintGiftsPage = () => {
 const PreviewPanel = ({
   gift,
   design,
+  markPreset,
   number,
   onSheet,
 }: {
   gift: MysteryGift | null;
   design: CardDesign;
+  markPreset: MarkPreset;
   number: number;
   onSheet: boolean;
 }) => (
@@ -466,6 +509,7 @@ const PreviewPanel = ({
             key={`${gift.id}-${design}`}
             gift={gift}
             design={design}
+            markPreset={markPreset}
             number={number}
           />
         </div>
@@ -571,7 +615,12 @@ const SheetPreview = ({
             <div key={s} className="print-sheet">
               {sheet.map(({ row, gift, number }) => (
                 <div key={row.id} className="print-cell">
-                  <GiftPrintCard gift={gift} design={row.design} number={number} />
+                  <GiftPrintCard
+                    gift={gift}
+                    design={row.design}
+                    markPreset={row.markPreset}
+                    number={number}
+                  />
                 </div>
               ))}
               {/* Keep the grid square on a part-full last sheet, so three

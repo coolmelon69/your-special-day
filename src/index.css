@@ -932,6 +932,77 @@
     height: 100%;
   }
 
+  /* the wax-seal fallback that fills an empty Mark slot */
+  .giftcard .gc-seal {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* the postage stamp: a perforated rectangle holding the Mark, shared by
+     the airmail, reversed-front and deckle designs. Perforation is a
+     radial-gradient mask along all four edges, not a border image — it has
+     to survive being scaled by `cqw` at wildly different print sizes. */
+  .giftcard .gc-stamp {
+    position: absolute;
+    background: hsl(var(--stock));
+    padding: 0.9cqw;
+    filter: drop-shadow(0 1px 1px hsl(30 30% 20% / 0.18));
+    -webkit-mask:
+      radial-gradient(circle at 50% 0, transparent 0 1.6px, #000 1.7px) 0 0 / 5.2% 100%,
+      radial-gradient(circle at 50% 100%, transparent 0 1.6px, #000 1.7px) 0 0 / 5.2% 100%,
+      radial-gradient(circle at 0 50%, transparent 0 1.6px, #000 1.7px) 0 0 / 100% 7.4%,
+      radial-gradient(circle at 100% 50%, transparent 0 1.6px, #000 1.7px) 0 0 / 100% 7.4%;
+    -webkit-mask-composite: source-in;
+    mask:
+      radial-gradient(circle at 50% 0, transparent 0 1.6px, #000 1.7px) 0 0 / 5.2% 100%,
+      radial-gradient(circle at 50% 100%, transparent 0 1.6px, #000 1.7px) 0 0 / 5.2% 100%,
+      radial-gradient(circle at 0 50%, transparent 0 1.6px, #000 1.7px) 0 0 / 100% 7.4%,
+      radial-gradient(circle at 100% 50%, transparent 0 1.6px, #000 1.7px) 0 0 / 100% 7.4%;
+    mask-composite: intersect;
+  }
+  .giftcard .gc-stamp-face {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* the postmark struck over the stamp — decorative, set to the site's own
+     name rather than anything per-gift */
+  .giftcard .gc-cancel {
+    position: absolute;
+    border: 1.4px solid hsl(var(--print) / 0.5);
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: hsl(var(--print) / 0.7);
+    pointer-events: none;
+    font-family: var(--font-mono, "DM Mono", monospace);
+    line-height: 1.35;
+  }
+  .giftcard .gc-cancel span {
+    font-size: 2cqw;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .giftcard .gc-cancel::before,
+  .giftcard .gc-cancel::after {
+    content: "";
+    position: absolute;
+    height: 1.2px;
+    width: 150%;
+    background: hsl(var(--print) / 0.32);
+  }
+  .giftcard .gc-cancel::before {
+    transform: rotate(-16deg) translateY(-2.4cqw);
+  }
+  .giftcard .gc-cancel::after {
+    transform: rotate(-16deg) translateY(2.4cqw);
+  }
+
   .giftcard .gc-title {
     font-family: var(--font-serif, "Cormorant Garamond", serif);
     font-weight: 700;
@@ -1262,6 +1333,333 @@
     height: 2.8cqw;
   }
 
+  /* ── airmail: red-and-blue chevron border, a par avion tab in the corner —
+     loudest of the six, reads as urgent, sent from somewhere ── */
+  .gc-airmail-inner {
+    position: absolute;
+    inset: 2.1cqw;
+    display: grid;
+    grid-template-columns: 41% 1fr;
+  }
+  .gc-airmail-photo {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+  }
+  .gc-airmail-right {
+    padding: 3.2cqw 3.4cqw;
+    display: flex;
+    flex-direction: column;
+  }
+  .gc-airmail-par {
+    align-self: flex-start;
+    background: hsl(220 62% 40%);
+    color: #fff;
+    font-family: var(--font-mono, "DM Mono", monospace);
+    font-size: 1.85cqw;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    padding: 0.35em 0.7em;
+  }
+  .gc-airmail .gc-title {
+    font-size: 5.8cqw;
+    max-width: 14ch;
+    margin-top: 2.6cqw;
+  }
+  .gc-airmail-desc {
+    font-size: 2.3cqw;
+    line-height: 1.5;
+    color: hsl(var(--print-soft));
+    margin: 1.2cqw 0 0;
+    max-width: 26ch;
+  }
+  .gc-airmail-foot {
+    margin-top: auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2.5cqw;
+  }
+  .gc-airmail .gc-code {
+    font-size: 2.1cqw;
+    margin: 0;
+  }
+  .gc-airmail .gc-cap {
+    display: block;
+    font-size: 1.65cqw;
+    margin-top: 0.6cqw;
+  }
+  .gc-airmail-qrbox {
+    width: 20cqw;
+    aspect-ratio: 1;
+    flex: none;
+    background: #fff;
+    padding: 1.2cqw;
+  }
+  /* Two colour bands of print the other five designs never ask for — the
+     one design here that wants a colour printer to land as intended. */
+  .gc-airmail-edge {
+    position: absolute;
+    inset: 0;
+    padding: 2.1cqw;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      -45deg,
+      hsl(356 68% 48%) 0 9px,
+      hsl(var(--stock)) 9px 18px,
+      hsl(220 62% 40%) 18px 27px,
+      hsl(var(--stock)) 27px 36px
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    opacity: 0.85;
+  }
+  .gc-airmail .gc-stamp {
+    top: 4.6cqw;
+    right: 4.4cqw;
+    width: 15cqw;
+    aspect-ratio: 4 / 5;
+    transform: rotate(2.5deg);
+  }
+  .gc-airmail .gc-cancel {
+    top: 5.5cqw;
+    right: 20cqw;
+    width: 19cqw;
+    height: 19cqw;
+    transform: rotate(-9deg);
+  }
+
+  /* ── reversed front: the photo IS the card, edge to edge, every mark
+     knocked out in white over a raked scrim ── */
+  .gc-reversed {
+    color: hsl(40 30% 96%);
+  }
+  .gc-reversed-photo {
+    position: absolute;
+    inset: 0;
+  }
+  .gc-reversed-scrim {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      74deg,
+      hsl(320 45% 12% / 0.92) 0%,
+      hsl(320 45% 12% / 0.72) 34%,
+      hsl(320 40% 14% / 0.06) 68%
+    );
+  }
+  .gc-reversed-inner {
+    position: absolute;
+    inset: 0;
+    padding: 5cqw;
+    display: flex;
+    flex-direction: column;
+  }
+  .gc-reversed-hand {
+    font-family: var(--font-mono, "DM Mono", monospace);
+    font-size: 1.9cqw;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: hsl(330 70% 86%);
+  }
+  .gc-reversed .gc-title {
+    font-size: 7.6cqw;
+    line-height: 0.99;
+    margin-top: 2cqw;
+    max-width: 15ch;
+    text-wrap: balance;
+  }
+  .gc-reversed-desc {
+    font-size: 2.4cqw;
+    line-height: 1.55;
+    color: hsl(40 22% 88% / 0.86);
+    margin: 1.8cqw 0 0;
+    max-width: 30ch;
+  }
+  .gc-reversed-foot {
+    margin-top: auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 3cqw;
+  }
+  .gc-reversed .gc-code {
+    font-size: 2.35cqw;
+    margin: 0;
+  }
+  .gc-reversed .gc-cap {
+    display: block;
+    font-size: 1.65cqw;
+    margin-top: 0.6cqw;
+    color: hsl(40 20% 88% / 0.68);
+  }
+  .gc-reversed-qrchip {
+    width: 22cqw;
+    aspect-ratio: 1;
+    flex: none;
+    background: #fff;
+    padding: 1.4cqw;
+    border-radius: 2px;
+    box-shadow: 0 2px 10px -3px hsl(320 50% 8% / 0.7);
+  }
+  /* Heaviest ink coverage of the six, and the one place the stamp and
+     postmark have to hold up against a dark, busy photo rather than paper. */
+  .gc-reversed .gc-stamp {
+    top: 4.4cqw;
+    right: 4.4cqw;
+    width: 14cqw;
+    aspect-ratio: 4 / 5;
+    transform: rotate(4deg);
+  }
+  .gc-reversed .gc-cancel {
+    top: 5.2cqw;
+    right: 18.6cqw;
+    width: 17cqw;
+    height: 17cqw;
+    transform: rotate(-8deg);
+    border-color: hsl(40 30% 96% / 0.72);
+    color: hsl(40 30% 96% / 0.88);
+  }
+  .gc-reversed .gc-cancel::before,
+  .gc-reversed .gc-cancel::after {
+    background: hsl(40 30% 96% / 0.5);
+  }
+
+  /* ── deckle & tape: torn-edge stock, a polaroid taped on at an angle —
+     the softest of the six, a scrapbook rather than a voucher.
+
+     The tear is a real SVG turbulence displacement (see the inline <filter>
+     in GiftPrintCard.tsx). It sits on its own wrapper, separate from the
+     drop-shadow, rather than chained into one `filter` list: the roundel
+     above already found a Chromium print-pass repaint bug in a much simpler
+     transform, so a combined SVG-filter + CSS-filter chain gets the
+     cautious three-layer split rather than the one-property version. */
+  .gc-deckle-outer {
+    position: relative;
+  }
+  .gc-deckle-shadow {
+    filter: drop-shadow(0 14px 26px hsl(30 40% 20% / 0.32)) drop-shadow(0 1px 0 hsl(36 22% 74%));
+  }
+  .gc-deckle {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: hsl(var(--stock));
+  }
+  .gc-deckle-inner {
+    position: absolute;
+    inset: 0;
+    padding: 5.5cqw 6cqw;
+    display: grid;
+    /* The photo column is narrower than the polaroid's own rotated bounding
+       box (a square rotated 3.2° reads wider than its side), and the gap is
+       wide enough to absorb that so the tilt never grazes the title. */
+    grid-template-columns: 37% 1fr;
+    gap: 6.5cqw;
+  }
+  .gc-deckle-snap {
+    position: relative;
+    align-self: center;
+    width: 100%;
+    aspect-ratio: 1;
+    background: #fff;
+    padding: 1.5cqw 1.5cqw 5cqw;
+    overflow: hidden;
+    transform: rotate(-3.2deg);
+    box-shadow: 0 1px 1px hsl(30 30% 20% / 0.14), 0 8px 16px -9px hsl(30 30% 20% / 0.55);
+  }
+  .gc-deckle-snap-cap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 1.1cqw;
+    z-index: 2;
+    text-align: center;
+    font-family: var(--font-script, "Dancing Script", cursive);
+    font-size: 2.7cqw;
+    color: hsl(var(--print-soft));
+  }
+  .gc-deckle-tape {
+    position: absolute;
+    width: 34%;
+    height: 3.6cqw;
+    background: hsl(48 42% 82% / 0.8);
+    box-shadow: 0 1px 1px hsl(30 30% 20% / 0.14);
+    z-index: 2;
+  }
+  .gc-deckle-tape-a {
+    top: -1.7cqw;
+    left: -3%;
+    transform: rotate(-24deg);
+  }
+  .gc-deckle-tape-b {
+    bottom: -1.7cqw;
+    right: -3%;
+    transform: rotate(-24deg);
+  }
+  .gc-deckle-right {
+    display: flex;
+    flex-direction: column;
+  }
+  .gc-deckle-hand {
+    font-family: var(--font-script, "Dancing Script", cursive);
+    font-size: 6.4cqw;
+    line-height: 1.05;
+    color: hsl(var(--print));
+    margin: 0;
+  }
+  .gc-deckle .gc-title {
+    font-size: 5.4cqw;
+    margin-top: 1.8cqw;
+  }
+  .gc-deckle-desc {
+    font-size: 2.4cqw;
+    line-height: 1.5;
+    color: hsl(var(--print-soft));
+    margin: 1cqw 0 0;
+    max-width: 28ch;
+  }
+  .gc-deckle-foot {
+    margin-top: auto;
+    display: flex;
+    align-items: flex-end;
+    gap: 2.6cqw;
+  }
+  .gc-deckle-qrbox {
+    width: 19cqw;
+    aspect-ratio: 1;
+    flex: none;
+    background: hsl(var(--stock));
+    border: 1px dashed hsl(var(--graphite) / 0.35);
+    padding: 1cqw;
+  }
+  .gc-deckle .gc-code {
+    font-size: 2.2cqw;
+    margin: 0;
+  }
+  .gc-deckle .gc-cap {
+    display: block;
+    font-size: 1.65cqw;
+    margin-top: 0.6cqw;
+  }
+  /* Image 1 is square here, so a phone photo drops straight in without a
+     crop decision. Cut past the trim marks and the torn edge is lost. */
+  .gc-deckle .gc-stamp {
+    top: 4cqw;
+    right: 5cqw;
+    width: 12.5cqw;
+    aspect-ratio: 4 / 5;
+    transform: rotate(5deg);
+  }
+  .gc-deckle .gc-cancel {
+    top: 4.6cqw;
+    right: 18cqw;
+    width: 16cqw;
+    height: 16cqw;
+    transform: rotate(-13deg);
+  }
+
   /* ─── the sheet ───────────────────────────────────────────────────────
      A4 LANDSCAPE, four A6-landscape cards. Portrait A4 cannot hold four
      landscape A6 cards without rotating every one of them; landscape A4
@@ -1287,7 +1685,12 @@
     place-items: center;
     padding: 1.4%;
   }
-  .print-cell > .giftcard {
+  /* The deckle design wraps its `.giftcard` in a shadow layer (see the note
+     by `.gc-deckle-shadow` above), so it's this wrapper — not the card
+     itself — that is `.print-cell`'s actual direct child. Both get the same
+     sizing so a deckle card sits exactly like the other five. */
+  .print-cell > .giftcard,
+  .print-cell > .gc-deckle-shadow {
     width: 93%;
     box-shadow: none;
   }
@@ -1359,7 +1762,8 @@
     .print-cell {
       padding: 2mm;
     }
-    .print-cell > .giftcard {
+    .print-cell > .giftcard,
+    .print-cell > .gc-deckle-shadow {
       width: 130mm;
       border: none;
     }
