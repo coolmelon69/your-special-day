@@ -182,7 +182,7 @@ const StampCollectionSection = ({
                         ? "border-rose/40 shadow-romantic"
                         : isActive
                         ? "border-primary/40"
-                        : "border-border opacity-60"
+                        : "border-border"
                     )}
                     animate={isJustCompleted ? {
                       x: [0, -4, 4, -3, 3, -1, 1, 0],
