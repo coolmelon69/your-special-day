@@ -22,7 +22,16 @@ import { readFileSync } from "node:fs";
 import { COINS_BY_RARITY, RARE_CHANCE } from "./pokeItems.ts";
 import { SHOP_CATALOGUE } from "./shop.ts";
 import { ITEM_SHOP_POOL, SHELF_ORDER, itemsOnShelf } from "./itemShop.ts";
-import { DEFAULT_REWARDS, REWARD_KINDS, levelReason, photoReason } from "./coinRewardKeys.ts";
+import {
+  DEFAULT_REWARDS,
+  PAYABLE_KINDS,
+  REWARD_KEYS,
+  dropCoinsFrom,
+  levelReason,
+  photoReason,
+  rareChanceFrom,
+  stampReason,
+} from "./coinRewardKeys.ts";
 
 /** The journey this economy is sized for. */
 const CHECKPOINTS = 7;
@@ -76,46 +85,71 @@ assert.ok(
 // ─── 2. reason keys ───
 
 // Both halves non-empty, or `award_coins` refuses to pay — see the migration.
-for (const reason of [levelReason(3), photoReason("breakfast-quest")]) {
+for (const reason of [levelReason(3), photoReason("breakfast-quest"), stampReason("10:00-Brunch")]) {
   const [kind, ...rest] = reason.split(":");
   assert.ok(kind, `"${reason}" has no kind`);
   assert.ok(rest.join(":"), `"${reason}" has no detail, so award_coins would never pay it`);
   assert.ok(
-    (REWARD_KINDS as string[]).includes(kind),
-    `"${reason}" names kind "${kind}", which has no row in coin_rewards`,
+    (PAYABLE_KINDS as string[]).includes(kind),
+    `"${reason}" names kind "${kind}", which award_coins will not pay`,
   );
 }
 
 // ─── 3. no drift with the database ───
 
-const itemsShopSql = readFileSync(
-  new URL("../../sql/2026-08-08-items-shop.sql", import.meta.url),
+const dropTuningSql = readFileSync(
+  new URL("../../sql/2026-08-30-drop-tuning.sql", import.meta.url),
   "utf8",
 );
 
-// Scope to record_drop's body — buy_sku below it has a `case` of its own, and
-// matching the whole file would fold the shop's prices in with the payouts.
-const dropStart = itemsShopSql.indexOf("function record_drop");
-assert.ok(dropStart !== -1, "record_drop is missing from the migration");
-const dropBody = itemsShopSql.slice(dropStart, itemsShopSql.indexOf("function buy_sku"));
+// `record_drop` reads its payouts from `coin_rewards` now, so the only numbers
+// left in it are the fallbacks for a database missing those rows. They still
+// have to be the numbers this file sized the economy against — a fallback that
+// drifts pays the wrong amount precisely when nobody is watching.
+const dropStart = dropTuningSql.indexOf("function record_drop");
+assert.ok(dropStart !== -1, "record_drop is missing from sql/2026-08-30-drop-tuning.sql");
+const dropBody = dropTuningSql.slice(dropStart, dropTuningSql.indexOf("function award_coins"));
 
 const payout = dropBody.match(/when\s+'rare'\s+then\s+(\d+)\s+else\s+(\d+)\s+end/);
-assert.ok(payout, "could not read record_drop's payout — has the `case` been rewritten?");
+assert.ok(payout, "could not read record_drop's fallback payout — has the coalesce been rewritten?");
 assert.equal(
   Number(payout[1]),
   COINS_BY_RARITY.rare,
-  "rare payout drifted between pokeItems.ts and record_drop",
+  "rare fallback payout drifted between pokeItems.ts and record_drop",
 );
 assert.equal(
   Number(payout[2]),
   COINS_BY_RARITY.common,
-  "common payout drifted between pokeItems.ts and record_drop",
+  "common fallback payout drifted between pokeItems.ts and record_drop",
 );
 
-const rewardsSql = readFileSync(
-  new URL("../../sql/2026-08-29-coin-rewards.sql", import.meta.url),
-  "utf8",
+// award_coins pays only the kinds it lists. A payable kind missing from that
+// list is a reason that silently pays nothing; a setting row that sneaks into
+// it is free coins for anyone who names it.
+const allowlist = dropBody.length
+  ? dropTuningSql.match(/v_kind not in \(([^)]*)\)/)
+  : null;
+assert.ok(allowlist, "could not read award_coins' kind allowlist");
+assert.deepEqual(
+  allowlist[1].split(",").map((k) => k.trim().replace(/'/g, "")).sort(),
+  [...PAYABLE_KINDS].sort(),
+  "award_coins' allowlist drifted from PAYABLE_KINDS",
 );
+
+// The two drop rows and the odds are the same numbers, spelled two ways: coins
+// vs a `coin_rewards` seed, and a fraction vs a whole percent.
+assert.equal(DEFAULT_REWARDS.drop_common, COINS_BY_RARITY.common, "drop_common drifted from COINS_BY_RARITY");
+assert.equal(DEFAULT_REWARDS.drop_rare, COINS_BY_RARITY.rare, "drop_rare drifted from COINS_BY_RARITY");
+assert.equal(
+  DEFAULT_REWARDS.rare_chance,
+  RARE_CHANCE * 100,
+  "rare_chance is a whole percent of RARE_CHANCE — one of the two moved",
+);
+
+// Every editable row, across both migrations that seed them.
+const rewardsSql =
+  readFileSync(new URL("../../sql/2026-08-29-coin-rewards.sql", import.meta.url), "utf8") +
+  dropTuningSql;
 
 const seeded = new Map<string, number>();
 for (const [, key, amount] of rewardsSql.matchAll(/^\s*\('(\w+)',\s*(\d+)\)/gm)) {
@@ -124,16 +158,30 @@ for (const [, key, amount] of rewardsSql.matchAll(/^\s*\('(\w+)',\s*(\d+)\)/gm))
 
 assert.equal(
   seeded.size,
-  REWARD_KINDS.length,
-  "coin_rewards seeds a different number of kinds than coinRewards.ts knows about",
+  REWARD_KEYS.length,
+  "coin_rewards seeds a different number of rows than coinRewardKeys.ts knows about",
 );
-for (const kind of REWARD_KINDS) {
+for (const key of REWARD_KEYS) {
   assert.equal(
-    seeded.get(kind),
-    DEFAULT_REWARDS[kind],
-    `"${kind}" default drifted between coinRewards.ts and the coin_rewards seed`,
+    seeded.get(key),
+    DEFAULT_REWARDS[key],
+    `"${key}" default drifted between coinRewardKeys.ts and the coin_rewards seed`,
   );
 }
+
+// The two readers of those rows. A missing table has to fall back to the
+// defaults rather than to zero, and a percent outside 0–100 — which no
+// constraint protects a future seed from — must not become "always rare".
+assert.equal(rareChanceFrom(null), RARE_CHANCE, "no table means the default odds, not none");
+assert.equal(rareChanceFrom({ rare_chance: 40 }), 0.4, "a percent becomes a fraction");
+assert.equal(rareChanceFrom({ rare_chance: 250 }), 1, "an impossible percent clamps to always");
+assert.equal(rareChanceFrom({ rare_chance: -5 }), 0, "a negative percent clamps to never");
+assert.deepEqual(dropCoinsFrom(null), COINS_BY_RARITY, "no table means the default payouts");
+assert.deepEqual(
+  dropCoinsFrom({ drop_common: 5, drop_rare: 9 }),
+  { common: 5, rare: 9 },
+  "tuned rows are what the reveal shows",
+);
 
 // Every item on the shelf is priced — `itemsOnShelf` silently drops anything
 // that isn't, which would make the basket above cheaper than it really is.

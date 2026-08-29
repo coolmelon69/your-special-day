@@ -13,6 +13,12 @@ interface PokeStopRevealModalProps {
   /** null until the drop has been rolled and banked */
   rarity: Rarity | null;
   coinsAwarded: number;
+  /**
+   * `"drop"` is a PokéStop: an item is on its way and the reveal waits for it.
+   * `"coins"` is a stamp with nowhere to travel to — there is no item to wait
+   * for, so the coins are the whole reveal and Continue is live immediately.
+   */
+  variant?: "drop" | "coins";
   onContinue: () => void;
 }
 
@@ -34,9 +40,11 @@ const PokeStopRevealModal = ({
   item,
   rarity,
   coinsAwarded,
+  variant = "drop",
   onContinue,
 }: PokeStopRevealModalProps) => {
   const reduceMotion = useReducedMotion();
+  const isCoinsOnly = variant === "coins";
   const isRare = rarity === "rare";
 
   return (
@@ -84,7 +92,7 @@ const PokeStopRevealModal = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            PokéStop Activated!
+            {isCoinsOnly ? "Stamp Collected!" : "PokéStop Activated!"}
           </motion.p>
           <p className="text-sm text-muted-foreground">{checkpointTitle}</p>
 
@@ -95,7 +103,7 @@ const PokeStopRevealModal = ({
             transition={{ delay: 0.7 }}
           >
             <span className="text-primary">+{xpAwarded} XP</span>
-            {coinsAwarded > 0 && (
+            {!isCoinsOnly && coinsAwarded > 0 && (
               <span className="flex items-center gap-2 text-rose">
                 <PokeCoin size={16} />+
                 {reduceMotion ? (
@@ -113,6 +121,39 @@ const PokeStopRevealModal = ({
             )}
           </motion.div>
 
+          {/* The coins-only reveal. No item is coming, so the coin itself is the
+              moment — it lands with a spring where the sprite would have been,
+              and the count runs under it. */}
+          {isCoinsOnly && coinsAwarded > 0 && (
+            <motion.div
+              className="relative mt-4 overflow-hidden rounded-lg border-2 border-[hsl(45_85%_62%)] bg-[hsl(45_90%_96%)] p-4 min-h-[6rem] flex flex-col items-center justify-center gap-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+            >
+              <motion.div
+                initial={reduceMotion ? false : { scale: 0.4, rotate: -30, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 240, damping: 14, delay: 0.7 }}
+              >
+                <PokeCoin size={44} />
+              </motion.div>
+              <p className="font-semibold text-[hsl(38_60%_32%)]">
+                +
+                {reduceMotion ? (
+                  coinsAwarded
+                ) : (
+                  <CountUp start={0} end={coinsAwarded} duration={0.7} delay={0.85} useEasing />
+                )}{" "}
+                coins banked
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Nothing to catch at this one — coins only.
+              </p>
+            </motion.div>
+          )}
+
+          {!isCoinsOnly && (
           <motion.div
             className={`relative mt-4 overflow-hidden rounded-lg border-2 p-4 min-h-[6rem] flex flex-col items-center justify-center gap-2 ${
               isRare
@@ -182,14 +223,15 @@ const PokeStopRevealModal = ({
               <p className="text-sm text-muted-foreground">Registering item...</p>
             )}
           </motion.div>
+          )}
 
           <motion.button
             onClick={onContinue}
-            disabled={!item}
+            disabled={!isCoinsOnly && !item}
             className="mt-5 w-full px-6 py-3 rounded-lg bg-[hsl(210_90%_55%)] text-white font-semibold disabled:opacity-50 disabled:cursor-wait hover:bg-[hsl(210_90%_50%)] transition-colors"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: isRare ? (reduceMotion ? 0.5 : 1.55) : 1.2 }}
+            transition={{ delay: isCoinsOnly ? 1 : isRare ? (reduceMotion ? 0.5 : 1.55) : 1.2 }}
           >
             Continue
           </motion.button>

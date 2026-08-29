@@ -24,11 +24,12 @@ import DistanceIndicator from "@/components/DistanceIndicator";
 import { XP_WEIGHTS } from "@/utils/trainerCard";
 import { fetchItemDetails, type ItemDetails, type Drop } from "@/utils/pokeItems";
 import PokeStopRevealModal from "@/components/PokeStopRevealModal";
+import { stampReason } from "@/utils/coinRewards";
 import PokeStopMarker from "@/components/PokeStopMarker";
 
 const StampsPage = () => {
   const location = useLocation();
-  const { itineraryState, resetProgress, setItineraryState, addPhoto, upsertPhoto, getPhotosByCheckpoint, deletePhoto, reloadStampsFromCloud, user, claimDrop } = useAdventure();
+  const { itineraryState, resetProgress, setItineraryState, addPhoto, upsertPhoto, getPhotosByCheckpoint, deletePhoto, reloadStampsFromCloud, user, claimDrop, claimReward } = useAdventure();
   const [isLoadingStamps, setIsLoadingStamps] = useState(false);
   const hasLoadedOnMountRef = useRef(false);
   const [selectedEvent, setSelectedEvent] = useState<ItineraryItem | null>(null);
@@ -39,7 +40,15 @@ const StampsPage = () => {
   const [capturedPhotoSrc, setCapturedPhotoSrc] = useState<string>("");
   const [checkpointPhotos, setCheckpointPhotos] = useState<PhotoType[]>([]);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
-  const [pendingReveal, setPendingReveal] = useState<{ eventIndex: number; item: ItemDetails | null; drop: Drop | null } | null>(null);
+  const [pendingReveal, setPendingReveal] = useState<{
+    eventIndex: number;
+    /** "coins" is a stamp with no location: no item is coming, so the coins are
+     *  the whole reveal. See `handleMarkAsDone`. */
+    variant: "drop" | "coins";
+    item: ItemDetails | null;
+    drop: Drop | null;
+    coins: number;
+  } | null>(null);
 
   // Reload stamps data from Supabase when navigating to this page
   // This ensures fresh data every time the user visits the Stamps page
@@ -129,12 +138,19 @@ const StampsPage = () => {
   const handleMarkAsDone = (eventIndex: number) => {
     const item = itineraryState[eventIndex];
 
-    // If no location is set for this item, allow marking as done without location check
-    // and without the PokéStop reveal — there's nothing to "activate."
+    // No location means nowhere to travel to and no PokéStop to activate, so
+    // there is no item to drop — but turning up is still worth something. Pay
+    // the flat stamp bounty (`coin_rewards.stamp`, once per stamp, whatever the
+    // admin set it to) and show the coins-only reveal. The checkpoint itself is
+    // committed when she dismisses it, exactly as on the drop path.
     if (!item.location) {
-      commitCheckpointDone(eventIndex);
-      setSelectedEvent(null);
       setLocationError(null);
+      setPendingReveal({ eventIndex, variant: "coins", item: null, drop: null, coins: 0 });
+      claimReward(stampReason(`${item.time}-${item.title}`)).then((paid) => {
+        setPendingReveal((prev) =>
+          prev && prev.eventIndex === eventIndex ? { ...prev, coins: paid } : prev,
+        );
+      });
       return;
     }
 
@@ -159,12 +175,12 @@ const StampsPage = () => {
       // Location check passed — open the PokéStop reveal instead of committing immediately.
       setIsCheckingLocation(false);
       setLocationError(null);
-      setPendingReveal({ eventIndex, item: null, drop: null });
+      setPendingReveal({ eventIndex, variant: "drop", item: null, drop: null, coins: 0 });
 
       // The last checkpoint of the journey always drops a rare — see rollDrop.
       const isFinale = eventIndex === itineraryState.length - 1;
       claimDrop(`${item.time}-${item.title}`, item.title, eventIndex, isFinale).then((drop) => {
-        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, drop } : prev));
+        setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, drop, coins: drop.coins } : prev));
         fetchItemDetails(drop.slug).then((details) => {
           setPendingReveal((prev) => (prev && prev.eventIndex === eventIndex ? { ...prev, item: details } : prev));
         });
@@ -738,7 +754,8 @@ const StampsPage = () => {
             xpAwarded={XP_WEIGHTS.stamp + (pendingReveal.drop?.rarity === "rare" ? XP_WEIGHTS.rareItem : 0)}
             item={pendingReveal.item}
             rarity={pendingReveal.drop?.rarity ?? null}
-            coinsAwarded={pendingReveal.drop?.coins ?? 0}
+            coinsAwarded={pendingReveal.coins}
+            variant={pendingReveal.variant}
             onContinue={() => {
               commitCheckpointDone(pendingReveal.eventIndex);
               setPendingReveal(null);

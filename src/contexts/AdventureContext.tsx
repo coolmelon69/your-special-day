@@ -9,8 +9,14 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { deletePhotoFromStorage } from "@/utils/photoUpload";
 import { loadProfile, saveProfile, recordDrop, buySku, buyItem, redeemItem, type BuyItemResult, type Profile } from "@/utils/profile";
 import { loadCouple, type Couple } from "@/utils/couples";
-import { rollDrop, COINS_BY_RARITY, type Drop } from "@/utils/pokeItems";
-import { awardCoins, photoReason } from "@/utils/coinRewards";
+import { rollDrop, type Drop } from "@/utils/pokeItems";
+import {
+  awardCoins,
+  photoReason,
+  loadCoinRewards,
+  rareChanceFrom,
+  dropCoinsFrom,
+} from "@/utils/coinRewards";
 import { DEFAULT_TRAINER_CONFIG, type TrainerCardConfig } from "@/utils/trainerCard";
 import { loadTrainerCardConfig } from "@/utils/supabaseSync";
 import { loadClaimedGifts, giftToCoupon } from "@/utils/mysteryGifts";
@@ -1283,6 +1289,23 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
   );
 
   /**
+   * The admin's drop tuning — rare odds and the two payouts — from
+   * `coin_rewards` (sql/2026-08-30-drop-tuning.sql).
+   *
+   * The promise itself is cached, not the result, so six checkpoints in one
+   * journey share one request and two checkpoints opened at once don't race.
+   * A tuning change made while she is mid-journey lands on her next page load;
+   * the odds are the only thing that would be stale, since `record_drop` reads
+   * the payouts itself and pays the new ones either way.
+   */
+  const rewardsRef = useRef<Promise<Record<string, number> | null> | null>(null);
+  const dropTuning = useCallback(async () => {
+    rewardsRef.current ??= loadCoinRewards();
+    const amounts = await rewardsRef.current;
+    return { rareChance: rareChanceFrom(amounts), coins: dropCoinsFrom(amounts) };
+  }, []);
+
+  /**
    * Roll a checkpoint's drop, bank it, and hand it back for the reveal.
    *
    * Idempotent per `source`: an item already in the bag is returned as-is
@@ -1295,19 +1318,20 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
    */
   const claimDrop = useCallback(
     async (source: string, title: string, index: number, isFinale: boolean): Promise<Drop> => {
+      const tuning = await dropTuning();
       const existing = profile?.items.find((item) => item.source === source);
       if (existing) {
-        return { slug: existing.slug, rarity: existing.rarity, coins: COINS_BY_RARITY[existing.rarity] };
+        return { slug: existing.slug, rarity: existing.rarity, coins: tuning.coins[existing.rarity] };
       }
 
-      const drop = rollDrop(title, index, isFinale);
+      const drop = rollDrop(title, index, isFinale, Math.random, tuning);
       if (!user) return drop;
 
       await recordDrop(source, drop.slug, drop.rarity);
       setProfile(await loadProfile(user.id));
       return drop;
     },
-    [user, profile]
+    [user, profile, dropTuning]
   );
 
   const purchase = useCallback(

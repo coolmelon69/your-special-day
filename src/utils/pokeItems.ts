@@ -25,12 +25,17 @@ export type Rarity = "common" | "rare";
 
 export const RARE_POOL: string[] = ["rare-candy", "shiny-charm", "master-ball"];
 
-/** Odds a non-finale checkpoint upgrades to a rare. */
+/** Odds a non-finale checkpoint upgrades to a rare, when nothing says otherwise.
+ *  The live value is the `rare_chance` row of `coin_rewards`, editable in the
+ *  admin panel; this is the fallback for a database that hasn't been migrated
+ *  and the number the economy is sized against. */
 export const RARE_CHANCE = 0.15;
 
 /**
- * Payout per checkpoint. Keep in step with `record_drop` in
- * sql/2026-08-08-items-shop.sql — the database is what actually pays.
+ * Default payout per checkpoint, and the sizing the whole economy is argued
+ * from. The live values are the `drop_common` / `drop_rare` rows of
+ * `coin_rewards`, which `record_drop` reads when it pays
+ * (sql/2026-08-30-drop-tuning.sql); keep these in step with that file's seed.
  *
  * Sized against the shelf, not picked for feel: a seven-stop journey that never
  * rolls a rare still banks 6×25 + 55 = 205, which covers two trainer-card
@@ -39,6 +44,17 @@ export const RARE_CHANCE = 0.15;
  * basket has to be reachable on the unluckiest possible run, not the average one.
  */
 export const COINS_BY_RARITY: Record<Rarity, number> = { common: 25, rare: 55 };
+
+/**
+ * What the admin has tuned the drops to, when it differs from the constants
+ * above. Both halves optional: a caller that hasn't loaded `coin_rewards` yet
+ * passes nothing and gets the defaults the economy was sized against.
+ */
+export type DropTuning = {
+  /** Fraction, not percent — `rareChanceFrom` does that conversion. */
+  rareChance?: number;
+  coins?: Record<Rarity, number>;
+};
 
 export interface Drop {
   slug: string;
@@ -56,25 +72,30 @@ export interface Drop {
  *
  * Called once per checkpoint: `record_drop` refuses a second payout for the
  * same source, so a re-roll can never overwrite what she already got.
- * `rng` is injectable for the self-check.
+ * `rng` is injectable for the self-check; `tuning` carries the admin's odds
+ * and payouts, and the coins it returns are for the reveal to show — the
+ * database reads the same rows itself when it actually pays.
  */
 export const rollDrop = (
   title: string,
   index: number,
   isFinale: boolean,
   rng: () => number = Math.random,
+  tuning: DropTuning = {},
 ): Drop => {
+  const rareChance = tuning.rareChance ?? RARE_CHANCE;
+  const coins = tuning.coins ?? COINS_BY_RARITY;
   const roll = rng();
-  const isRare = isFinale || roll < RARE_CHANCE;
+  const isRare = isFinale || roll < rareChance;
 
   if (!isRare) {
-    return { slug: getItemSlugForCheckpoint(title, index), rarity: "common", coins: COINS_BY_RARITY.common };
+    return { slug: getItemSlugForCheckpoint(title, index), rarity: "common", coins: coins.common };
   }
 
   // Reuse the same roll to pick which rare — one source of randomness, so the
   // self-check can drive the whole decision with a single stubbed value.
   const rareSlug = RARE_POOL[Math.floor(roll * RARE_POOL.length * 1000) % RARE_POOL.length];
-  return { slug: rareSlug, rarity: "rare", coins: COINS_BY_RARITY.rare };
+  return { slug: rareSlug, rarity: "rare", coins: coins.rare };
 };
 
 const itemDetailsCache = new Map<string, ItemDetails>();

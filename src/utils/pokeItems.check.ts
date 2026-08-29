@@ -49,6 +49,23 @@ const common = rollDrop("Breakfast Quest", 0, false, () => 0.9);
 assert.equal(common.slug, CHECKPOINT_ITEM_MAP["Breakfast Quest"], "common keeps the curated slug");
 assert.equal(common.coins, COINS_BY_RARITY.common, "common pays the common coin value");
 
+// Admin tuning replaces both halves of the decision: the odds the roll is
+// compared against, and the coins the reveal shows.
+const tuned = { rareChance: 0.5, coins: { common: 7, rare: 99 } };
+assert.equal(rollDrop("Feast Time", 2, false, () => 0.4, tuned).rarity, "rare", "a raised chance widens the rare band");
+assert.equal(rollDrop("Feast Time", 2, false, () => 0.4, tuned).coins, 99, "a rare pays the tuned rare amount");
+assert.equal(rollDrop("Feast Time", 2, false, () => 0.6, tuned).coins, 7, "a common pays the tuned common amount");
+assert.equal(
+  rollDrop("Feast Time", 2, false, () => 0.001, { rareChance: 0 }).rarity,
+  "common",
+  "a zero chance means no non-finale rare, however low the roll",
+);
+assert.equal(
+  rollDrop("Starlight Banquet", 5, true, () => 0.999, { rareChance: 0 }).rarity,
+  "rare",
+  "a zero chance still cannot take the finale's rare away",
+);
+
 // Same inputs, same output — the reveal can be re-rendered without re-rolling
 assert.deepEqual(
   rollDrop("Feast Time", 2, false, () => 0.42),
