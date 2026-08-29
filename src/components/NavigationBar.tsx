@@ -22,6 +22,7 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { NavLink } from "./NavLink";
 import { isAuthenticated, isSiteUnlocked } from "@/utils/adminAuth";
+import { hasSiteAccess } from "@/utils/siteAccess";
 import AuthModal from "./AuthModal";
 import { getCurrentUser, signOut, onAuthStateChange } from "@/utils/auth";
 import { useAdventure } from "@/contexts/AdventureContext";
@@ -71,12 +72,15 @@ const NavigationBar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const authenticated = isAuthenticated();
-  const siteUnlocked = isSiteUnlocked();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { trainerCardEnabled, profile, isLinked } = useAdventure();
+  const { trainerCardEnabled, profile, isLinked, siteLockEnabled } = useAdventure();
+  /** Same question App's gate asks, asked the same way: an admin who switched
+   *  the site password off opens every page, so the bar must offer every page
+   *  — reading the unlock session alone left it stuck on the café-only set. */
+  const siteUnlocked = hasSiteAccess(siteLockEnabled, isSiteUnlocked());
   /** Shop shut by the admin? Its sub-item leaves the menu. The Card and Bag
    *  entries are untouched — the shop closing is not a lockout. */
   const shopOpen = useShopOpen();
