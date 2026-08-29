@@ -5,6 +5,8 @@ import { ArrowRight, QrCode } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { burstConfetti, sparkleBurst } from "@/utils/particles";
 import { playStampSound } from "@/utils/sound";
+import PokeCoin from "@/components/PokeCoin";
+import { useAdventure } from "@/contexts/AdventureContext";
 import type { MysteryGiftPayload } from "@/utils/mysteryGifts";
 
 /* THESIS — a mystery gift is a sealed envelope, not a loot box. It was
@@ -45,6 +47,10 @@ const MysteryGiftRevealPage = () => {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const state = (location.state ?? null) as RevealState;
+  const { refreshProfile } = useAdventure();
+  /** What the card paid on top of its coupon. Read before the guard below so
+   *  the hooks that follow run on every render, gift or not. */
+  const coinsPaid = Math.max(0, Math.floor(state?.payload?.coins ?? 0));
 
   /** sealed → breaking (wax + flap) → open (ticket rising) → the envelope goes. */
   const [isBreaking, setIsBreaking] = useState(false);
@@ -54,6 +60,16 @@ const MysteryGiftRevealPage = () => {
   const timers = useRef<number[]>([]);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  /* `claim_mystery_gift` paid the coins server-side before this page mounted,
+     so the balance held in context is one gift out of date. Re-read it here
+     rather than at the two claim sites: this page is the only thing that
+     always follows a successful claim, and it is where the payout is
+     announced — the number on the ticket and the number in the pocket should
+     not be able to disagree. */
+  useEffect(() => {
+    if (coinsPaid > 0) void refreshProfile();
+  }, [coinsPaid, refreshProfile]);
 
   const open = useCallback(() => {
     if (isBreaking || isOpen) return;
@@ -178,6 +194,15 @@ const MysteryGiftRevealPage = () => {
                       <p className="mt-1.5 max-w-[42ch] text-[15px] leading-relaxed text-muted-foreground">
                         {payload.description}
                       </p>
+                      {/* Not a fourth cell in the dl below: those three are the
+                          coupon's terms, and this is a separate thing the card
+                          did. It gets its own line so it reads as a bonus. */}
+                      {coinsPaid > 0 && (
+                        <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-dashed border-[hsl(var(--stock-shade))] bg-[hsl(var(--primary)/0.05)] px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-rose">
+                          <PokeCoin size={14} />
+                          +{coinsPaid} paid in
+                        </p>
+                      )}
                     </div>
                     <span
                       className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-dashed border-[hsl(var(--stock-shade))] bg-[hsl(var(--primary)/0.04)] text-2xl"
@@ -452,7 +477,9 @@ const MysteryGiftRevealPage = () => {
         {/* Screen readers get the outcome as a sentence, not as an animation. */}
         <p className="sr-only" role="status" aria-live="polite">
           {isOpen
-            ? `Gift opened: ${payload.title}. ${payload.description}`
+            ? `Gift opened: ${payload.title}. ${payload.description}${
+                coinsPaid > 0 ? ` Plus ${coinsPaid} coins paid into your balance.` : ""
+              }`
             : "A sealed gift is waiting. Activate the seal to open it."}
         </p>
       </main>

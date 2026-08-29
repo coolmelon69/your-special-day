@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import PokeCoin from "@/components/PokeCoin";
+import CoinRewardsCard from "@/components/admin/CoinRewardsCard";
 import { ITEM_SHOP_POOL, SHELF_ORDER, tierOf, type ShelfTier } from "@/utils/itemShop";
 import { actionFor } from "@/utils/itemActions";
 import {
@@ -302,6 +303,10 @@ const ShopManager = () => {
           aria-label="Shop open"
         />
       </div>
+
+      {/* The earning half, above the spending half: the shelf's prices only
+          mean something against what she has to spend on them. */}
+      <CoinRewardsCard />
 
       {!loading && !config && (
         <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">

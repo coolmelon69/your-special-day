@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckSquare, Gift } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Eyebrow, DisplayHeading, EditorialFigure } from "@/components/editorial";
 import { sideConfetti } from "@/utils/particles";
@@ -71,6 +71,24 @@ const HeroSection = () => {
               className="inline-flex items-center gap-2 rounded-[10px] border border-border px-5 py-3 font-sans font-medium text-foreground transition-gentle hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Memory book
+            </button>
+
+            {/* Third tier: jump-tos, not calls to action. Ghost keeps the
+                filled → outlined → ghost ladder readable at a glance. */}
+            <button
+              onClick={() => navigate("/stamps")}
+              className="inline-flex items-center gap-2 rounded-[10px] px-3 py-3 font-sans font-medium text-muted-foreground transition-gentle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <CheckSquare className="h-4 w-4" />
+              Stamps
+            </button>
+
+            <button
+              onClick={() => navigate("/coupons")}
+              className="inline-flex items-center gap-2 rounded-[10px] px-3 py-3 font-sans font-medium text-muted-foreground transition-gentle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Gift className="h-4 w-4" />
+              Coupons
             </button>
           </motion.div>
         </div>

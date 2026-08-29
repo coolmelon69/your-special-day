@@ -62,6 +62,11 @@ export const WRAPPED_TEMPLATE_DEFAULTS: WrappedTemplateCopy = {
     stickersLabel: "Stickers stuck on",
     filterLabel: "Favourite filter: {filter}",
   },
+  gallery: {
+    eyebrow: "The Whole Roll",
+    heading: { before: "You came home with ", emphasis: "{total} frames", after: "." },
+    caption: "The day, frame by frame",
+  },
   receipt: {
     title: "Your Special Day",
     subtitle: "Itemized receipt",
@@ -98,7 +103,9 @@ export const MOCK_STATS: Omit<WrappedStats, "isMock"> = {
   photosTaken: 42,
   stickersPlaced: 118,
   favouriteFilter: "warm",
-  topMoment: { title: "Late night Emart", photoCount: 11 },
+  topMoment: { title: "Late night Emart", photoCount: 11, srcs: [] },
+  // No real photos exist in the preview, so the gallery slide sits this one out.
+  galleryPhotos: [],
   couponsRedeemed: 3,
   receiptItems: [
     { time: "9:00 AM", title: "Breakfast Quest" },

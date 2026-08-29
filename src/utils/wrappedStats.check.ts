@@ -13,6 +13,9 @@ import {
   longestGapMinutes,
   favouriteFilter,
   topMoment,
+  galleryPhotos,
+  GALLERY_PHOTO_LIMIT,
+  TOP_MOMENT_PHOTO_LIMIT,
   formatDuration,
   computeWrappedStats,
 } from "./wrappedStats.ts";
@@ -146,9 +149,93 @@ assert.deepEqual(
     photo({ checkpointId: "1:00 PM-Lunch" }),
     photo({ checkpointId: "1:00 PM-Lunch" }),
   ]),
-  { title: "Lunch", photoCount: 2 },
+  { title: "Lunch", photoCount: 2, srcs: [] },
   "checkpoint with the most photos wins",
 );
+assert.deepEqual(
+  topMoment(stamps, [
+    photo({ checkpointId: "1:00 PM-Lunch", timestamp: 2, src: "blob:second" }),
+    photo({ checkpointId: "1:00 PM-Lunch", timestamp: 1, src: "blob:first" }),
+  ])?.srcs,
+  ["blob:first", "blob:second"],
+  "the winning checkpoint's photos come back oldest first",
+);
+assert.deepEqual(
+  topMoment(stamps, [
+    photo({
+      checkpointId: "1:00 PM-Lunch",
+      timestamp: 1,
+      src: "blob:local",
+      storageUrl: "https://cdn/x.jpg",
+    }),
+  ])?.srcs,
+  ["https://cdn/x.jpg"],
+  "the synced storage URL wins over the local blob",
+);
+assert.deepEqual(
+  topMoment(stamps, [photo({ checkpointId: "1:00 PM-Lunch" })])?.srcs,
+  [],
+  "a photo with no URL contributes nothing to the stack",
+);
+{
+  const heavy = Array.from({ length: 20 }, (_, i) =>
+    photo({ checkpointId: "1:00 PM-Lunch", timestamp: i, src: `blob:${i}` }),
+  );
+  const best = topMoment(stamps, heavy);
+  assert.equal(best?.photoCount, 20, "the count stays the true total");
+  assert.equal(
+    best?.srcs.length,
+    TOP_MOMENT_PHOTO_LIMIT,
+    "the stack never exceeds its limit",
+  );
+  assert.deepEqual(
+    [best?.srcs[0], best?.srcs[best.srcs.length - 1]],
+    ["blob:0", "blob:19"],
+    "the stack spans the whole checkpoint, first shot to last",
+  );
+}
+
+// galleryPhotos — chronological across every checkpoint, thinned to the cap
+assert.deepEqual(galleryPhotos([]), [], "no photos means no gallery");
+assert.deepEqual(
+  galleryPhotos([
+    photo({ checkpointId: "b", timestamp: 30, src: "blob:c" }),
+    photo({ checkpointId: "a", timestamp: 10, src: "blob:a" }),
+    photo({ checkpointId: "b", timestamp: 20, src: "blob:b" }),
+  ]),
+  ["blob:a", "blob:b", "blob:c"],
+  "photos from every checkpoint mix into one chronological flow",
+);
+assert.deepEqual(
+  galleryPhotos([
+    photo({ checkpointId: "a", timestamp: 1, src: "blob:a" }),
+    photo({ checkpointId: "a", timestamp: 2 }),
+  ]),
+  ["blob:a"],
+  "photos without a URL are dropped",
+);
+{
+  const roll = Array.from({ length: 42 }, (_, i) =>
+    photo({ checkpointId: "a", timestamp: i, src: `blob:${i}` }),
+  );
+  const shown = galleryPhotos(roll);
+  assert.equal(shown.length, GALLERY_PHOTO_LIMIT, "the roll is thinned to the cap");
+  assert.deepEqual(
+    [shown[0], shown[shown.length - 1]],
+    ["blob:0", "blob:41"],
+    "thinning keeps the first and last frame of the day",
+  );
+  assert.equal(new Set(shown).size, shown.length, "thinning never repeats a frame");
+  const ordered = shown.every(
+    (src, i) => i === 0 || Number(src.slice(5)) > Number(shown[i - 1].slice(5)),
+  );
+  assert.ok(ordered, "thinning preserves chronological order");
+  assert.equal(
+    galleryPhotos(roll.slice(0, 5)).length,
+    5,
+    "a short roll passes through untouched",
+  );
+}
 assert.equal(
   topMoment(stamps, [photo({ checkpointId: "Breakfast Quest" })]),
   null,

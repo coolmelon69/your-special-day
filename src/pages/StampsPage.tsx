@@ -342,8 +342,8 @@ const StampsPage = () => {
               transition={{ duration: 0.6, delay: 0.1 }}
             >
               <EditorialFigure
-                src="/images/gallery/pic1.JPG"
-                alt="A moment from your special day"
+                src="/images/cat.jpg"
+                alt="A ginger kitten looking into the camera, beside a phone"
                 dotGrid="tl"
                 aspectClassName="aspect-square"
                 annotate={

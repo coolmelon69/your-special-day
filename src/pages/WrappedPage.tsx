@@ -5,6 +5,7 @@ import { useWrappedStats } from "@/hooks/useWrappedStats";
 import StoryShell, { type Slide } from "@/components/wrapped/StoryShell";
 import RouteMapSlide from "@/components/wrapped/RouteMapSlide";
 import ReceiptSlide from "@/components/wrapped/ReceiptSlide";
+import GallerySlide from "@/components/wrapped/GallerySlide";
 import ShareCardSlide from "@/components/wrapped/ShareCardSlide";
 import {
   CustomSlide,
@@ -16,6 +17,9 @@ import {
 } from "@/components/wrapped/slides";
 import { useCustomWrappedSlides } from "@/hooks/useCustomWrappedSlides";
 import { useWrappedTemplateCopy } from "@/hooks/useWrappedTemplateCopy";
+
+/** Long enough for the contact sheet to drift past at a readable pace. */
+const GALLERY_DURATION_MS = 12000;
 
 const WrappedPage = () => {
   const navigate = useNavigate();
@@ -34,6 +38,19 @@ const WrappedPage = () => {
       { id: "time", duration: 8000, render: () => <TimeSlide stats={stats} copy={copy} /> },
       { id: "route", duration: 9000, render: () => <RouteMapSlide stats={stats} copy={copy} /> },
       { id: "top-moment", duration: 8000, render: () => <TopMomentSlide stats={stats} copy={copy} /> },
+      // Dropped entirely when there is nothing to show, rather than holding
+      // the deck open on an empty grid. ProgressBars follows the array.
+      ...(stats.galleryPhotos.length > 0
+        ? [
+            {
+              id: "gallery",
+              duration: GALLERY_DURATION_MS,
+              render: () => (
+                <GallerySlide stats={stats} copy={copy} durationMs={GALLERY_DURATION_MS} />
+              ),
+            },
+          ]
+        : []),
       { id: "photo-stats", duration: 8000, render: () => <PhotoStatsSlide stats={stats} copy={copy} /> },
       // Longer: this slide carries more reading than the others.
       { id: "receipt", duration: 12000, render: () => <ReceiptSlide stats={stats} copy={copy} /> },

@@ -126,6 +126,11 @@ export type WrappedTemplateCopy = {
     stickersLabel: string;
     filterLabel: string;
   };
+  gallery: {
+    eyebrow: string;
+    heading: WrappedHeadingTemplate;
+    caption: string;
+  };
   receipt: {
     title: string;
     subtitle: string;

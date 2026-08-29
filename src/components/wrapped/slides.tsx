@@ -4,6 +4,7 @@ import { formatClock, formatDuration } from "@/utils/wrappedStats";
 import type { WrappedStats } from "@/types/wrapped";
 import type { CustomWrappedSlide, WrappedSlideIcon, WrappedTemplateCopy } from "@/types/admin";
 import { applyHeadingTokens, applyTokens } from "@/utils/wrappedTemplate";
+import PolaroidStack from "./PolaroidStack";
 
 interface SlideProps {
   stats: WrappedStats;
@@ -99,27 +100,37 @@ export const TopMomentSlide = ({ stats, copy }: SlideProps) => {
 
   return (
     <Frame>
-      <Eyebrow className="mb-4">{copy.topMoment.eyebrow}</Eyebrow>
+      {/* The count shares the eyebrow's rule rather than floating over the
+          pile, where a frosted box reads as UI stuck onto paper. */}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <Eyebrow>{copy.topMoment.eyebrow}</Eyebrow>
+        {stats.topMoment?.srcs.length ? (
+          <span className="shrink-0 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-rose">
+            <Camera className="w-4 h-4" />
+            {photosText}
+          </span>
+        ) : null}
+      </div>
       <DisplayHeading as="h2" className="mb-8">
         {heading.before}
         <em>{heading.emphasis}</em>
         {heading.after}
       </DisplayHeading>
-      <EditorialFigure
-        src="/placeholder.svg"
-        alt={stats.topMoment?.title ?? "Top moment"}
-        aspectClassName="aspect-[4/3]"
-        dotGrid="br"
-        annotate={
-          stats.topMoment ? (
-            <span className="inline-flex items-center gap-2">
-              <Camera className="w-4 h-4 text-rose" />
-              {photosText}
-            </span>
-          ) : undefined
-        }
-        caption={copy.topMoment.caption}
-      />
+      {stats.topMoment?.srcs.length ? (
+        <div className="relative">
+          <span className="dotgrid -bottom-5 -right-5" />
+          <PolaroidStack srcs={stats.topMoment.srcs} alt={stats.topMoment.title} />
+          <div className="figure-cap">{copy.topMoment.caption}</div>
+        </div>
+      ) : (
+        <EditorialFigure
+          src="/placeholder.svg"
+          alt={stats.topMoment?.title ?? "Top moment"}
+          aspectClassName="aspect-[4/3]"
+          dotGrid="br"
+          caption={copy.topMoment.caption}
+        />
+      )}
     </Frame>
   );
 };

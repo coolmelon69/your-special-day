@@ -28,7 +28,17 @@ export const RARE_POOL: string[] = ["rare-candy", "shiny-charm", "master-ball"];
 /** Odds a non-finale checkpoint upgrades to a rare. */
 export const RARE_CHANCE = 0.15;
 
-export const COINS_BY_RARITY: Record<Rarity, number> = { common: 10, rare: 25 };
+/**
+ * Payout per checkpoint. Keep in step with `record_drop` in
+ * sql/2026-08-08-items-shop.sql — the database is what actually pays.
+ *
+ * Sized against the shelf, not picked for feel: a seven-stop journey that never
+ * rolls a rare still banks 6×25 + 55 = 205, which covers two trainer-card
+ * cosmetics, a sticker pack and three items off each of the three item shelves
+ * (~167) with room left over. The floor is the number that matters — the target
+ * basket has to be reachable on the unluckiest possible run, not the average one.
+ */
+export const COINS_BY_RARITY: Record<Rarity, number> = { common: 25, rare: 55 };
 
 export interface Drop {
   slug: string;

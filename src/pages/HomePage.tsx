@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Camera } from "lucide-react";
 import HeroSection from "@/components/HeroSection";
 import GallerySection from "@/components/GallerySection";
-import LoveNoteSection from "@/components/LoveNoteSection";
 import WrappedTeaserCard from "@/components/WrappedTeaserCard";
 import FortuneTellerSection from "@/components/FortuneTellerSection";
 import Footer from "@/components/Footer";
@@ -20,7 +19,6 @@ const HomePage = () => {
       <main className="overflow-x-hidden pt-16 md:pt-20">
         <HeroSection />
         <GallerySection />
-        <LoveNoteSection />
         <WrappedTeaserCard />
         <FortuneTellerSection />
         <Footer />

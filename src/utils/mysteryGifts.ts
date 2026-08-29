@@ -20,6 +20,12 @@ export type MysteryGiftPayload = {
   emoji: string;
   /** Tailwind gradient classes, same vocabulary as CustomCoupon.color. */
   color: string;
+  /** Coins the card pays on top of its coupon, authored per gift. Absent or 0
+   *  means the card is coupon-only, which is what every gift made before
+   *  sql/2026-08-29-coin-rewards.sql is. `claim_mystery_gift` reads this out of
+   *  the payload itself and caps it at 500 — the number here is a suggestion
+   *  the database re-reads, never a figure the claiming client sends. */
+  coins?: number;
 };
 
 export type MysteryGift = {

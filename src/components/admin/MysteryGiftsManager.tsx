@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import QRCode from "react-qr-code";
 import {
   Check,
+  Coins,
   Copy,
   EyeOff,
   Gift,
@@ -47,8 +48,15 @@ const emptyForm = {
   description: "",
   emoji: "🎁",
   color: COLOR_PRESETS[0].value,
+  /** Kept as the raw string so the field can be emptied while typing. Parsed
+   *  once on submit; anything unparseable is a coupon-only card. */
+  coins: "",
   note: "",
 };
+
+/** `claim_mystery_gift` clamps to this too — the field just says so out loud
+ *  rather than letting an admin type 5000 and quietly get 500. */
+const MAX_GIFT_COINS = 500;
 
 const MysteryGiftsManager = () => {
   const navigate = useNavigate();
@@ -77,6 +85,9 @@ const MysteryGiftsManager = () => {
 
     setIsSaving(true);
     const code = generateGiftCode();
+    // Left off the payload entirely when it's zero, so a coupon-only card looks
+    // exactly like every gift authored before coins existed.
+    const coins = Math.min(MAX_GIFT_COINS, Math.max(0, Math.floor(Number(form.coins) || 0)));
     const id = await createMysteryGift(
       code,
       {
@@ -84,6 +95,7 @@ const MysteryGiftsManager = () => {
         description: form.description.trim(),
         emoji: form.emoji.trim() || "🎁",
         color: form.color,
+        ...(coins > 0 ? { coins } : {}),
       },
       form.note.trim()
     );
@@ -246,6 +258,29 @@ const MysteryGiftsManager = () => {
                     see DESIGN_SYSTEM.md §14.
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label className={labelCls} htmlFor="gift-coins">
+                  Coins on top
+                </label>
+                <input
+                  id="gift-coins"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={MAX_GIFT_COINS}
+                  step={5}
+                  value={form.coins}
+                  onChange={(e) => setForm({ ...form, coins: e.target.value })}
+                  placeholder="0"
+                  className={inputCls}
+                />
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  <Coins className="h-3.5 w-3.5 shrink-0" />
+                  Paid into the balance on the first scan, alongside the coupon.
+                  Leave empty for a coupon-only card. Max {MAX_GIFT_COINS}.
+                </p>
               </div>
 
               <div>

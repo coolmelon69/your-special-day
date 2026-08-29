@@ -76,6 +76,11 @@ export const mergeWrappedTemplateCopy = (
       stickersLabel: saved.photoStats?.stickersLabel || d.photoStats.stickersLabel,
       filterLabel: saved.photoStats?.filterLabel || d.photoStats.filterLabel,
     },
+    gallery: {
+      eyebrow: saved.gallery?.eyebrow || d.gallery.eyebrow,
+      heading: heading(saved.gallery?.heading, d.gallery.heading),
+      caption: saved.gallery?.caption || d.gallery.caption,
+    },
     receipt: {
       title: saved.receipt?.title || d.receipt.title,
       subtitle: saved.receipt?.subtitle || d.receipt.subtitle,

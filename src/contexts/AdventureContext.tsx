@@ -10,6 +10,7 @@ import { deletePhotoFromStorage } from "@/utils/photoUpload";
 import { loadProfile, saveProfile, recordDrop, buySku, buyItem, redeemItem, type BuyItemResult, type Profile } from "@/utils/profile";
 import { loadCouple, type Couple } from "@/utils/couples";
 import { rollDrop, COINS_BY_RARITY, type Drop } from "@/utils/pokeItems";
+import { awardCoins, photoReason } from "@/utils/coinRewards";
 import { DEFAULT_TRAINER_CONFIG, type TrainerCardConfig } from "@/utils/trainerCard";
 import { loadTrainerCardConfig } from "@/utils/supabaseSync";
 import { loadClaimedGifts, giftToCoupon } from "@/utils/mysteryGifts";
@@ -113,6 +114,13 @@ interface AdventureContextType {
   purchaseItem: (slug: string, qty?: number) => Promise<BuyItemResult>;
   /** Cash in a bag item's real-life coupon. Keyed by `OwnedItem.source`. */
   redeemBagItem: (source: string) => Promise<boolean>;
+  /** Claim a non-drop coin payout (a level tier, a checkpoint photo). Resolves
+   *  what was actually paid — 0 when it was already settled, which is the
+   *  common case. Safe to call speculatively; see `src/utils/coinRewards.ts`. */
+  claimReward: (reason: string) => Promise<number>;
+  /** Re-read the balance and bag after something outside this context changed
+   *  them — a mystery gift paying its coins, for one. No-op when signed out. */
+  refreshProfile: () => Promise<void>;
   /** Admin escape hatch: grant coins to the signed-in trainer's balance. False means nothing changed. */
   /** Global admin switch: trainer card onboarding + /trainer-card page. */
   trainerCardEnabled: boolean;
@@ -726,6 +734,29 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
     refreshPhotos();
   }, [refreshPhotos]);
 
+  /**
+   * Claim a non-drop coin payout — a level tier reached, a checkpoint
+   * photographed. See src/utils/coinRewards.ts.
+   *
+   * Safe to call speculatively: the database refuses a reason it has already
+   * settled, so a caller can re-offer the same one on every render pass. Only
+   * a real payout costs a profile refetch.
+   */
+  const claimReward = useCallback(
+    async (reason: string): Promise<number> => {
+      if (!user) return 0;
+      const paid = await awardCoins(reason);
+      if (paid > 0) setProfile(await loadProfile(user.id));
+      return paid;
+    },
+    [user]
+  );
+
+  const refreshProfile = useCallback(async (): Promise<void> => {
+    if (!user) return;
+    setProfile(await loadProfile(user.id));
+  }, [user]);
+
   // Add a photo - memoized to prevent infinite loops
   const addPhoto = useCallback(async (checkpointId: string, photoData: Omit<Photo, "id" | "timestamp">) => {
     try {
@@ -736,11 +767,17 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
       };
       await photoStorage.addPhoto(photo);
       await refreshPhotos();
+      // After the photo is safely stored, never before: the bounty is a bonus
+      // on top of the photo, and a reward that failed must not lose the shot.
+      // Fire-and-forget for the same reason — `claimReward` swallows its own
+      // errors, and awaiting it would make the camera wait on a round trip
+      // that changes nothing it renders.
+      void claimReward(photoReason(checkpointId));
     } catch (error) {
       console.error("Error adding photo:", error);
       throw error;
     }
-  }, [refreshPhotos]);
+  }, [refreshPhotos, claimReward]);
 
   // Upsert a photo (used for cloud merges and for keeping stable IDs across devices)
   const upsertPhoto = useCallback(async (photo: Photo) => {
@@ -1355,6 +1392,8 @@ export const AdventureProvider = ({ children }: { children: ReactNode }) => {
         purchase,
         purchaseItem,
         redeemBagItem,
+        claimReward,
+        refreshProfile,
         refreshCouple,
         trainerCardEnabled: trainerCardEnabled ?? true,
         setTrainerCardEnabled,

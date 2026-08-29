@@ -103,22 +103,63 @@ export const favouriteFilter = (photos: PhotoLike[]): string | null => {
   return best;
 };
 
+/** At most six photos land on the Top Moment slide before the pile stops reading. */
+export const TOP_MOMENT_PHOTO_LIMIT = 6;
+
+/**
+ * The gallery caps here rather than rendering the whole roll: photos are
+ * stored as full-size data URLs, and thirty of them is already several
+ * megabytes decoded.
+ */
+export const GALLERY_PHOTO_LIMIT = 30;
+
+/** Photo URLs in the order they were taken, skipping any photo without one. */
+const photoUrls = (photos: PhotoLike[]): string[] =>
+  [...photos]
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map((p) => p.storageUrl ?? p.src)
+    .filter((src): src is string => Boolean(src));
+
+/**
+ * Thins `list` to `limit` items, keeping the first and the last. Sampling
+ * across the day beats taking the first thirty, which would end the gallery
+ * at lunchtime.
+ */
+const sampleEvenly = <T>(list: T[], limit: number): T[] => {
+  if (list.length <= limit) return list;
+  if (limit <= 1) return list.slice(0, limit);
+  return Array.from(
+    { length: limit },
+    (_, i) => list[Math.round((i * (list.length - 1)) / (limit - 1))],
+  );
+};
+
 /** The checkpoint with the most photos, or null when there are no photos. */
 export const topMoment = (stamps: StampLike[], photos: PhotoLike[]): TopMoment | null => {
-  const counts = new Map<string, number>();
+  const byCheckpoint = new Map<string, PhotoLike[]>();
   for (const p of photos) {
-    counts.set(p.checkpointId, (counts.get(p.checkpointId) ?? 0) + 1);
+    const shots = byCheckpoint.get(p.checkpointId);
+    if (shots) shots.push(p);
+    else byCheckpoint.set(p.checkpointId, [p]);
   }
 
   let best: TopMoment | null = null;
   for (const stamp of stamps) {
-    const count = counts.get(checkpointKey(stamp)) ?? 0;
-    if (count > 0 && (best === null || count > best.photoCount)) {
-      best = { title: stamp.title, photoCount: count };
+    const shots = byCheckpoint.get(checkpointKey(stamp)) ?? [];
+    if (shots.length > 0 && (best === null || shots.length > best.photoCount)) {
+      best = {
+        title: stamp.title,
+        photoCount: shots.length,
+        srcs: sampleEvenly(photoUrls(shots), TOP_MOMENT_PHOTO_LIMIT),
+      };
     }
   }
   return best;
 };
+
+/** Every photo of the day, oldest first, thinned to at most `limit`. */
+export const galleryPhotos = (photos: PhotoLike[], limit = GALLERY_PHOTO_LIMIT): string[] =>
+  sampleEvenly(photoUrls(photos), limit);
 
 /** Epoch milliseconds as a local wall clock, e.g. "9:04 AM". */
 export const formatClock = (ms: number): string =>
@@ -180,6 +221,7 @@ export const computeWrappedStats = (
     stickersPlaced,
     favouriteFilter: favouriteFilter(photos),
     topMoment: topMoment(collected, photos),
+    galleryPhotos: galleryPhotos(photos),
     couponsRedeemed: redeemedCount,
     receiptItems,
   };

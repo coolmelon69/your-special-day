@@ -30,11 +30,21 @@ export interface PhotoLike {
   timestamp: number;
   filter?: string;
   stickers?: unknown[];
+  /** Local data/blob URL. */
+  src?: string;
+  /** Supabase Storage URL, preferred when present (survives a device change). */
+  storageUrl?: string;
 }
 
 export interface TopMoment {
   title: string;
   photoCount: number;
+  /**
+   * Up to six photos from this checkpoint, oldest first, for the polaroid
+   * stack. Fewer than `photoCount` when the checkpoint was shot heavily, and
+   * empty when none of its photos carry a URL.
+   */
+  srcs: string[];
 }
 
 export interface ReceiptItem {
@@ -58,6 +68,8 @@ export interface WrappedStats {
   stickersPlaced: number;
   favouriteFilter: string | null;
   topMoment: TopMoment | null;
+  /** Every photo of the day, oldest first, thinned for the gallery slide. */
+  galleryPhotos: string[];
   couponsRedeemed: number;
   receiptItems: ReceiptItem[];
 }

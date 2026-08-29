@@ -16,6 +16,7 @@ import { useShopOpen } from "@/hooks/useShopOpen";
 import { computeAchievements, type AchievementTier } from "@/utils/cafeAchievements";
 import { qtyOf, uploadTrainerPhoto } from "@/utils/profile";
 import { LEVEL_TIERS, collectedStampXp, computeTrainerStats, teamFor, trainerIdFor } from "@/utils/trainerCard";
+import { levelReason } from "@/utils/coinRewards";
 import { cn } from "@/lib/utils";
 
 /** Ordered tab list — appending an entry here is the whole job for a new tab.
@@ -50,7 +51,7 @@ const formatDate = (date: Date) =>
   date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 const TrainerCardPage = () => {
-  const { profile, itineraryState, trainerCardEnabled, trainerConfig, updateProfile, purchase, purchaseItem, redeemBagItem, user, isLinked, refreshCouple } = useAdventure();
+  const { profile, itineraryState, trainerCardEnabled, trainerConfig, updateProfile, purchase, purchaseItem, redeemBagItem, claimReward, user, isLinked, refreshCouple } = useAdventure();
   const categories = useCafeCategories();
   const places = useAllCafePlaces();
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
@@ -177,9 +178,9 @@ const TrainerCardPage = () => {
     };
   }, [itineraryState, profile?.createdAt]);
 
-  // Admin turned the feature off — the page shouldn't be reachable by URL either.
-  if (!trainerCardEnabled) return <Navigate to="/" replace />;
-
+  // Computed above the feature-flag return below, not after it, because the
+  // level-up payout effect has to sit with the other hooks — a `useEffect`
+  // placed after a conditional return runs on some renders and not others.
   const badges = achievements.filter((a) => a.unlocked).length;
   const collectedStamps = itineraryState.filter((i) => i.isPast);
   const stamps = collectedStamps.length;
@@ -194,6 +195,30 @@ const TrainerCardPage = () => {
     rareItems,
     collectedStampXp(collectedStamps, trainerConfig),
   );
+
+  /**
+   * Pay for every level tier reached, from tier 2 up.
+   *
+   * This page is the only place `levelNumber` is derived from live data, so it
+   * is where the payout is offered. Every tier is re-offered on every visit
+   * rather than only the newly crossed one: `award_coins` settles a reason once
+   * and returns 0 after that, so re-offering costs a no-op round trip and buys
+   * two things worth more than it — tiers crossed before this feature shipped
+   * still get paid, and a tier crossed while the tab was closed isn't missed
+   * because nothing was watching at the moment it happened.
+   *
+   * Tier 1 is where every trainer starts. It is never crossed, so it never pays.
+   */
+  useEffect(() => {
+    if (!user || stats.levelNumber < 2) return;
+    for (let tier = 2; tier <= stats.levelNumber; tier++) {
+      void claimReward(levelReason(tier));
+    }
+  }, [user, stats.levelNumber, claimReward]);
+
+  // Admin turned the feature off — the page shouldn't be reachable by URL either.
+  if (!trainerCardEnabled) return <Navigate to="/" replace />;
+
   const team = teamFor(profile?.teamId);
 
   /** Unspent coupons, counted in copies rather than rows. Sits on the Bag tab so
