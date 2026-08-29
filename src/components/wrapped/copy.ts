@@ -103,16 +103,15 @@ export const MOCK_STATS: Omit<WrappedStats, "isMock"> = {
   photosTaken: 42,
   stickersPlaced: 118,
   favouriteFilter: "warm",
-  topMoment: { title: "Late night Emart", photoCount: 11, srcs: [] },
+  topMoment: { title: "Late night", photoCount: 11, srcs: [] },
   // No real photos exist in the preview, so the gallery slide sits this one out.
   galleryPhotos: [],
   couponsRedeemed: 3,
   receiptItems: [
     { time: "9:00 AM", title: "Breakfast Quest" },
     { time: "11:30 AM", title: "Choc Waffle Run" },
-    { time: "2:00 PM", title: "Strawberry And Melon" },
+    { time: "2:00 PM", title: "Mochi And Melon" },
     { time: "5:15 PM", title: "Golden Hour Detour" },
-    { time: "7:40 PM", title: "Late Night Emart" },
     { time: "8:20 PM", title: "The Long Way Home" },
   ],
 };
